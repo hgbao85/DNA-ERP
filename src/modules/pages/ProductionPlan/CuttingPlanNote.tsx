@@ -16,7 +16,8 @@ import { AlertTriangle, Check, ChevronDown, ChevronUp, Loader2 } from 'lucide-re
 import { getCuttingProposal, type CuttingProposal } from '../../../services/cutting-proposals-api'
 import { errMsg } from '../../../utils/errors'
 import type { SolverMachine } from '../../../types/admin'
-import { fmtPercent, linesMachine, machineLabel } from '../../../utils/cutMachine'
+import { linesMachine, machineLabel } from '../../../utils/cutMachine'
+import { fmtNum, fmtPercent } from '../../../utils/numberFormat'
 import { SolveLinesTable } from './CuttingSolvePanel'
 
 export interface CuttingPlanSummary {
@@ -66,6 +67,9 @@ export default function CuttingPlanNote({
   // cao hơn; "Vượt ngưỡng" (đỏ) CHỈ khi chi tiết đã nạp cho thấy có dòng thật sự vượt trần (overThreshold). BE hasOverThreshold gồm cả ca "cao hơn mức
   // mặc định" nên chưa nạp chi tiết thì chỉ được nói mức nhẹ.
   const reallyOver = detail?.lines?.some((l) => l.overThreshold === true) ?? false
+  // Chi tiết đã nạp có nhãn máy từng kiểu cắt (MC Tự động / MC Laser theo loại cây): dòng "Máy cắt: MC Laser" bên cạnh dễ bị hiểu là máy thứ hai
+  // -> đổi thành câu nói đó là máy dùng để TÍNH (13/11/2026).
+  const hasPatternMachines = detail?.lines?.some((l) => l.patterns?.some((pt) => (pt.machineGroups?.length ?? 0) > 0)) ?? false
 
   return (
     <div style={{ padding: '11px 14px', marginBottom: 14, background: 'var(--bg-f0fdf4)', border: '1px solid var(--border)', borderRadius: 8 }}>
@@ -73,10 +77,12 @@ export default function CuttingPlanNote({
         <Check size={14} style={{ color: 'var(--fg-166534)', flexShrink: 0 }} />
         <b>Phương án cắt đã tính</b>
         <span style={{ color: 'var(--text2)' }}>
-          <b>{plan.totalBars}</b> cây
+          <b>{fmtNum(plan.totalBars)}</b> cây
           {plan.wastePercentage != null && <> · hao hụt <b>{fmtPercent(plan.wastePercentage)}%</b></>}
         </span>
-        {machineName && <span style={{ color: 'var(--text2)' }}>Máy cắt: <b>{machineName}</b></span>}
+        {machineName && (hasPatternMachines
+          ? <span style={{ fontSize: 11.5, color: 'var(--text3)' }}>Tính theo thông số {machineName}</span>
+          : <span style={{ color: 'var(--text2)' }}>Máy cắt: <b>{machineName}</b></span>)}
         <span style={{ fontSize: 11.5, color: 'var(--text3)' }}>— duyệt lệnh này là duyệt đúng số này</span>
         {plan.hasOverThreshold && (
           reallyOver ? (
@@ -113,6 +119,7 @@ export default function CuttingPlanNote({
               wastePercentage={detail.wastePercentage}
               totalSolveSeconds={detail.totalSolveSeconds}
               isMobile={isMobile}
+              machineContext={detail.machineContext}
             />
           )}
         </div>

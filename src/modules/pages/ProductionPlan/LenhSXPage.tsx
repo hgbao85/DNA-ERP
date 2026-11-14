@@ -13,6 +13,7 @@ import { AlertTriangle, CheckCircle2, X, CalendarClock, Pencil, Play, ChevronRig
 import SearchableSelect from '../../../components/SearchableSelect'
 import { isThanhPhamScope } from '../Manufacturing/MfgWarehousesPage'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
+import Link from 'next/link'
 import CuttingPlanNote from './CuttingPlanNote'
 import LoadingState from '../../../components/LoadingState'
 import LoadErrorState from '../../../components/LoadErrorState'
@@ -29,7 +30,7 @@ import ChangeWorkshopDialog from '../../../components/ChangeWorkshopDialog'
 import LenhCodeText from '../../../components/LenhCodeText'
 import { getWorkshops } from '../../../services/workshops-api'
 import type { Workshop, WorkshopRef } from '../../../types/workshop'
-import { fmtPercent } from '../../../utils/cutMachine'
+import { fmtMm, fmtPercent } from '../../../utils/numberFormat'
 import { getCuttingDefaults } from '../../../services/cutting-batch-api'
 import { DEFAULT_MERGE_WINDOW_DAYS, maxGapDays, steelNeedDate, steelNeedSpan, steelNeedSpanMessage } from '../../../utils/steelNeedWindow'
 // Phần A – Đợt 3 (YC10): mốc + năng lực 1,3 cont/ngày
@@ -189,6 +190,16 @@ function OverdueBadge({ days }: { days: number }) {
   return (
     <span style={{ fontSize:11, fontWeight:700, color:'var(--red)', background:'var(--red-bg)', padding:'2px 8px', borderRadius:10, whiteSpace:'nowrap' }}>
       Quá hạn {days} ngày
+    </span>
+  )
+}
+
+/** Nhãn "Cần kiểm lại phương án cắt" (13/11/2026): viền cam + biểu tượng cảnh báo để không lẫn với nhãn vàng "Chờ QLSX xử lý". */
+function RecheckBadge({ style }: { style?: React.CSSProperties }) {
+  return (
+    <span title="QLSX vừa đổi xưởng: KHSX kiểm lại phương án cắt ở Tối ưu cắt sắt rồi bấm Đã kiểm; trước đó Sếp chưa duyệt được"
+      style={{ display:'inline-flex', alignItems:'center', gap:4, fontSize:11, fontWeight:700, padding:'1px 8px', borderRadius:10, background:'var(--bg-fff3e0)', border:'1px solid var(--fg-e65100)', color:'var(--fg-c2410c)', whiteSpace:'nowrap', ...style }}>
+      <AlertTriangle size={11} style={{ flexShrink:0 }}/> Cần kiểm lại phương án cắt
     </span>
   )
 }
@@ -487,10 +498,10 @@ export default function LenhSXPage() {
             {/* fromProposal (2026-10-24, UX-6): PI tạo từ phương án đã tính thì số là hao hụt THẬT của phương án, không
                 còn là cận dưới ước tính - ghi "≥ ước tính" là nói sai với Sếp. Bản ghi cũ thiếu trường = ước tính. */}
             {ev.fromProposal ? (
-              <><b>{ev.materialCode}</b> ở {ev.stockLengthMm != null ? <>cây <b>{ev.stockLengthMm}mm</b></> : <>cây chuẩn</>} hao hụt <b>{fmtPercent(ev.estimatedWastePct)}%</b> theo phương án đã tính</>
+              <><b>{ev.materialCode}</b> ở {ev.stockLengthMm != null ? <>cây <b>{fmtMm(ev.stockLengthMm)}</b></> : <>cây chuẩn</>} hao hụt <b>{fmtPercent(ev.estimatedWastePct)}%</b> theo phương án đã tính</>
             ) : (
               <>
-                <b>{ev.materialCode}</b> ở {ev.stockLengthMm != null ? <>cây <b>{ev.stockLengthMm}mm</b></> : <>cây chuẩn</>} ước tính hao <b>≥{fmtPercent(ev.estimatedWastePct)}%</b>
+                <b>{ev.materialCode}</b> ở {ev.stockLengthMm != null ? <>cây <b>{fmtMm(ev.stockLengthMm)}</b></> : <>cây chuẩn</>} ước tính hao <b>≥{fmtPercent(ev.estimatedWastePct)}%</b>
                 {!onlyStandard && ' — đợt này còn được thử cây riêng nên thực tế có thể thấp hơn'}
               </>
             )}
@@ -714,7 +725,7 @@ export default function LenhSXPage() {
     setEditError('')
     setEditCapWarnings([]) // Phần A – Đợt 3: không hiện cảnh báo năng lực của lệnh mở trước
     // Đợt gộp: đọc ngưỡng N để báo ngay trong hộp khi các mốc cần sắt cách quá xa. BE cũ chưa trả
-    // field này thì dùng 3 (mặc định); đọc lỗi thì giữ nguyên giá trị trước (xem mergeWindowDays).
+    // field này thì dùng 5 (mặc định); đọc lỗi thì giữ nguyên giá trị trước (xem mergeWindowDays).
     if (pi.isMerged) {
       getCuttingDefaults()
         .then((d) => setMergeWindowDays(d.solverMergeWindowDays ?? DEFAULT_MERGE_WINDOW_DAYS))
@@ -994,6 +1005,9 @@ export default function LenhSXPage() {
             const { pi, items } = viewingApprovalGroup as { pi: any; items: any[] }
             const piDeadline = new Date(pi.deadline)
             const busy = approvingKey === String(pi.id)
+            // 13/11/2026: lệnh đang chờ KHSX kiểm lại phương án cắt (vừa đổi xưởng) thì Sếp chưa duyệt được - Từ chối vẫn dùng được. BE cũng chặn 409.
+            const recheckBlocked = !!pi.cuttingRecheckRequired
+            const recheckReason = 'Lệnh vừa đổi xưởng - chờ KHSX kiểm lại phương án cắt'
             return (
               <div>
                 {/* Back */}
@@ -1005,7 +1019,14 @@ export default function LenhSXPage() {
                 {/* PI header + 2 nút thao tác cho CẢ khối */}
                 <div style={{ display:'flex', alignItems:'center', gap: isMobile ? 10 : 16, marginBottom:20, padding: isMobile ? '12px 14px' : '14px 18px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'var(--radius-lg)', flexWrap:'wrap' }}>
                   <div style={{ minWidth:0 }}>
-                    <LenhCode pi={pi} size={18} />
+                    <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
+                      <LenhCode pi={pi} size={18} />
+                      {recheckBlocked && <RecheckBadge />}
+                    </div>
+                    {/* Sếp đã có dòng lý do dưới nút Duyệt; QLSX thì nói rõ đang chờ ai (câu "vào Tối ưu cắt sắt…" là việc của KHSX). */}
+                    {recheckBlocked && !isBoss && (
+                      <div style={{ fontSize:11.5, color:'var(--fg-c2410c)', marginTop:3 }}>Chờ KHSX kiểm lại phương án cắt cho xưởng mới - tới lúc đó Sếp chưa duyệt được</div>
+                    )}
                     {pi.isMerged && (
                       <div style={{ fontSize:11, fontWeight:700, color:'var(--fg-6b21a8)', marginTop:3 }}>
                         ĐỢT GỘP · {items.length} SKU
@@ -1034,14 +1055,17 @@ export default function LenhSXPage() {
                   <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
                     {isBoss ? (
                       <>
-                        <button onClick={() => setApproveTarget(pi)} disabled={busy}
-                          style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'8px 16px', background:'var(--bg-2e7d32)', border:'none', borderRadius:6, fontSize:13, fontWeight:600, cursor: busy ? 'not-allowed' : 'pointer', color:'#fff', opacity: busy ? 0.7 : 1 }}>
+                        <button onClick={() => setApproveTarget(pi)} disabled={busy || recheckBlocked} title={recheckBlocked ? recheckReason : undefined}
+                          style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'8px 16px', background:'var(--bg-2e7d32)', border:'none', borderRadius:6, fontSize:13, fontWeight:600, cursor: busy || recheckBlocked ? 'not-allowed' : 'pointer', color:'#fff', opacity: busy || recheckBlocked ? 0.5 : 1 }}>
                           <ThumbsUp size={13}/> {busy ? 'Đang duyệt...' : pi.isMerged ? `Duyệt cả đợt (${items.length} SKU)` : 'Duyệt'}
                         </button>
                         <button onClick={() => { setRejectTarget(pi); setRejectReason('') }} disabled={busy}
                           style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'8px 16px', background:'transparent', border:'1px solid var(--fg-fca5a5)', borderRadius:6, fontSize:13, fontWeight:600, cursor:'pointer', color:'var(--fg-b91c1c)' }}>
                           <ThumbsDown size={13}/> {pi.isMerged ? 'Từ chối cả đợt' : 'Từ chối'}
                         </button>
+                        {recheckBlocked && (
+                          <div style={{ flexBasis:'100%', fontSize:12, color:'var(--fg-b45309)' }}>{recheckReason}</div>
+                        )}
                       </>
                     ) : pi.canManage === false ? (
                       // Lệnh xưởng khác (vd Phước An sơn nhờ ở Phú An): chỉ xem, BE cũng chặn thao tác.
@@ -1207,6 +1231,9 @@ export default function LenhSXPage() {
                   onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface)' }}>
                   <div style={{ minWidth:0 }}>
                     <LenhCode pi={pi} inline />
+                    {/* QLSX vừa đổi xưởng (kể cả lệnh CHƯA duyệt, từ 13/11/2026) -> KHSX vào Tối ưu cắt sắt bấm "Đã kiểm"; Sếp chưa duyệt được tới lúc đó.
+                        Nhãn nằm nhóm trái cạnh mã lệnh (13/11/2026) để cột "Hạn hoàn thành" của mọi dòng thẳng hàng. */}
+                    {pi.cuttingRecheckRequired && <RecheckBadge style={{ marginLeft:8 }} />}
                     {pi.isMerged && (
                       <span style={{ marginLeft:8, fontSize:10, fontWeight:700, padding:'1px 7px', borderRadius:20, background:'var(--bg-f3e8ff)', color:'var(--fg-6b21a8)' }}>
                         ĐỢT GỘP
@@ -1225,13 +1252,6 @@ export default function LenhSXPage() {
                       </div>
                     )
                   })()}
-                  {pi.cuttingRecheckRequired && (
-                    // QLSX vừa đổi xưởng lệnh đã có phương án cắt duyệt -> KHSX vào Tối ưu cắt sắt bấm "Đã kiểm".
-                    <span title="Vào Tối ưu cắt sắt xem lại phương án rồi bấm Đã kiểm"
-                      style={{ fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:10, background:'var(--bg-fef3c7)', color:'var(--fg-b45309)', whiteSpace:'nowrap' }}>
-                      Cần kiểm lại phương án cắt
-                    </span>
-                  )}
                   {isQlsx && pi.canManage === false && (
                     <span title="Lệnh của xưởng khác - bạn chỉ xem được" style={{ fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:10, background:'var(--surface2)', color:'var(--text3)', whiteSpace:'nowrap' }}>
                       Chỉ xem
@@ -1258,17 +1278,12 @@ export default function LenhSXPage() {
                       <div key={pi.id} style={{ display:'flex', alignItems:'center', flexWrap:'wrap', gap: isMobile ? 8 : 14, padding: isMobile ? '12px' : '13px 16px', background:'var(--surface)', borderBottom: i === sentToBossList.length - 1 ? 'none' : '1px solid var(--border)' }}>
                         <div style={{ minWidth:0, flex: isMobile ? '1 1 100%' : '1 1 200px' }}>
                           <LenhCode pi={pi} />
+                          {pi.cuttingRecheckRequired && <div style={{ marginTop:3 }}><RecheckBadge /></div>}
                         </div>
                         <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
                           <Factory size={13} color="var(--fg-1d4ed8)"/>
                           <span style={{ fontSize:12, color:'var(--text3)' }}>Xưởng:</span>
                           <span style={{ fontWeight:700, fontSize:13 }}>{ws?.name ?? 'Chưa có'}</span>
-                          {pi.cuttingRecheckRequired && (
-                            <span title="Vào Tối ưu cắt sắt xem lại phương án rồi bấm Đã kiểm"
-                              style={{ fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:10, background:'var(--bg-fef3c7)', color:'var(--fg-b45309)' }}>
-                              Cần kiểm lại phương án cắt
-                            </span>
-                          )}
                         </div>
                         <div style={{ display:'flex', alignItems:'center', gap:5, flexWrap:'wrap' }}>
                           <CalendarClock size={13} color="var(--text3)"/>
@@ -1353,6 +1368,7 @@ export default function LenhSXPage() {
                     )}
                     {commonStatus && <ProdApprovalBadge status={commonStatus} />}
                     {headerWorkshop && <WorkshopChip workshop={headerWorkshop} />}
+                    {pi.cuttingRecheckRequired && <RecheckBadge />}
                   </div>
                   {pi.isMerged && (
                     <div style={{ fontSize:11, fontWeight:700, color:'var(--fg-6b21a8)', marginTop:3 }}>
@@ -1376,6 +1392,16 @@ export default function LenhSXPage() {
                 {poGroups.length > 1 && (
                   <div style={{ marginLeft:'auto', fontSize:12, color:'var(--text3)', background:'var(--surface2)', padding:'4px 12px', borderRadius:12, border:'1px solid var(--border)' }}>
                     {items.length} SKU
+                  </div>
+                )}
+                {/* QLSX vừa đổi xưởng -> KHSX phải kiểm lại phương án cắt (13/11/2026): nói rõ việc cần làm + đường tắt sang Tối ưu cắt sắt. */}
+                {pi.cuttingRecheckRequired && (
+                  <div style={{ flexBasis:'100%', display:'flex', alignItems:'center', gap:'4px 12px', flexWrap:'wrap', fontSize:12.5, color:'var(--fg-c2410c)' }}>
+                    <span>Vào Tối ưu cắt sắt xem lại phương án rồi bấm Đã kiểm</span>
+                    <Link href="/?m=production_plan&p=gom-cat"
+                      style={{ display:'inline-flex', alignItems:'center', gap:4, fontWeight:600, color:'var(--fg-c2410c)', textDecoration:'underline', minHeight: isMobile ? 40 : undefined }}>
+                      Mở Tối ưu cắt sắt <ChevronRight size={13}/>
+                    </Link>
                   </div>
                 )}
               </div>
@@ -1605,6 +1631,8 @@ export default function LenhSXPage() {
                   onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface)' }}>
                   <div style={{ minWidth:0 }}>
                     <LenhCode pi={pi} />
+                    {/* Nhãn kiểm lại phương án cắt nằm nhóm trái như danh sách Sếp/QLSX (13/11/2026). */}
+                    {pi.cuttingRecheckRequired && <div style={{ marginTop:3 }}><RecheckBadge /></div>}
                     {/* Phần A – Đợt 2: SKU chưa gửi mà thiếu số LSX */}
                     {(() => {
                       const missing = items.filter((it: any) => (!it.prodApproval || it.prodApproval.status === 'REJECTED') && !it.lsxCode?.trim()).length
@@ -1637,13 +1665,6 @@ export default function LenhSXPage() {
                       </div>
                     )
                   })()}
-                  {pi.cuttingRecheckRequired && (
-                    // QLSX vừa đổi xưởng lệnh đã có phương án cắt duyệt -> KHSX vào Tối ưu cắt sắt bấm "Đã kiểm".
-                    <span title="Vào Tối ưu cắt sắt xem lại phương án rồi bấm Đã kiểm"
-                      style={{ fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:10, background:'var(--bg-fef3c7)', color:'var(--fg-b45309)', whiteSpace:'nowrap' }}>
-                      Cần kiểm lại phương án cắt
-                    </span>
-                  )}
                   <span style={{ fontSize:12, color:'var(--text3)', background:'var(--surface2)', border:'1px solid var(--border)', padding:'3px 10px', borderRadius:12, whiteSpace:'nowrap' }}>
                     {items.length} SKU
                   </span>
@@ -1665,7 +1686,9 @@ export default function LenhSXPage() {
         const missingLsx = sendableItems.filter((it: any) => !it.lsxCode?.trim())
         // Xưởng bắt buộc: chọn sẵn xưởng đã có của lệnh (gửi một phần / bị trả lại), mọi SKU của lệnh cùng 1 xưởng.
         const existingWsId: string = items.find((it: { workshop?: { id?: string } | null }) => it.workshop?.id)?.workshop?.id ?? ''
-        const sendWorkshopId = khsxWorkshopId || existingWsId
+        // 13/11/2026: lệnh đã có xưởng (do KHSX chọn lúc Tính phương án cắt) thì KHOÁ theo xưởng đó - đổi xưởng chỉ qua tính lại hoặc QLSX chuyển xưởng.
+        const lockKhsxWorkshop = !!existingWsId
+        const sendWorkshopId = existingWsId || khsxWorkshopId
         const canSend = sendableIds.length > 0 && missingLsx.length === 0 && !!sendWorkshopId
         return (
           <div onClick={() => { if (!confirmingProdId) setConfirmProdTarget(null) }}
@@ -1795,13 +1818,14 @@ export default function LenhSXPage() {
                 {workshopsError ? (
                   <div role="alert" style={{ fontSize:12, color:'var(--fg-b91c1c)' }}>Không tải được danh sách xưởng cơ khí: {String(workshopsError)}</div>
                 ) : (
-                  <select aria-label="Xưởng cơ khí gửi QLSX" value={sendWorkshopId} onChange={e => setKhsxWorkshopId(e.target.value)} disabled={!!confirmingProdId}
-                    style={{ width:'100%', padding:'8px 10px', border:'1px solid var(--border)', borderRadius:'var(--radius)', fontSize:13, background:'var(--surface)', color:'var(--text)' }}>
+                  <select aria-label="Xưởng cơ khí gửi QLSX" value={sendWorkshopId} onChange={e => setKhsxWorkshopId(e.target.value)} disabled={!!confirmingProdId || lockKhsxWorkshop}
+                    // Xưởng đã khoá theo phương án cắt (13/11/2026): nền xám + con trỏ cấm để nhìn là biết không đổi được ở đây.
+                    style={{ width:'100%', padding:'8px 10px', border:'1px solid var(--border)', borderRadius:'var(--radius)', fontSize:13, background: lockKhsxWorkshop ? 'var(--surface2)' : 'var(--surface)', color: lockKhsxWorkshop ? 'var(--text2)' : 'var(--text)', cursor: lockKhsxWorkshop ? 'not-allowed' : undefined }}>
                     <option value="" disabled>Chọn xưởng cơ khí...</option>
                     {workshops.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
                   </select>
                 )}
-                <div style={{ fontSize:11, color:'var(--text3)', marginTop:4 }}>Lệnh chỉ hiện ở QLSX của xưởng này; QLSX có thể chuyển sang xưởng khác sau.</div>
+                <div style={{ fontSize:11, color:'var(--text3)', marginTop:4 }}>{lockKhsxWorkshop ? 'Lệnh đã tính phương án cắt cho xưởng này. Muốn đổi: tính lại ở Tối ưu cắt sắt, hoặc để QLSX chuyển xưởng.' : 'Lệnh chỉ hiện ở QLSX của xưởng này; QLSX có thể chuyển sang xưởng khác sau.'}</div>
               </div>
 
               {/* Phần A – Đợt 2: thiếu số LSX -> khoá nút gửi */}

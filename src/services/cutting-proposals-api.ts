@@ -36,6 +36,25 @@ export interface CuttingBundleSummary {
   maxSizesPerPattern: number;
 }
 
+/** Lớp máy của MỘT nhóm cây trong kiểu cắt (13/11/2026): TU_DONG = không có đoạn dập (máy tự động, cây khoan hoặc không lỗ);
+ *  LASER = có từ 1 đoạn dập (lỗ ô van) -> không cắt máy tự động. */
+export type PatternMachineClass = 'TU_DONG' | 'LASER';
+
+/** Một nhóm cây cùng lớp máy trong 1 kiểu cắt. Σ bars các nhóm của 1 kiểu = barCount. */
+export interface CuttingPatternMachineGroup {
+  bars: number;
+  machineClass: PatternMachineClass;
+  /** Đoạn dập (có công đoạn DAP) trên mỗi cây của nhóm. */
+  punchedSegments: { cutLengthMm: number; countPerBar: number }[];
+}
+
+/** Xưởng của phương án và việc có dùng được laze không (laserAllowed=false: xưởng khoá máy tự động, vd Phước An). */
+export interface CuttingMachineContext {
+  workshopId: string | null;
+  workshopName: string | null;
+  laserAllowed: boolean;
+}
+
 export interface CuttingProposalPattern {
   id: string;
   patternIndex: number;
@@ -44,6 +63,8 @@ export interface CuttingProposalPattern {
   segments: CuttingProposalSegment[];
   /** Có khi tính bằng MC Tự động; null/thiếu = cắt từng cây (MC Laser) hoặc phương án cũ -> hiện như cũ. */
   bundles?: PatternBundles | null;
+  /** Nhóm cây theo lớp máy (13/11/2026); null/thiếu = chưa phân loại được hoặc endpoint không trả -> không hiện cột Máy. */
+  machineGroups?: CuttingPatternMachineGroup[] | null;
 }
 
 /** 1 dòng bảng "TỔNG KẾT CẮT" của bản in hướng dẫn cắt (layout "In kết quả" của MC Laser).
@@ -68,8 +89,11 @@ export interface CuttingProposalLine {
   /** "fixed" = chiều dài chuẩn NCC bán sẵn. "scan" = chiều dài ĐẶT RIÊNG, solver vét cạn ra vì
    *  không cỡ chuẩn nào đạt ngưỡng hao hụt (2026-08-26, Sếp mở lại tính năng này cho ca không gộp
    *  được nữa) - phải hiện rõ ràng, không để người xem tưởng nhầm là cây chuẩn 6000mm. null = dòng
-   *  không khả thi, hoặc phương án tính trước 2026-08-26. */
-  lengthSource: 'fixed' | 'scan' | null;
+   *  không khả thi, hoặc phương án tính trước 2026-08-26. "stock" (13/11/2026) = chiều dài không chuẩn
+   *  nhưng ĐANG CÓ TỒN ở kho Phôi - không phải đặt riêng, song phần thiếu so với tồn vẫn phải mua đúng chiều dài này. */
+  lengthSource: 'fixed' | 'scan' | 'stock' | null;
+  /** Lý do phải nới số cỡ đoạn/cây so với luật xưởng (13/11/2026) - null/thiếu = không nới. */
+  sizesRelaxNote?: string | null;
   totalBars: number | null;
   totalWasteMm: number | null;
   wastePercentage: number | null;
@@ -136,6 +160,8 @@ export interface CuttingProposal {
    *  solver trả lời) - null/rỗng khi đã có `lines` thật hoặc phương án cũ tính trước khi có field
    *  này (2026-09-22, thay màn trắng trơn "Chưa có dữ liệu"). */
   pendingMaterials?: { materialId: string; materialCode: string; materialName: string }[] | null;
+  /** Chỉ GET /cutting-proposals/:id có (13/11/2026); null/thiếu = không rõ xưởng -> coi như laze dùng được. */
+  machineContext?: CuttingMachineContext | null;
 }
 
 export async function getCuttingProposals(): Promise<CuttingProposal[]> {

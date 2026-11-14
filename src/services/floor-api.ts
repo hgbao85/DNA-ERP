@@ -7,6 +7,7 @@ import { http } from './core/http'
 import type { BePhoiProgressItem } from './steel-issues-api'
 import type { BeProductionBatchPlan } from './production-batches-api'
 import type { MaterialChoice } from '../types/sku'
+import type { SolverMachine } from '../types/admin'
 
 export type FloorStage = 'PHOI' | 'HAN' | 'SON'
 export type WorkstationKind = 'CUT' | 'STEP' | 'PIECE' | 'STEEL_RECEIVE'
@@ -18,6 +19,10 @@ export interface BeWorkstationBrief {
   stage: FloorStage
   kind: WorkstationKind
   processStep: string | null
+  /** Loại máy cắt (chỉ máy CUT; 13/11/2026). Thiếu/null = BE cũ hoặc không phải máy cắt. */
+  cutMachineType?: SolverMachine | null
+  /** Xưởng đặt máy (13/11/2026); null = chưa khai. */
+  workshopName?: string | null
 }
 
 export interface BeScanOrder {
@@ -84,6 +89,10 @@ export interface BeScanContext {
   reworkPis?: { productionInvoiceId: string; code: string; endedAt: string | null }[]
   pi?: BeScanPi | null
   steelToReceive?: BeSteelToReceive[]
+  /** Chỉ máy cắt: dòng chia của máy theo thứ tự cắt (14/11/2026). rows rỗng = máy chưa được chia việc. */
+  machineWork?: { rows: BeCutAllocationRow[]; barsDoneEst: number; barsLeftEst: number; status: CutMachineStatus }
+  /** Lệnh báo được nhờ bảng chia (14/11/2026), ngoài runningPi / reworkPis: máy cắt = lệnh có dòng trên máy; máy công đoạn tổ Phôi = lệnh có dòng chia ở xưởng. */
+  allocationPis?: { productionInvoiceId: string; code: string }[]
 }
 
 export interface ScanReportInput {
@@ -191,6 +200,8 @@ export interface BeWorkstation extends BeWorkstationBrief {
   qrToken: string
   isActive: boolean
   createdAt: string
+  /** Xưởng đặt máy (13/11/2026); null/thiếu = chưa khai. */
+  workshopId?: string | null
 }
 
 export interface CreateWorkstationInput {
@@ -199,6 +210,19 @@ export interface CreateWorkstationInput {
   stage: FloorStage
   kind: WorkstationKind
   processStep?: string
+  /** Xưởng đặt máy (id). */
+  workshopId?: string
+  /** Chỉ cho máy cắt; BE mặc định laser nếu thiếu. */
+  cutMachineType?: SolverMachine
+}
+
+export interface UpdateWorkstationInput {
+  name?: string
+  isActive?: boolean
+  /** null = bỏ xưởng. */
+  workshopId?: string | null
+  /** Chỉ máy cắt. */
+  cutMachineType?: SolverMachine
 }
 
 export interface BeFloorWorker {
@@ -236,6 +260,16 @@ export interface BeQueueEntry {
   progress: BeFloorProgress | null
   /** Chỉ true ở dòng DONE đóng gần nhất của tổ và "Mở lại" làm được (PI đang chạy chưa có lần báo nào). */
   canReopen: boolean
+  /** Xưởng của hàng đợi (14/11/2026); Sơn theo nơi sơn. */
+  workshopId: string | null
+  workshopName: string | null
+  /** Xưởng của chính lệnh - khác xưởng hàng đợi khi lệnh sơn nhờ (lệnh Phước An trong hàng đợi Sơn của Phú An). */
+  piWorkshopName?: string | null
+}
+
+/** Nhãn "Lệnh của …" chỉ khi lệnh thuộc xưởng khác xưởng của hàng đợi (ô chọn xưởng đã ghi xưởng hàng đợi). */
+export function otherWorkshopLabel(e: Pick<BeQueueEntry, 'workshopName' | 'piWorkshopName'>): string | null {
+  return e.piWorkshopName && e.piWorkshopName !== e.workshopName ? `Lệnh của ${e.piWorkshopName}` : null
 }
 
 /** Ngăn số của tiến độ (BE floor-progress.util): reported = passed + awaiting + open = Σ min(Đã báo − Lỗi, Cần). */
@@ -284,6 +318,8 @@ export interface BeQueueCandidate {
   deadline: string | null
   orderCount: number
   activeOrderCount: number
+  workshopId: string | null
+  workshopName: string | null
 }
 
 export interface BeReviewReport {
@@ -372,6 +408,160 @@ export interface BeFloorSettings {
   publicUrl: string | null
 }
 
+/** Bảng chia sắt cho máy cắt (13/11/2026) - BE `/floor/cut-allocation`; mọi route đều trả cùng bảng này. */
+export type CutSegmentStep = 'UON' | 'DAP' | 'DUC_LO' | 'TAN'
+export type CutAllocClass = 'TU_DONG' | 'LASER'
+
+/** EMPTY = chưa có dòng · IDLE = máy rảnh (đã cắt hết) · LOW = còn ≤ 20 cây · BUSY = còn nhiều. */
+export type CutMachineStatus = 'EMPTY' | 'IDLE' | 'LOW' | 'BUSY'
+
+export interface BeCutAllocationMachine {
+  id: string
+  code: string
+  name: string
+  cutMachineType: SolverMachine
+  totalBars: number
+  rowCount: number
+  plannedSegments: number
+  /** Đoạn đã báo qua QR tại máy - XẤP XỈ (cộng theo cặp lệnh + loại sắt đang có trên máy). */
+  reportedSegments: number
+  /** Số cây ƯỚC đã cắt / còn lại (C2, 14/11/2026). */
+  barsDoneEst: number
+  barsLeftEst: number
+  status: CutMachineStatus
+}
+
+export interface BeCutAllocationSegment {
+  cutLengthMm: number
+  countPerBar: number
+  steps: CutSegmentStep[]
+  pieceNames: string[]
+}
+
+export interface BeCutAllocationRow {
+  id: string
+  workstationId: string
+  seq: number
+  isManual: boolean
+  productionInvoiceId: string
+  piCode: string
+  /** Ngày dạng YYYY-MM-DD (giờ VN). */
+  priority: { phoiStart: string | null; bookingDue: string | null; deadline: string | null }
+  cuttingProposalId: string
+  patternId: string
+  patternIndex: number
+  patternBarCount: number
+  materialId: string
+  materialCode: string
+  materialLabel: string
+  barLengthMm: number | null
+  lineMachine: SolverMachine | null
+  machineClass: CutAllocClass
+  barCount: number
+  /** Số cây ƯỚC đã cắt của dòng (≤ barCount). */
+  barsDoneEst: number
+  segments: BeCutAllocationSegment[]
+  punchedSegments: { cutLengthMm: number; countPerBar: number }[] | null
+  bundles: Record<string, number> | null
+  wastePerBarMm: number | null
+  lineSurplus: { cutLengthMm: number; surplus: number }[]
+  hasBend: boolean
+  /** Kiểu cắt theo bó (Sếp chốt 14/11): không tách, không đổi số cây, đổi máy chỉ khi máy hư. */
+  isBundle: boolean
+  /** Id các máy BE chấp nhận cho dòng này; BE cũ chưa trả thì FE dùng luật dự phòng. */
+  allowedMachineIds?: string[]
+}
+
+export interface BeCutAllocationUnallocated {
+  productionInvoiceId: string
+  piCode: string
+  materialId: string
+  materialLabel: string
+  bars: number
+}
+
+export interface BeCutAllocationWaiting {
+  productionInvoiceId: string
+  piCode: string
+  materialId: string
+  materialLabel: string
+  requiredBars: number
+  availableBars: number
+  shortBars: number
+  /** Số cây đang giữ cho lệnh ở kho xưởng khác (lệnh vừa đổi xưởng, chờ chuyển kho). */
+  heldElsewhereBars?: number
+}
+
+export interface BeCutAllocationBoard {
+  workshop: { id: string; code: string; name: string; laserAllowed: boolean }
+  machines: BeCutAllocationMachine[]
+  rows: BeCutAllocationRow[]
+  unallocated: BeCutAllocationUnallocated[]
+  waiting: BeCutAllocationWaiting[]
+  staleCount: number
+  warnings: string[]
+}
+
+export type CutAllocationMode = 'append' | 'redo'
+
+/** Lý do điều chuyển trên bảng chia (14/11/2026). */
+export type CutAllocationReason = 'MACHINE_BROKEN' | 'OTHER'
+export type CutAllocationLogAction = 'ADD' | 'SPLIT' | 'MOVE' | 'BARS' | 'REMOVE' | 'AUTO_PULL'
+
+export interface BeCutAllocationLogEntry {
+  id: string
+  createdAt: string
+  action: CutAllocationLogAction
+  reason: CutAllocationReason | null
+  note: string | null
+  isBundle: boolean
+  barCount: number
+  previousBarCount: number | null
+  productionInvoiceId: string
+  piCode: string
+  materialLabel: string | null
+  fromMachine: { id: string; name: string } | null
+  toMachine: { id: string; name: string } | null
+  createdByName: string | null
+}
+
+export interface BeCutAllocationLogByOrder {
+  productionInvoiceId: string
+  piCode: string
+  moves: number
+  splits: number
+  machineBrokenMoves: number
+}
+
+/** Năng suất máy cắt (đợt C4a, chỉ đọc): đo từ giờ công nhân báo qua QR, chưa áp luật chia. */
+export interface BeCutMachineStats {
+  workshop: { id: string; code: string; name: string }
+  range: { from: string; to: string; timezone: 'Asia/Ho_Chi_Minh' }
+  method: {
+    lunchBreak: { from: '11:30'; to: '13:00' }
+    maxGapMinutes: number
+    minRateMinutes: number
+    defaultBarLengthMm: number
+    blade: { laser: number; tu_dong: number }
+    trim: { laser: number; tu_dong: number }
+  }
+  machines: Array<{ id: string; code: string; name: string; machineType: 'laser' | 'tu_dong'; isActive: boolean }>
+  days: Array<{
+    machineId: string; day: string; reports: number; firstAt: string; lastAt: string
+    segments: number; meters: number; bars: number; rateBars: number; rateMinutes: number; barsPerHour: number | null
+    materials: Array<{ materialId: string; label: string; bars: number }>
+  }>
+  byMachine: Array<{ machineId: string; daysWithData: number; totalBars: number; barsPerDayAvg: number; barsPerDayMedian: number; barsPerHour: number | null }>
+  byMachineType: Array<{ machineType: 'laser' | 'tu_dong'; machines: number; machineDays: number; barsPerDayAvg: number; barsPerDayMedian: number; barsPerHour: number | null }>
+  byMaterial: Array<{ machineType: 'laser' | 'tu_dong'; materialId: string; label: string; bars: number; rateBars: number; rateMinutes: number; barsPerHour: number | null }>
+  generatedAt: string
+}
+
+export interface BeCutAllocationLog {
+  entries: BeCutAllocationLogEntry[]
+  byOrder: BeCutAllocationLogByOrder[]
+}
+
 export const floorAdmin = {
   settings: () => http.get<BeFloorSettings>('/floor/settings'),
   summary: () => http.get<BeFloorSummary>('/floor/summary'),
@@ -395,21 +585,32 @@ export const floorAdmin = {
   reverse: (floorReportId: string, reason: string) =>
     http.post<unknown>(`/floor/reports/${floorReportId}/reverse`, { reason }),
 
-  queue: (stage?: FloorStage) => http.get<BeQueueEntry[]>(`/floor/queue${stage ? `?stage=${stage}` : ''}`),
+  // Hàng đợi theo xưởng (14/11/2026): QLSX gắn xưởng thì BE tự lấy xưởng của họ; người không gắn xưởng gửi xưởng đang xem.
+  queue: (stage?: FloorStage, workshopId?: string | null) => {
+    const q = new URLSearchParams()
+    if (stage) q.set('stage', stage)
+    if (workshopId) q.set('workshopId', workshopId)
+    const qs = q.toString()
+    return http.get<BeQueueEntry[]>(`/floor/queue${qs ? `?${qs}` : ''}`)
+  },
   stageDetail: (stage: FloorStage, productionInvoiceId: string) =>
     http.get<BeStageDetail>(`/floor/queue/${stage}/detail/${productionInvoiceId}`),
-  queueCandidates: (stage: FloorStage) => http.get<BeQueueCandidate[]>(`/floor/queue/candidates?stage=${stage}`),
+  queueCandidates: (stage: FloorStage, workshopId?: string | null) =>
+    http.get<BeQueueCandidate[]>(`/floor/queue/candidates?stage=${stage}${workshopId ? `&workshopId=${encodeURIComponent(workshopId)}` : ''}`),
   enqueue: (stage: FloorStage, productionInvoiceId: string) =>
     http.post<BeQueueEntry[]>('/floor/queue', { stage, productionInvoiceId }),
-  reorder: (stage: FloorStage, entryIds: string[]) => http.post<BeQueueEntry[]>(`/floor/queue/${stage}/reorder`, { entryIds }),
-  advance: (stage: FloorStage) => http.post<BeQueueEntry[]>(`/floor/queue/${stage}/advance`),
+  reorder: (stage: FloorStage, entryIds: string[], workshopId?: string | null) =>
+    http.post<BeQueueEntry[]>(`/floor/queue/${stage}/reorder`, { entryIds, workshopId: workshopId || undefined }),
+  advance: (stage: FloorStage, workshopId?: string | null) =>
+    http.post<BeQueueEntry[]>(`/floor/queue/${stage}/advance`, { workshopId: workshopId || undefined }),
   /** Hoàn tác "Chuyển PI tiếp" nhầm - mở lại PI vừa đóng, trả PI đang chạy (chưa ai báo) về đầu hàng đợi. */
-  reopen: (stage: FloorStage) => http.post<BeQueueEntry[]>(`/floor/queue/${stage}/reopen`),
+  reopen: (stage: FloorStage, workshopId?: string | null) =>
+    http.post<BeQueueEntry[]>(`/floor/queue/${stage}/reopen`, { workshopId: workshopId || undefined }),
   removeEntry: (id: string) => http.del<BeQueueEntry[]>(`/floor/queue/${id}`),
 
   workstations: () => http.get<BeWorkstation[]>('/floor/workstations'),
   createWorkstation: (d: CreateWorkstationInput) => http.post<BeWorkstation>('/floor/workstations', d),
-  updateWorkstation: (id: string, d: { name?: string; isActive?: boolean }) =>
+  updateWorkstation: (id: string, d: UpdateWorkstationInput) =>
     http.patch<BeWorkstation>(`/floor/workstations/${id}`, d),
   regenerateToken: (id: string) => http.post<BeWorkstation>(`/floor/workstations/${id}/regenerate-token`),
 
@@ -422,4 +623,40 @@ export const floorAdmin = {
   /** Cho đặt lại PIN: xoá PIN cũ, công nhân tự đặt PIN mới ở lần đăng nhập kế. */
   resetWorkerPin: (id: string) => http.post<BeFloorWorker>(`/floor/workers/${id}/reset-pin`),
   unlockWorker: (id: string) => http.post<BeFloorWorker>(`/floor/workers/${id}/unlock`),
+
+  // ─── Chia máy cắt (13/11/2026): `workshopId` chỉ cần với QLSX chung; QLSX có xưởng thì BE tự lấy xưởng của họ ───
+  getCutAllocation: (workshopId?: string | null) =>
+    http.get<BeCutAllocationBoard>(`/floor/cut-allocation${workshopId ? `?workshopId=${encodeURIComponent(workshopId)}` : ''}`),
+  autoCutAllocation: (d: { workshopId?: string | null; mode: CutAllocationMode }) =>
+    http.post<BeCutAllocationBoard>('/floor/cut-allocation/auto', { workshopId: d.workshopId || undefined, mode: d.mode }),
+  addCutAllocation: (d: { workshopId?: string | null; productionInvoiceId: string; materialId: string }) =>
+    http.post<BeCutAllocationBoard>('/floor/cut-allocation/add', {
+      workshopId: d.workshopId || undefined, productionInvoiceId: d.productionInvoiceId, materialId: d.materialId,
+    }),
+  updateCutAllocation: (id: string, d: { workstationId?: string; barCount?: number; reason?: CutAllocationReason; note?: string }) =>
+    http.patch<BeCutAllocationBoard>(`/floor/cut-allocation/${id}`, d),
+  splitCutAllocation: (id: string, d: { barCount: number; workstationId: string; reason?: CutAllocationReason; note?: string }) =>
+    http.post<BeCutAllocationBoard>(`/floor/cut-allocation/${id}/split`, d),
+  reorderCutAllocation: (d: { workstationId: string; rowIds: string[] }) =>
+    http.post<BeCutAllocationBoard>('/floor/cut-allocation/reorder', d),
+  deleteCutAllocation: (id: string) => http.del<BeCutAllocationBoard>(`/floor/cut-allocation/${id}`),
+  /** Lịch sử chia tay (mặc định 30 ngày); `from`/`to` dạng YYYY-MM-DD. */
+  getCutAllocationLog: (p: { workshopId?: string | null; productionInvoiceId?: string; from?: string; to?: string }) => {
+    const q = new URLSearchParams()
+    if (p.workshopId) q.set('workshopId', p.workshopId)
+    if (p.productionInvoiceId) q.set('productionInvoiceId', p.productionInvoiceId)
+    if (p.from) q.set('from', p.from)
+    if (p.to) q.set('to', p.to)
+    const qs = q.toString()
+    return http.get<BeCutAllocationLog>(`/floor/cut-allocation/log${qs ? `?${qs}` : ''}`)
+  },
+  /** Năng suất máy cắt (chỉ đọc). QLSX gắn xưởng: bỏ trống workshopId hoặc đúng xưởng mình; QLSX chung: bắt buộc. */
+  getCutMachineStats: (p: { workshopId?: string | null; from?: string; to?: string }) => {
+    const q = new URLSearchParams()
+    if (p.workshopId) q.set('workshopId', p.workshopId)
+    if (p.from) q.set('from', p.from)
+    if (p.to) q.set('to', p.to)
+    const qs = q.toString()
+    return http.get<BeCutMachineStats>(`/floor/stats/cut-machines${qs ? `?${qs}` : ''}`)
+  },
 }

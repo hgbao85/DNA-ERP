@@ -8,8 +8,13 @@
 import { useEffect, useState } from 'react'
 import { KeyRound, Plus, Printer, QrCode, RefreshCw } from 'lucide-react'
 import {
-  floorAdmin, type BeFloorSettings, type BeFloorWorker, type BeWorkstation, type FloorStage, type WorkstationKind,
+  floorAdmin, type BeFloorSettings, type BeFloorWorker, type BeWorkstation, type FloorStage, type UpdateWorkstationInput, type WorkstationKind,
 } from '../../../services/floor-api'
+import { getWorkshops } from '../../../services/workshops-api'
+import type { Workshop } from '../../../types/workshop'
+import type { SolverMachine } from '../../../types/admin'
+import { MACHINE_LABEL } from '../../../utils/cutMachine'
+import { useScopedWorkshop } from '../../../hooks/useScopedWorkshop'
 import { useConfirm } from '../../../hooks/useConfirm'
 import { useFetch } from '../../../hooks/useFetch'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
@@ -17,13 +22,16 @@ import { errMsg } from '../../../utils/errors'
 import Modal from '../../../components/Modal'
 import LoadingState from '../../../components/LoadingState'
 import LoadErrorState from '../../../components/LoadErrorState'
-import { btn, card, input, KIND_LABEL, Notice, Pill, STAGE_LABEL, STEP_LABEL, td, th } from './qlsxUi'
+import { btn, card, input, isCutUnassigned, KIND_LABEL, kindWithMachine, Notice, Pill, STAGE_LABEL, STEP_LABEL, summarizeCutMachines, td, th, UNASSIGNED_WORKSHOP_TITLE } from './qlsxUi'
 import { isLocalOrigin, kindCaption, printTems, qrDataUrl, workstationLink } from './qrPrint'
 
 const STAGES: FloorStage[] = ['PHOI', 'HAN', 'SON']
 const STEPS = ['UON', 'DAP', 'DUC_LO', 'TAN', 'TOP_DAU', 'XE', 'NHAN']
 
 const wsTitle = (w: BeWorkstation) => `${w.code} · ${w.name}`
+const CUT_TYPES: SolverMachine[] = ['laser', 'tu_dong']
+// select nhỏ sửa nhanh ngay trên dòng (13/11/2026)
+const miniSelect = { ...input, minHeight: 30, padding: '4px 8px', fontSize: 12 }
 
 // ─── Máy / điểm làm việc ─────────────────────────────────────────────────────
 
@@ -70,26 +78,37 @@ function QrModal({ ws, base, fromSetting, onClose }: {
   )
 }
 
-function AddWorkstation({ onDone, onCancel }: { onDone: () => void; onCancel: () => void }) {
+function AddWorkstation({ workshops, defaultWorkshopId, onDone, onCancel }: {
+  workshops: Workshop[]
+  defaultWorkshopId: string | null
+  onDone: () => void
+  onCancel: () => void
+}) {
   const [code, setCode] = useState('')
   const [name, setName] = useState('')
   const [stage, setStage] = useState<FloorStage>('PHOI')
   const [kind, setKind] = useState<WorkstationKind>('CUT')
   const [step, setStep] = useState('UON')
+  // Máy cắt: loại máy BẮT BUỘC chọn (không mặc định, tránh khai nhầm laze); xưởng mặc định = xưởng phụ trách của QLSX.
+  const [cutType, setCutType] = useState<SolverMachine | ''>('')
+  const [workshopId, setWorkshopId] = useState(defaultWorkshopId ?? '')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
 
   // Máy cắt / công đoạn phụ / nhận sắt chỉ của tổ Phôi - ép đúng lựa chọn thay vì để BE báo lỗi.
   const kinds: WorkstationKind[] = stage === 'PHOI' ? ['CUT', 'STEP', 'PIECE', 'STEEL_RECEIVE'] : ['PIECE']
   const changeStage = (s: FloorStage) => { setStage(s); setKind(s === 'PHOI' ? 'CUT' : 'PIECE') }
-  const valid = code.trim().length >= 2 && name.trim().length >= 1
+  const valid = code.trim().length >= 2 && name.trim().length >= 1 && (kind !== 'CUT' || cutType !== '')
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!valid) return
     setBusy(true); setErr(null)
     try {
-      await floorAdmin.createWorkstation({ code: code.trim(), name: name.trim(), stage, kind, processStep: kind === 'STEP' ? step : undefined })
+      await floorAdmin.createWorkstation({
+        code: code.trim(), name: name.trim(), stage, kind, processStep: kind === 'STEP' ? step : undefined,
+        ...(kind === 'CUT' ? { cutMachineType: cutType || undefined, workshopId: workshopId || undefined } : {}),
+      })
       onDone()
     } catch (e2) { setErr(errMsg(e2)); setBusy(false) }
   }
@@ -110,6 +129,18 @@ function AddWorkstation({ onDone, onCancel }: { onDone: () => void; onCancel: ()
         <label style={{ display: 'grid', gap: 4 }}>{lab('Công đoạn')}
           <select style={input} value={step} onChange={(e) => setStep(e.target.value)}>
             {STEPS.map((s) => <option key={s} value={s}>{STEP_LABEL[s]}</option>)}</select></label>
+      )}
+      {kind === 'CUT' && (
+        <>
+          <label style={{ display: 'grid', gap: 4 }}>{lab('Loại máy cắt')}
+            <select style={input} value={cutType} onChange={(e) => setCutType(e.target.value as SolverMachine | '')}>
+              <option value="">- Chọn loại -</option>
+              {CUT_TYPES.map((t) => <option key={t} value={t}>{MACHINE_LABEL[t]}</option>)}</select></label>
+          <label style={{ display: 'grid', gap: 4 }}>{lab('Xưởng')}
+            <select style={input} value={workshopId} onChange={(e) => setWorkshopId(e.target.value)}>
+              <option value="">- Chưa gán xưởng -</option>
+              {workshops.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</select></label>
+        </>
       )}
       <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
         <button type="submit" disabled={!valid || busy} style={btn('primary', !valid || busy)}>Tạo máy</button>
@@ -148,12 +179,16 @@ function TemAddress({ saved, current }: { saved: string | null; current: string 
 function Workstations() {
   const { data, isLoading, error, refetch } = useFetch<BeWorkstation[]>(() => floorAdmin.workstations(), [])
   const settings = useFetch<BeFloorSettings>(() => floorAdmin.settings(), [])
+  const shops = useFetch<Workshop[]>(() => getWorkshops(), [])
+  const { scopedWorkshopId } = useScopedWorkshop()
   const { ask, confirmModal } = useConfirm()
   const [adding, setAdding] = useState(false)
   const [show, setShow] = useState<BeWorkstation | null>(null)
   const [err, setErr] = useState<string | null>(null)
   const [printing, setPrinting] = useState(false)
   const list = data ?? []
+  const workshops = shops.data ?? []
+  const cutSummary = summarizeCutMachines(list, workshops.map((x) => x.name))
   // Địa chỉ in lên tem: đã cài thì dùng, chưa cài thì địa chỉ đang mở.
   const savedBase = settings.data?.publicUrl ?? null
   const base = savedBase ?? (typeof window !== 'undefined' ? window.location.origin : '')
@@ -162,10 +197,63 @@ function Workstations() {
     setErr(null)
     try { await floorAdmin.updateWorkstation(w.id, { isActive: !w.isActive }); void refetch() } catch (e) { setErr(errMsg(e)) }
   }
+  // Sửa nhanh xưởng / loại máy cắt trên dòng; lỗi BE hiện ở banner đầu bảng.
+  const patch = async (w: BeWorkstation, d: UpdateWorkstationInput) => {
+    setErr(null)
+    try { await floorAdmin.updateWorkstation(w.id, d); void refetch() } catch (e) { setErr(errMsg(e)) }
+  }
   const printAll = async () => {
     setPrinting(true); setErr(null)
     try { await printTems(list.filter((w) => w.isActive), base) } catch (e) { setErr(errMsg(e)) } finally { setPrinting(false) }
   }
+
+  const isMobile = useIsMobile()
+  // 13/11/2026: dùng chung cho bảng (màn rộng) và thẻ (< 640px). Ô Xưởng và ô Loại máy cắt cùng rộng/cao để thẳng hàng;
+  // `full` = rộng hết thẻ trên điện thoại.
+  const selStyle = (full: boolean) => ({ ...miniSelect, width: full ? '100%' : 190, minWidth: 0, boxSizing: 'border-box' as const })
+  const machineCell = (w: BeWorkstation) => (
+    <>
+      <b>{w.code}</b>
+      <div style={{ fontSize: 12, color: 'var(--text2)' }}>{w.name}</div>
+    </>
+  )
+  const workshopCell = (w: BeWorkstation, full: boolean) => {
+    if (w.kind !== 'CUT') return w.workshopName ?? ''
+    const none = isCutUnassigned(w)
+    return (
+      <select style={{ ...selStyle(full), ...(none ? { borderColor: 'var(--amber)' } : {}) }} value={w.workshopId ?? ''} aria-label={`Xưởng của ${w.code}`}
+        title={none ? UNASSIGNED_WORKSHOP_TITLE : undefined}
+        onChange={(e) => void patch(w, { workshopId: e.target.value || null })}>
+        <option value="">- Chưa gán -</option>
+        {workshops.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
+      </select>
+    )
+  }
+  const typeCell = (w: BeWorkstation, full: boolean) => {
+    if (w.kind !== 'CUT') return `${kindWithMachine(w)}${w.processStep ? ` · ${STEP_LABEL[w.processStep]}` : ''}`
+    return (
+      <select style={selStyle(full)} value={w.cutMachineType ?? ''} aria-label={`Loại máy cắt của ${w.code}`}
+        onChange={(e) => { if (e.target.value) void patch(w, { cutMachineType: e.target.value as SolverMachine }) }}>
+        {!w.cutMachineType && <option value="">- Chọn -</option>}
+        {CUT_TYPES.map((t) => <option key={t} value={t}>{MACHINE_LABEL[t]}</option>)}
+      </select>
+    )
+  }
+  const statusCell = (w: BeWorkstation) => (
+    <button type="button" onClick={() => void toggle(w)} style={{ ...btn('ghost'), padding: 0 }} aria-label={w.isActive ? `Tắt ${w.code}` : `Bật ${w.code}`}>
+      {w.isActive ? <Pill tone="green">Đang dùng</Pill> : <Pill tone="gray">Đã tắt</Pill>}
+    </button>
+  )
+  const qrActions = (w: BeWorkstation) => (
+    <div style={{ display: 'flex', gap: 6, alignItems: 'center', justifyContent: isMobile ? 'flex-start' : 'flex-end' }}>
+      <button type="button" style={btn('secondary')} onClick={() => setShow(w)}><QrCode size={14} /> Xem / in</button>
+      <button type="button" style={btn('ghost')} title="Đổi mã QR (tem cũ hết dùng)" aria-label={`Đổi mã QR của ${w.code}`}
+        onClick={() => ask({ title: 'Đổi mã QR', message: `Đổi mã QR của ${wsTitle(w)}?\nTem đang dán sẽ KHÔNG quét được nữa - phải in và dán tem mới. Dùng khi tem bị mất hoặc bị chụp mang đi chỗ khác.`, confirmLabel: 'Đổi mã', danger: true },
+          async () => { await floorAdmin.regenerateToken(w.id); void refetch() })}>
+        <RefreshCw size={14} />
+      </button>
+    </div>
+  )
 
   return (
     <section style={{ display: 'flex', flexDirection: 'column', gap: 12 }} aria-label="Máy và mã QR">
@@ -186,42 +274,67 @@ function Workstations() {
         </button>
         <button type="button" onClick={() => setAdding(true)} style={btn('primary')}><Plus size={14} /> Thêm máy</button>
       </div>
-      {adding && <AddWorkstation onCancel={() => setAdding(false)} onDone={() => { setAdding(false); void refetch() }} />}
+      {cutSummary && (
+        <div style={{ ...card, fontSize: 13 }} aria-label="Tóm tắt máy cắt theo xưởng">
+          <b>Máy cắt đang dùng:</b> {cutSummary}
+          <div style={{ fontSize: 12, color: 'var(--text3)' }}>Hệ thống dùng danh sách này để chia sắt cho máy laze / máy tự động - máy nào chưa gán xưởng thì khai thêm ở bảng dưới.</div>
+        </div>
+      )}
+      {adding && <AddWorkstation workshops={workshops} defaultWorkshopId={scopedWorkshopId} onCancel={() => setAdding(false)} onDone={() => { setAdding(false); void refetch() }} />}
       {err && <Notice tone="err">{err}</Notice>}
       {isLoading ? <LoadingState /> : error ? <LoadErrorState error={error} onRetry={() => void refetch()} /> : list.length === 0 ? (
         <div style={{ ...card, textAlign: 'center', color: 'var(--text3)', padding: 28 }}>
           Chưa có máy nào. Bấm “Thêm máy” - tạo máy laser, điểm Hàn, điểm Sơn và 1 mã “Khu nhận sắt”.
         </div>
       ) : (
+        isMobile ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {list.map((w) => (
+              <div key={w.id} style={{ ...card, display: 'flex', flexDirection: 'column', gap: 10, opacity: w.isActive ? 1 : 0.6 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                  <div style={{ minWidth: 0 }}>{machineCell(w)}</div>
+                  {statusCell(w)}
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--text2)' }}>Tổ {STAGE_LABEL[w.stage]}</div>
+                {w.kind === 'CUT' ? (
+                  <>
+                    <label style={{ display: 'grid', gap: 4 }}>
+                      <span style={{ fontSize: 12, color: 'var(--text2)', fontWeight: 600 }}>Xưởng</span>
+                      {workshopCell(w, true)}
+                    </label>
+                    <label style={{ display: 'grid', gap: 4 }}>
+                      <span style={{ fontSize: 12, color: 'var(--text2)', fontWeight: 600 }}>Loại máy cắt</span>
+                      {typeCell(w, true)}
+                    </label>
+                  </>
+                ) : (
+                  <div style={{ fontSize: 13 }}>{typeCell(w, true)}{w.workshopName ? ` · ${w.workshopName}` : ''}</div>
+                )}
+                {qrActions(w)}
+              </div>
+            ))}
+          </div>
+        ) : (
         <div style={{ ...card, padding: 0, overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 560 }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 720 }}>
             <thead><tr style={{ background: 'var(--surface2)' }}>
-              <th style={th}>Máy</th><th style={th}>Tổ</th><th style={th}>Loại</th><th style={th}>Trạng thái</th><th style={{ ...th, textAlign: 'right' }}>Mã QR</th>
+              <th style={th}>Máy</th><th style={th}>Tổ</th><th style={th}>Xưởng</th><th style={th}>Loại máy cắt</th><th style={th}>Trạng thái</th><th style={{ ...th, textAlign: 'right' }}>Mã QR</th>
             </tr></thead>
             <tbody>
               {list.map((w) => (
                 <tr key={w.id} style={{ borderTop: '1px solid var(--border)', opacity: w.isActive ? 1 : 0.6 }}>
-                  <td style={td}><b>{w.code}</b><div style={{ fontSize: 12, color: 'var(--text2)' }}>{w.name}</div></td>
+                  <td style={td}>{machineCell(w)}</td>
                   <td style={td}>{STAGE_LABEL[w.stage]}</td>
-                  <td style={td}>{KIND_LABEL[w.kind]}{w.processStep ? ` · ${STEP_LABEL[w.processStep]}` : ''}</td>
-                  <td style={td}>
-                    <button type="button" onClick={() => void toggle(w)} style={{ ...btn('ghost'), padding: 0 }} aria-label={w.isActive ? `Tắt ${w.code}` : `Bật ${w.code}`}>
-                      {w.isActive ? <Pill tone="green">Đang dùng</Pill> : <Pill tone="gray">Đã tắt</Pill>}
-                    </button>
-                  </td>
-                  <td style={{ ...td, textAlign: 'right', whiteSpace: 'nowrap' }}>
-                    <button type="button" style={btn('secondary')} onClick={() => setShow(w)}><QrCode size={14} /> Xem / in</button>{' '}
-                    <button type="button" style={btn('ghost')} title="Đổi mã QR (tem cũ hết dùng)" aria-label={`Đổi mã QR của ${w.code}`}
-                      onClick={() => ask({ title: 'Đổi mã QR', message: `Đổi mã QR của ${wsTitle(w)}?\nTem đang dán sẽ KHÔNG quét được nữa - phải in và dán tem mới. Dùng khi tem bị mất hoặc bị chụp mang đi chỗ khác.`, confirmLabel: 'Đổi mã', danger: true },
-                        async () => { await floorAdmin.regenerateToken(w.id); void refetch() })}>
-                      <RefreshCw size={14} />
-                    </button>
-                  </td>
+                  <td style={td}>{workshopCell(w, false)}</td>
+                  <td style={td}>{typeCell(w, false)}</td>
+                  <td style={td}>{statusCell(w)}</td>
+                  <td style={{ ...td, textAlign: 'right', whiteSpace: 'nowrap' }}>{qrActions(w)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+        )
       )}
     </section>
   )

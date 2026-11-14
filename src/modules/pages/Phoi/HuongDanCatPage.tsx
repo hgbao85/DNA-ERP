@@ -24,8 +24,11 @@ import {
   getCuttingProposalsForInvoice, getCuttingProposal,
   type CuttingProposal, type CuttingProposalLine,
 } from '../../../services/cutting-proposals-api'
-import { buildCuttingGuideTable, buildPieceSummary, exportCuttingGuideExcel, exportCuttingGuideExcelAll, machineSummaryText, printCuttingGuide } from '../../../utils/cuttingGuide'
-import { fmtBundles, fmtPercent } from '../../../utils/cutMachine'
+import { buildCuttingGuideTable, buildPieceSummary, cutMachineLineText, exportCuttingGuideExcel, exportCuttingGuideExcelAll, hasMachineColumn, printCuttingGuide } from '../../../utils/cuttingGuide'
+import { fmtBundles } from '../../../utils/cutMachine'
+import { fmtBars, fmtMm, fmtNum, fmtPct } from '../../../utils/numberFormat'
+import { useIsMobile } from '../../../hooks/useMediaQuery'
+import { PatternMachineCell } from '../ProductionPlan/CuttingSolvePanel'
 import LoadingState from '../../../components/LoadingState'
 import LoadErrorState from '../../../components/LoadErrorState'
 import { pageTitle, pageSubtitle } from '../../../styles/typography'
@@ -73,9 +76,21 @@ export default function HuongDanCatPage({ initialPiId, onConsumeInitialPi }: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  if (isLoading) return <LoadingState />
+  // Tiêu đề trang hiện cả lúc đang tải / lỗi (13/11/2026) - trước đây lỗi thay cả trang, mất tiêu đề, người dùng không biết đang ở màn nào.
+  const header = (
+    <>
+      <h2 style={{ ...pageTitle, marginBottom: 2, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+        <Ruler size={20} /> Hướng dẫn cắt
+      </h2>
+      <div style={{ ...pageSubtitle, marginBottom: 'var(--space-5)' }}>
+        Bảng cắt theo đúng phương án đã duyệt cho từng loại sắt — chọn PO/lệnh để xem chi tiết và xuất file in.
+      </div>
+    </>
+  )
+
+  if (isLoading) return <div>{header}<LoadingState /></div>
   // 2026-09-11 (QA audit B2): error trước `!issues` - xem LoadErrorState doc comment.
-  if (error || !issues) return <LoadErrorState error={error ?? 'Không rõ nguyên nhân'} onRetry={refetch} />
+  if (error || !issues) return <div>{header}<LoadErrorState error={error ?? 'Không rõ nguyên nhân'} onRetry={refetch} /></div>
 
   const selPi = selPiId ? piOptions.find(p => p.productionInvoiceId === selPiId) ?? { productionInvoiceId: selPiId, poNumber: selPiId } : null
   if (selPi) {
@@ -84,12 +99,7 @@ export default function HuongDanCatPage({ initialPiId, onConsumeInitialPi }: {
 
   return (
     <div>
-      <h2 style={{ ...pageTitle, marginBottom: 2, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-        <Ruler size={20} /> Hướng dẫn cắt
-      </h2>
-      <div style={{ ...pageSubtitle, marginBottom: 'var(--space-5)' }}>
-        Bảng cắt theo đúng phương án đã duyệt cho từng loại sắt — chọn PO/lệnh để xem chi tiết và xuất file in.
-      </div>
+      {header}
       <div style={card}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
@@ -128,6 +138,8 @@ function PiCuttingGuide({ pi, onBack }: { pi: PiOption; onBack: () => void }) {
     [approved?.id],
   )
   const lines = (detail?.lines ?? []).filter(l => l.feasible && (l.patterns?.length ?? 0) > 0)
+  // Xưởng không có laze (vd Phước An): nhóm laze hiện "MC Tự động · lỗ làm tay". Thiếu machineContext = coi như laze dùng được.
+  const laserAllowed = detail?.machineContext?.laserAllowed !== false
 
   return (
     <div>
@@ -147,8 +159,8 @@ function PiCuttingGuide({ pi, onBack }: { pi: PiOption; onBack: () => void }) {
               // #bf360c ~5,6:1. Không đổi --bg-e65100 vì đó là màu nút cam chung toàn app (người dùng chốt chỉ đổi nút này).
               color="var(--bg-bf360c)"
               variant="solid"
-              onExcel={() => exportCuttingGuideExcelAll(pi.poNumber, lines)}
-              onPdf={() => printCuttingGuide(pi.poNumber, lines)}
+              onExcel={() => exportCuttingGuideExcelAll(pi.poNumber, lines, laserAllowed)}
+              onPdf={() => printCuttingGuide(pi.poNumber, lines, laserAllowed)}
             />
           </div>
         )}
@@ -168,32 +180,37 @@ function PiCuttingGuide({ pi, onBack }: { pi: PiOption; onBack: () => void }) {
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {lines.map(l => <MaterialGuide key={l.materialId} poNumber={detail!.poNumber} line={l} />)}
+          {lines.map(l => <MaterialGuide key={l.materialId} poNumber={detail!.poNumber} line={l} laserAllowed={laserAllowed} />)}
         </div>
       )}
     </div>
   )
 }
 
-function MaterialGuide({ poNumber, line }: { poNumber: string; line: CuttingProposalLine }) {
+function MaterialGuide({ poNumber, line, laserAllowed }: { poNumber: string; line: CuttingProposalLine; laserAllowed: boolean }) {
   const { columns, columnLabels, rows } = buildCuttingGuideTable(line)
   const pieces = buildPieceSummary(line)
   // Cột "Cách cắt theo bó" chỉ hiện khi phương án tính bằng MC Tự động; MC Laser/phương án cũ giữ nguyên bảng. Ở màn Phôi đã có
   // "bó đoạn" (CutBundle: bó đoạn đã cắt giao Hàn) nên bó sắt cây ghi là "bó cây" cho khỏi lẫn.
   const hasBundles = rows.some(r => fmtBundles(r.bundles) !== null)
-  const machineText = machineSummaryText(line, 'bó cây')
+  const isMobile = useIsMobile()
+  const namesBySize = new Map((line.pieceSummary ?? []).map((p) => [p.size, p.names]))
+  // MỘT dòng "Máy cắt" (13/11/2026): tổng theo lớp máy của từng cây, khớp cột Máy; không có dữ liệu lớp máy mới rơi về máy lúc tính.
+  const machineText = cutMachineLineText(line, laserAllowed, 'bó cây')
   // Cột "Cách cắt theo bó cây" LUÔN đứng ngay sau STT trên màn hình (2026-10-24): trước chỉ làm vậy ở điện thoại, nhưng tablet 768
   // và cả máy tính với loại nhiều cỡ đoạn (SAT-HOP-10X20: bảng 1331 px trong khung 1167 px) cũng cuộn ngang làm khuất cột cuối.
   // Bản in/Excel (utils/cuttingGuide.ts) vẫn để cột này ở cuối như bản in MC Laser.
   const bundleFirst = hasBundles
+  // Cột "Máy" (13/11/2026) ngay sau STT: lớp máy của từng nhóm cây + đoạn dập. Không có machineGroups thì không hiện cột, bảng như cũ.
+  const hasMachine = hasMachineColumn(rows)
   return (
     <div style={card}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1px solid var(--border)', flexWrap: 'wrap', gap: 8 }}>
         <div>
           <div style={{ fontWeight: 700, fontSize: 14 }}>{line.materialCode} — {line.materialName}</div>
           <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>
-            Mua {line.bestStockLengthMm ?? '—'}mm × {line.totalBars ?? '—'} cây
-            {line.wastePercentage != null && <> · hao hụt {fmtPercent(line.wastePercentage)}%</>}
+            Mua {fmtMm(line.bestStockLengthMm)} × {line.totalBars != null ? fmtBars(line.totalBars) : '—'}
+            {line.wastePercentage != null && <> · hao hụt {fmtPct(line.wastePercentage)}</>}
           </div>
           {machineText && (
             <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 2 }}>Máy cắt: <b>{machineText}</b></div>
@@ -202,7 +219,7 @@ function MaterialGuide({ poNumber, line }: { poNumber: string; line: CuttingProp
               tưởng nhầm đây là cây chuẩn 6000mm vẫn hay đặt. */}
           {line.lengthSource === 'scan' && (
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 6, padding: '3px 9px', borderRadius: 6, background: 'var(--bg-fff3e0)', color: 'var(--fg-e65100)', fontSize: 11, fontWeight: 700 }}>
-              ⚠ Cỡ đặt riêng {line.bestStockLengthMm}mm — không phải cây chuẩn
+              ⚠ Cỡ đặt riêng {fmtMm(line.bestStockLengthMm)} — không phải cây chuẩn
             </div>
           )}
         </div>
@@ -210,8 +227,8 @@ function MaterialGuide({ poNumber, line }: { poNumber: string; line: CuttingProp
           label="In"
           // Nút viền: chữ cam #e65100 trên nền trắng chỉ 3,79:1 (chữ 12px) -> dùng cam đậm hơn --fg-c2410c (~5,2:1; chế độ tối tự sáng lên).
           color="var(--fg-c2410c)"
-          onExcel={() => exportCuttingGuideExcel(poNumber, line)}
-          onPdf={() => printCuttingGuide(poNumber, [line])}
+          onExcel={() => exportCuttingGuideExcel(poNumber, line, laserAllowed)}
+          onPdf={() => printCuttingGuide(poNumber, [line], laserAllowed)}
         />
       </div>
 
@@ -221,7 +238,8 @@ function MaterialGuide({ poNumber, line }: { poNumber: string; line: CuttingProp
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ background: 'var(--surface2)' }}>
-              <th style={th}>Tên sắt</th>
+              {/* Giữ chữ "Tên sắt" như bảng "In kết quả" của máy laze cũ xưởng đã quen; cột này là tên chi tiết (mảnh) dùng cỡ đoạn. */}
+              <th style={th} title="Tên chi tiết (mảnh) dùng cỡ đoạn này - cùng cách ghi với bảng In kết quả của máy laze">Tên sắt</th>
               <th style={thR}>Đoạn (mm)</th>
               <th style={thR}>SL cần</th>
               <th style={thR}>SL cắt</th>
@@ -231,20 +249,46 @@ function MaterialGuide({ poNumber, line }: { poNumber: string; line: CuttingProp
             {pieces.map(p => (
               <tr key={p.size} style={{ borderTop: '1px solid var(--border)' }}>
                 <td style={td}>{p.names.length > 0 ? p.names.join(', ') : <span style={{ color: 'var(--text3)' }}>—</span>}</td>
-                <td style={tdR}>{p.size}</td>
-                <td style={tdR}>{Number.isNaN(p.demand) ? <span style={{ color: 'var(--text3)' }}>—</span> : p.demand}</td>
-                <td style={{ ...tdR, fontWeight: 700 }}>{p.produced}</td>
+                <td style={tdR}>{fmtNum(p.size)}</td>
+                <td style={tdR}>{Number.isNaN(p.demand) ? <span style={{ color: 'var(--text3)' }}>—</span> : fmtNum(p.demand)}</td>
+                <td style={{ ...tdR, fontWeight: 700 }}>{fmtNum(p.produced)}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
 
+      {isMobile ? (
+        // Điện thoại (< 640 px, 13/11/2026): bảng kiểu cắt thêm cột Máy nên HH/cây và Số cây bị đẩy ra ngoài màn -> mỗi kiểu cắt một thẻ.
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          {rows.map((r, i) => {
+            const segs = r.counts
+              // "400 mm × 11" dính liền (dấu cách không ngắt) để điện thoại không xuống dòng giữa số và đơn vị.
+              .map((c, ci) => (c > 0 ? `${namesBySize.get(columns[ci])?.length ? `${namesBySize.get(columns[ci])!.join(', ')} ` : ''}${fmtMm(columns[ci]).replace(' ', ' ')} × ${c}` : null))
+              .filter((x): x is string => x !== null)
+            return (
+              <div key={r.patternIndex} style={{ padding: '12px 16px', borderTop: i > 0 ? '1px solid var(--border)' : undefined, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
+                  <span style={{ fontSize: 13, fontWeight: 600 }}>Kiểu {i + 1}</span>
+                  <span style={{ fontSize: 18, fontWeight: 800 }}>{fmtBars(r.barCount)}</span>
+                </div>
+                {hasMachine && <PatternMachineCell groups={r.machineGroups} laserAllowed={laserAllowed} />}
+                {bundleFirst && fmtBundles(r.bundles, 'bó cây') && (
+                  <div style={{ fontSize: 12, color: 'var(--text2)', overflowWrap: 'anywhere' }}>{fmtBundles(r.bundles, 'bó cây')}</div>
+                )}
+                <div style={{ fontSize: 13, lineHeight: 1.5, overflowWrap: 'anywhere' }}>{segs.join(' · ')}</div>
+                <div style={{ fontSize: 12, color: 'var(--text3)' }}>HH/cây {r.wastePerBarMm != null ? fmtMm(r.wastePerBarMm) : '—'}</div>
+              </div>
+            )
+          })}
+        </div>
+      ) : (
       <div style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ background: 'var(--surface)' }}>
               <th style={{ ...th, width: 40 }}>STT</th>
+              {hasMachine && <th style={th}>Máy</th>}
               {bundleFirst && <th style={th}>Cách cắt theo bó cây</th>}
               {/* Tiêu đề cỡ đoạn dài ("Tay trái, Tay phải (445mm)") được xuống dòng - để nowrap thì 1 loại nhiều cỡ đã rộng hơn màn hình. */}
               {columnLabels.map((label, i) => <th key={columns[i]} style={{ ...thR, whiteSpace: 'normal', minWidth: 72 }}>{label}</th>)}
@@ -257,12 +301,13 @@ function MaterialGuide({ poNumber, line }: { poNumber: string; line: CuttingProp
             {rows.map((r, i) => (
               <tr key={r.patternIndex} style={{ borderTop: '1px solid var(--border)' }}>
                 <td style={{ ...td, fontWeight: 600 }}>{i + 1}</td>
+                {hasMachine && <td style={td}><PatternMachineCell groups={r.machineGroups} laserAllowed={laserAllowed} /></td>}
                 {bundleFirst && <td style={{ ...td, minWidth: 150 }}>{fmtBundles(r.bundles, 'bó cây') ?? <span style={{ color: 'var(--text3)' }}>—</span>}</td>}
                 {r.counts.map((c, ci) => (
                   <td key={columns[ci]} style={{ ...tdR, fontWeight: c > 0 ? 700 : 400, color: c > 0 ? 'var(--text)' : 'var(--text3)' }}>{c > 0 ? c : '—'}</td>
                 ))}
-                <td style={tdR}>{r.wastePerBarMm != null ? r.wastePerBarMm.toLocaleString('vi-VN') : '—'}</td>
-                <td style={{ ...tdR, fontWeight: 700 }}>{r.barCount}</td>
+                <td style={tdR}>{fmtNum(r.wastePerBarMm)}</td>
+                <td style={{ ...tdR, fontWeight: 700 }}>{fmtNum(r.barCount)}</td>
                 {hasBundles && !bundleFirst && (
                   <td style={{ ...td, whiteSpace: 'nowrap' }}>{fmtBundles(r.bundles, 'bó cây') ?? <span style={{ color: 'var(--text3)' }}>—</span>}</td>
                 )}
@@ -271,6 +316,7 @@ function MaterialGuide({ poNumber, line }: { poNumber: string; line: CuttingProp
           </tbody>
         </table>
       </div>
+      )}
     </div>
   )
 }

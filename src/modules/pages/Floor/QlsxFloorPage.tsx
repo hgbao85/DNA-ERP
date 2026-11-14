@@ -16,22 +16,27 @@ import { useMaxWidth } from '../../../hooks/useMediaQuery'
 import { tabBtn } from '../../../styles/buttons'
 import LoadingState from '../../../components/LoadingState'
 import LoadErrorState from '../../../components/LoadErrorState'
+import QlsxCutAllocation from './QlsxCutAllocation'
+import { useQueueWorkshop, type QueueWorkshop } from './queueWorkshop'
 import QlsxQueue from './QlsxQueue'
 import QlsxReview from './QlsxReview'
 import QlsxSetup from './QlsxSetup'
 import QlsxStats from './QlsxStats'
+import QlsxCutMachineStats from './QlsxCutMachineStats'
 import { Pill, STAGE_LABEL } from './qlsxUi'
 
-type Tab = 'output' | 'stats' | 'machines' | 'workers'
+type Tab = 'output' | 'cut' | 'stats' | 'machines' | 'workers'
 const STAGES: FloorStage[] = ['PHOI', 'HAN', 'SON']
 const TOPICS = ['floor', 'steel-issues', 'production-batches', 'qc-reviews'] as const
 const LAST_STAGE_KEY = 'qlsx.floor.stage'
 
-function StageView({ stage, summary, refreshSummary }: { stage: FloorStage; summary: BeFloorSummary | null; refreshSummary: () => void }) {
+function StageView({ stage, summary, refreshSummary, ws }: { stage: FloorStage; summary: BeFloorSummary | null; refreshSummary: () => void; ws: QueueWorkshop }) {
   // Lưới 2 cột (mỗi cột ≥ 420px) chỉ đủ chỗ khi phần nội dung ≥ ~860px = màn ≥ ~1180px (trừ thanh bên + đệm); dưới đó lưới
   // tự xếp 1 cột → coi là "hẹp" để đưa "Chờ gửi KCS" lên trước (1024px của laptop vẫn là 1 cột).
   const compact = useMaxWidth(1180)
-  const queue = useFetch<BeQueueEntry[]>(() => floorAdmin.queue(stage), [stage])
+  // Hàng đợi theo xưởng (14/11/2026): người chưa có xưởng nào để chọn thì không hỏi hàng đợi.
+  const wsId = ws.workshopId
+  const queue = useFetch<BeQueueEntry[]>(() => (ws.isLoading || ws.error ? Promise.resolve([]) : floorAdmin.queue(stage, wsId)), [stage, wsId, ws.isLoading, ws.error])
   const review = useFetch<BeFloorReview>(() => floorAdmin.review(stage), [stage])
   const refetchAll = useCallback(() => { void queue.refetch(); void review.refetch(); refreshSummary() }, [queue, review, refreshSummary])
   useRealtimeRefetch(TOPICS, refetchAll)
@@ -43,7 +48,8 @@ function StageView({ stage, summary, refreshSummary }: { stage: FloorStage; summ
     return () => document.removeEventListener('visibilitychange', onVis)
   }, [refetchAll])
 
-  if (queue.isLoading || review.isLoading) return <LoadingState />
+  if (ws.error) return <LoadErrorState error={ws.error} onRetry={ws.retry} />
+  if (ws.isLoading || queue.isLoading || review.isLoading) return <LoadingState />
   if (queue.error || review.error || !queue.data || !review.data) {
     return <LoadErrorState error={queue.error ?? review.error ?? 'Không có dữ liệu'} onRetry={refetchAll} />
   }
@@ -56,7 +62,7 @@ function StageView({ stage, summary, refreshSummary }: { stage: FloorStage; summ
   // Màn hẹp (< 900px, 1 cột): "Chờ gửi KCS" là việc hằng ngày của QLSX nên lên TRƯỚC thẻ PI + hàng đợi (2026-10-20, mục 53);
   // màn rộng giữ 2 cột như cũ (thẻ PI trái, chờ gửi KCS phải).
   const queueBlock = (
-    <QlsxQueue stage={stage} entries={queue.data} openCount={summary?.[stage].open ?? 0} review={review.data}
+    <QlsxQueue stage={stage} entries={queue.data} workshop={ws} openCount={summary?.[stage].open ?? 0} review={review.data}
       onChanged={refetchAll} onGoToReview={goToReview} />
   )
   const reviewBlock = (
@@ -80,6 +86,7 @@ export default function QlsxFloorPage() {
       return v === 'HAN' || v === 'SON' ? v : 'PHOI'
     } catch { return 'PHOI' }
   })
+  const queueWorkshop = useQueueWorkshop()
   const summary = useFetch<BeFloorSummary>(() => floorAdmin.summary(), [])
   const { refetch: refetchSummary } = summary
   const refreshSummary = useCallback(() => { void refetchSummary() }, [refetchSummary])
@@ -92,6 +99,7 @@ export default function QlsxFloorPage() {
 
   const tabs: { id: Tab; label: string }[] = [
     { id: 'output', label: 'Sản lượng & gửi KCS' },
+    { id: 'cut', label: 'Chia máy cắt' },
     { id: 'stats', label: 'Báo cáo' },
     { id: 'machines', label: 'Máy & tem QR' },
     { id: 'workers', label: 'Công nhân' },
@@ -132,10 +140,16 @@ export default function QlsxFloorPage() {
               )
             })}
           </div>
-          <StageView key={stage} stage={stage} summary={summary.data} refreshSummary={refreshSummary} />
+          <StageView key={stage} stage={stage} summary={summary.data} refreshSummary={refreshSummary} ws={queueWorkshop} />
         </>
       )}
-      {tab === 'stats' && <QlsxStats />}
+      {tab === 'cut' && <QlsxCutAllocation />}
+      {tab === 'stats' && (
+        <>
+          <QlsxStats />
+          <QlsxCutMachineStats />
+        </>
+      )}
       {tab === 'machines' && <QlsxSetup section="machines" />}
       {tab === 'workers' && <QlsxSetup section="workers" />}
     </div>

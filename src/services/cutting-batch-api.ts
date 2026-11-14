@@ -7,7 +7,7 @@
 import type { MaterialChoice } from '../types/sku';
 import { http } from './core/http';
 import type { SolverMachine } from '../types/admin';
-import type { CuttingBundleSummary, PatternBundles } from './cutting-proposals-api';
+import type { CuttingBundleSummary, CuttingPatternMachineGroup, PatternBundles } from './cutting-proposals-api';
 
 /**
  * Chiều dài cây sắt KHSX chọn cho riêng đợt này, theo TỪNG QUY CÁCH: `{ "<materialId>": <mm> }`.
@@ -52,6 +52,9 @@ export interface SolverOverrideInput {
   /** Máy cắt cho đợt này: 'laser' = MC Laser (từng cây), 'tu_dong' = MC Tự động (theo bó). Bỏ trống/null =
    *  theo mặc định của hệ thống (SystemConfig.solverMachine). Đứng độc lập với chế độ cắt - áp cho cả hai chế độ. */
   solverMachine?: SolverMachine | null;
+  /** Xưởng cơ khí làm lệnh (id) - BẮT BUỘC khi Tính (13/11/2026): BE áp luật số cỡ đoạn/cây của xưởng (vd Phước An tối đa 2 cỡ)
+   *  và lệnh tạo ra mang sẵn xưởng này. */
+  workshopId?: string;
 }
 
 /** Trạng thái duyệt sản xuất của SKU. null = Sales vừa tạo, KHSX chưa gửi QLSX. */
@@ -309,6 +312,8 @@ export interface CuttingSolvePattern {
   segments: { segmentSpecId: string; cutLengthMm: number; countPerBar: number }[];
   /** Cách cắt theo bó (MC Tự động) - xem PatternBundles. null/thiếu = cắt từng cây. */
   bundles?: PatternBundles | null;
+  /** Nhóm cây theo lớp máy - chỉ chi tiết phương án đã duyệt có; lượt tính KHSX không có. */
+  machineGroups?: CuttingPatternMachineGroup[] | null;
 }
 
 /** 1 cỡ đoạn của loại sắt: cần bao nhiêu, phương án cắt ra bao nhiêu, và là mảnh gì. */
@@ -329,8 +334,10 @@ export interface CuttingSolveLine {
   unit: string;
   feasible: boolean;
   bestStockLengthMm: number | null;
-  /** "fixed" = cây chuẩn; "scan" = cây ĐẶT RIÊNG (phải chờ NCC cán). */
-  lengthSource: 'fixed' | 'scan' | null;
+  /** "fixed" = cây chuẩn; "scan" = cây ĐẶT RIÊNG (phải chờ NCC cán); "stock" (13/11/2026) = chiều dài không chuẩn đang có tồn kho Phôi. */
+  lengthSource: 'fixed' | 'scan' | 'stock' | null;
+  /** Lý do phải nới số cỡ đoạn/cây so với luật xưởng (13/11/2026) - null/thiếu = không nới. */
+  sizesRelaxNote?: string | null;
   totalBars: number | null;
   wastePercentage: number | null;
   /** Ngưỡng đã áp khi tính (đã gồm đặc cách của đợt). */
@@ -415,6 +422,8 @@ export interface CuttingDefaults {
   solverStockLengths?: number[];
   solverMaxSurplus?: number;
   solverTrimStartMm?: number;
+  /** MC Laser (13/11/2026): đoạn cuối tối thiểu (mm), 0 = tắt. */
+  solverLaserMinTailMm?: number;
   solverBladeWidthMm?: number;
   solverMctdTrimStartMm?: number;
   solverMctdBladeWidthMm?: number;
@@ -425,6 +434,12 @@ export interface CuttingDefaults {
   solverMergeWindowDays?: number;
   /** Luật gộp: tối đa M SKU mỗi đợt / lệnh gộp (mặc định 2). */
   solverMergeMaxSkus?: number;
+  /** Số cỡ đoạn tối đa trên 1 cây theo xưởng (13/11/2026): khoá = code xưởng, giá trị 1-10; xưởng không có khoá = không có luật riêng. */
+  solverMaxSizesPerBarByWorkshop?: Record<string, number>;
+  /** Máy cắt bắt buộc theo xưởng (13/11/2026): khoá = code xưởng. Xưởng có khoá thì ô máy cắt khoá theo máy này. */
+  solverMachineByWorkshop?: Record<string, SolverMachine>;
+  /** MC Tự động: số cây/bó theo quy cách (khoá = mã V20, H13-26, FI19...). Rỗng = dùng solverBundleFactors chung. */
+  solverBundleFactorsBySpec?: Record<string, number[]>;
 }
 
 export async function getCuttingDefaults(): Promise<CuttingDefaults> {

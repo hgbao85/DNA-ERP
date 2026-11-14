@@ -1,5 +1,6 @@
 import QRCode from 'qrcode'
 import type { BeWorkstation } from '../../../services/floor-api'
+import { machineLabel } from '../../../utils/cutMachine'
 
 const STAGE = { PHOI: 'PHÔI', HAN: 'HÀN', SON: 'SƠN' } as const
 const STEP: Record<string, string> = { UON: 'Uốn', DAP: 'Dập', DUC_LO: 'Đục lỗ', TAN: 'Tán', TOP_DAU: 'Tóp đầu', XE: 'Xẻ', NHAN: 'Nhấn' }
@@ -32,6 +33,12 @@ export function kindCaption(w: Pick<BeWorkstation, 'kind' | 'processStep'>): str
   return 'BÁO SỐ MẢNH'
 }
 
+/** Dòng loại máy cắt + xưởng trên tem (13/11/2026); không có gì để ghi thì bỏ dòng. */
+function temMachineLine(w: BeWorkstation): string {
+  const parts = [w.kind === 'CUT' ? machineLabel(w.cutMachineType) : null, w.workshopName ?? null].filter(Boolean)
+  return parts.length > 0 ? `<div class="mach">${esc(parts.join(' · '))}</div>` : ''
+}
+
 /** In tem QR (mỗi máy 1 tem, khổ ~10×14cm, cắt theo viền): mở hộp thoại in của trình duyệt qua iframe ẩn. */
 export async function printTems(list: BeWorkstation[], origin: string = window.location.origin): Promise<void> {
   const cards = await Promise.all(list.map(async (w) => {
@@ -41,6 +48,7 @@ export async function printTems(list: BeWorkstation[], origin: string = window.l
       <img src="${img}" alt="">
       <div class="code">${esc(w.code)}</div>
       <div class="name">${esc(w.name)}</div>
+      ${temMachineLine(w)}
       <div class="how">Mở camera điện thoại, quét mã, đăng nhập bằng tên + PIN của bạn rồi nhập số.</div>
     </section>`
   }))
@@ -53,6 +61,7 @@ export async function printTems(list: BeWorkstation[], origin: string = window.l
     img { width: 78mm; height: 78mm }
     .code { font-size: 26pt; font-weight: 800; letter-spacing: 1px }
     .name { font-size: 13pt }
+    .mach { font-size: 12pt; font-weight: 700 }
     .how { font-size: 9pt; color: #333; margin-top: auto }
   </style></head><body>${cards.join('')}</body></html>`
 

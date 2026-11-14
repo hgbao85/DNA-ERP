@@ -392,6 +392,7 @@ export const warehouseGroup: GuideGroup = {
       ],
       result: 'Khi phiếu xuất được xác nhận, tồn kho sắt bị trừ theo đúng cỡ chiều dài cây; Tổ Phôi thấy đợt xuất ở "Xác nhận nhận sắt" để xác nhận rồi bắt đầu cắt. Các lần đã xuất hiện ở bảng lịch sử bên dưới (Thời gian / Vật tư / Dài / Số cây / Trạng thái).',
       warnings: [
+        'Khi máy cắt rảnh tự kéo lệnh kế tiếp mà sắt của lệnh còn giữ trong kho, thủ kho kho Phôi của xưởng làm lệnh nhận thông báo "Xuất sắt lệnh … xuống Phôi ngay" (liệt kê loại sắt và số cây chưa xuất). Xuất xong đủ số cần thì thông báo tự đóng ở lượt kiểm kế tiếp (chậm nhất khoảng 10 phút). Lệnh vừa đổi xưởng mà sắt còn ở kho xưởng cũ thì máy chưa kéo: thủ kho kho cũ lập phiếu chuyển trước, kho xưởng mới nhận xong máy mới kéo.',
         'Cột "Cần" lấy từ phương án cắt đã duyệt (số cây thực sự cần), KHÔNG phải suy trực tiếp từ định mức (công thức sản xuất).',
         'Nếu Tổ Phôi xác nhận nhận với số đếm được khác số đã xuất, bảng lịch sử hiện thêm dòng "Phôi nhận N/M cây" — hệ thống không tự sửa lại tồn kho theo số lệch này, cần đối chiếu thủ công nếu nghi sai sót.',
       ],

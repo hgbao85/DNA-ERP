@@ -69,7 +69,7 @@ export interface SystemConfig {
   solverMaxWastePercentage: number;
   /** Mỗi cỡ đoạn được cắt dư tối đa chừng này đoạn so với nhu cầu. Mặc định 10. */
   solverMaxSurplus: number;
-  /** Cây đặt riêng: chiều dài ngắn nhất / dài nhất / bước dò (mm). Mặc định 5000 / 6000 / 10. */
+  /** Cây đặt riêng: chiều dài ngắn nhất / dài nhất / bước dò (mm). Mặc định 4000 / 6500 / 50 (13/11/2026: dò từ cây chuẩn ra 2 phía, lấy chiều dài đạt ngưỡng gần cây chuẩn nhất). */
   solverMinLengthMm: number;
   solverMaxLengthMm: number;
   solverLengthStepMm: number;
@@ -79,9 +79,11 @@ export interface SystemConfig {
   solverBladeWidthMm: number;
   /** MC Laser: phần đầu cây cắt bỏ (tề đầu, mm) trước khi cắt đoạn đầu tiên. Mặc định 10. */
   solverTrimStartMm: number;
+  /** MC Laser (13/11/2026): nhát cắt cuối phải ra 1 đoạn dài hơn số này (mm), tính cả cùi. Số nguyên 0..1000, mặc định 100; 0 = tắt. */
+  solverLaserMinTailMm: number;
   /** MC Tự động: bề dày lưỡi cắt (mm) mất đi sau mỗi nhát cắt. Mặc định 2,5. */
   solverMctdBladeWidthMm: number;
-  /** MC Tự động: phần đầu cây cắt bỏ (tề đầu, mm) trước khi cắt đoạn đầu tiên. Mặc định 0. */
+  /** MC Tự động: phần đầu cây cắt bỏ (tề đầu, mm) trước khi cắt đoạn đầu tiên. Mặc định 10 (13/11/2026, trước là 0). */
   solverMctdTrimStartMm: number;
   /** MC Tự động: các hệ số bó (số cây cắt một lần). Mặc định [14, 16, 18, 20]. */
   solverBundleFactors: number[];
@@ -90,12 +92,19 @@ export interface SystemConfig {
   /** MC Tự động: mỗi kiểu cắt có tối đa bao nhiêu cỡ đoạn. Mặc định 5. */
   solverMaxSizesPerPattern: number;
   /** KHUNG gộp (ngày) của lệnh gộp, số nguyên 1-365 (2026-10-24, Sếp chốt): LUẬT CỨNG - mốc cần sắt của các SKU gộp chung
-   *  phải nằm trong khung này TÍNH CẢ HAI ĐẦU, tức chênh nhau tối đa N-1 ngày (N=3: ngày 1 gộp được ngày 3, không gộp ngày 4;
+   *  phải nằm trong khung này TÍNH CẢ HAI ĐẦU, tức chênh nhau tối đa N-1 ngày (N=5: ngày 10 gộp được ngày 14, không gộp ngày 15;
    *  N=1: chỉ cùng ngày). Xa hơn thì KHSX không gộp/tính/lưu mốc thời gian được; màn Tối ưu cắt sắt cũng gợi ý gộp theo khung này.
-   *  Mặc định 3 (trước là 7, và cho phép 0). */
+   *  Mặc định 5 (13/11/2026; trước là 3, và trước nữa là 7). */
   solverMergeWindowDays: number;
   /** Lệnh gộp (và một đợt tính phương án cắt) có tối đa chừng này SKU, số nguyên 1-50 (2026-10-24). Mặc định 2. */
   solverMergeMaxSkus: number;
+  /** Số cỡ đoạn tối đa trên 1 cây theo XƯỞNG (13/11/2026): khoá = code xưởng (PHU_AN, PHUOC_AN), giá trị số nguyên 1-10;
+   *  xưởng không có khoá = không có luật riêng (theo máy). Bộ giải thử mức này trước, không đạt ngưỡng hao hụt thì tự nới thêm cỡ. */
+  solverMaxSizesPerBarByWorkshop: Record<string, number>;
+  /** Máy cắt BẮT BUỘC theo xưởng (13/11/2026): khoá = code xưởng, giá trị 'laser' | 'tu_dong'. Xưởng có khoá thì mọi lượt tính dùng máy này, KHSX không đổi được. */
+  solverMachineByWorkshop: Record<string, 'laser' | 'tu_dong'>;
+  /** MC Tự động: số cây/bó cho phép THEO QUY CÁCH (khoá = mã V20, H13-26, FI19...). Bảng rỗng = dùng solverBundleFactors chung. */
+  solverBundleFactorsBySpec: Record<string, number[]>;
   /** Thể tích container 40HC (m³, 2 số lẻ) dùng tính load cont của SKU (Phần A YC9). Mặc định 68. */
   containerVolumeM3?: number;
   /** Phần A – Đợt 3 (YC10): trần cont/ngày của mỗi xưởng Phú An và mỗi kho đóng gói (0,1–20). Mặc định 1,3. Chỉ để cảnh báo. */
