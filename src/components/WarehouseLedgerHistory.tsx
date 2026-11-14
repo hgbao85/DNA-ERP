@@ -49,6 +49,7 @@
 import { useState } from 'react'
 import { useFetch } from '../hooks/useFetch'
 import { getStockLedger, type BeStockLedgerEntry } from '../services/stock-api'
+import { segmentStepsLabel } from '../services/segment-stock-api'
 import LoadingState from './LoadingState'
 import { tableWrap, tbl, compactTh as th, compactTd as td, emptyBox, tableScrollBox, stickyHeaderRow } from '../styles/table'
 import LenhCode from './LenhCode'
@@ -85,6 +86,8 @@ const TEAM_BY_REF_TYPE: Record<string, string> = {
   WEAVING_ISSUE: 'Điểm đan',
   PACKAGING_ISSUE: 'Tổ đóng gói',
   FRAME_OUTPUT: 'Tổ Phôi',
+  // Tồn đoạn theo lệnh (13/11/2026): đoạn đủ công đoạn + KCS đạt từ Tổ Phôi vào kho (âm = tính lại giảm).
+  SEGMENT_PRODUCE: 'Tổ Phôi',
 }
 
 function whLabel(code: string, name: string, e: BeStockLedgerEntry): string {
@@ -116,7 +119,11 @@ function itemOf(e: BeStockLedgerEntry): { code: string; name: string; unit: stri
       unit: e.materialUnit ?? '',
     }
   }
-  if (e.segmentSpecId) return { code: e.segmentSpecLabel ?? '—', name: 'Đoạn sắt đã cắt', unit: 'đoạn' }
+  if (e.segmentSpecId) {
+    const code = e.segmentSpecLabel ?? '—'
+    // Mã đoạn = cỡ đoạn + bộ công đoạn: "SAT-005 @ 460mm · Dập" (dòng trơn cũ không ghi thêm gì).
+    return { code: e.segmentSteps ? `${code} · ${segmentStepsLabel(e.segmentSteps)}` : code, name: 'Đoạn sắt đã cắt', unit: 'đoạn' }
+  }
   if (e.pieceId) return { code: e.pieceCode ?? '—', name: 'Mảnh', unit: 'cái' }
   if (e.productVariantId) return { code: e.productVariantLabel ?? '—', name: 'Thành phẩm', unit: 'cái' }
   return { code: '—', name: '', unit: '' }

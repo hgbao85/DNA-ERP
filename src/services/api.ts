@@ -132,6 +132,7 @@ export {
   getPieceTransferPlan, createPieceWarehouseTransfer,
 } from './warehouse-transfers-api';
 export { getStockQuants, getStockLedger, adjustStock } from './stock-api';
+export { getSegmentBalances, getSegmentOverages, resolveSegmentOverage, stocktakeSegment } from './segment-stock-api';
 export { uploadImage, uploadDocument } from './uploads-api';
 export {
   getNotifications,

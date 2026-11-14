@@ -47,6 +47,8 @@ export interface BeStockLedgerEntry {
   materialUnit: string | null;
   segmentSpecId: string | null;
   segmentSpecLabel: string | null;
+  /** Bộ công đoạn của đoạn ('' = trơn) - mã đoạn = cỡ đoạn + bộ công đoạn (tồn đoạn theo lệnh 13/11/2026). */
+  segmentSteps?: string;
   /** Mảnh/thành phẩm - 2 chân hàng còn lại của sổ kho (XOR với material/segmentSpec). Kho phôi sơn
    *  hàn/vật tư TP gần như không có dòng loại này, kho thành phẩm thì có. */
   pieceId: string | null;

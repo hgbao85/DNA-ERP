@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import FloorStoppedBanner from '../../../components/FloorStoppedBanner'
 import { useCloseNavOnNotification } from '../../../hooks/useCloseNavOnNotification'
-import { LogOut, Grid, Boxes, Warehouse, ArrowDownToLine, ArrowUpFromLine, ClipboardCheck, Box, BarChart3, MapPin, Share2, History, ArrowLeftRight, PenLine, PackageCheck, Menu, X } from 'lucide-react'
+import { LogOut, Grid, Boxes, Warehouse, ArrowDownToLine, ArrowUpFromLine, ClipboardCheck, Box, BarChart3, MapPin, Share2, History, ArrowLeftRight, PenLine, PackageCheck, Menu, X, Scissors } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import { useIsCompact, useIsMobile } from '../../../hooks/useMediaQuery'
 import { useUrlState } from '../../../hooks/useUrlState'
@@ -22,6 +22,7 @@ import KhoChuyenKiemPage from './KhoChuyenKiemPage'
 import KhoDongGoiPage from './KhoDongGoiPage'
 import WarehouseXuatPage from './WarehouseXuatPage'
 import PhanPhoiNoiBoPage from './PhanPhoiNoiBoPage'
+import KhoPhoiPage from '../Phoi/KhoPhoiPage'
 import KhoXuatDanPage from './KhoXuatDanPage'
 import KhoVatTuKemDanPage from './KhoVatTuKemDanPage'
 import KhoNhapDanPage from './KhoNhapDanPage'
@@ -61,7 +62,7 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
   // vào nhánh generic bên dưới (mất tab "Tổng hợp vật tư", lộ nhầm tab đặc thù vat-tu-tp).
   const canSeePacking = scope === null || isThanhPhamScope(scope) || isFamilyScope(scope, 'vat-tu-tp') || isFamilyScope(scope, 'phoi-son-han')
 
-  type TabId = 'materials' | 'warehouses' | 'nhap-kho' | 'xuat-kho' | 'chuyen-tu-do' | 'lich-su-kho' | 'xuat-sat' | 'chuyen-kiem' | 'dong-goi' | 'xuat-dan' | 'nhap-dan' | 'diem-dan' | 'vat-tu-van-phong' | 'vat-tu-can-ve'
+  type TabId = 'materials' | 'warehouses' | 'nhap-kho' | 'xuat-kho' | 'chuyen-tu-do' | 'lich-su-kho' | 'xuat-sat' | 'chuyen-kiem' | 'dong-goi' | 'xuat-dan' | 'nhap-dan' | 'diem-dan' | 'vat-tu-van-phong' | 'vat-tu-can-ve' | 'ton-doan'
   // Badge "việc chờ tôi" (changelog notification 2026-09-25 mục 6.3/27) - gộp vào ĐÚNG 1 tab
   // 'nhap-kho' vì cả 2 việc chờ (hàng mua chờ nhận + phiếu chuyển "Nhập nội bộ" chờ xác nhận) đều
   // là sub-tab BÊN TRONG NhapKhoPage.tsx, không phải 2 tab riêng (khác 'chuyen-tu-do' - đó là màn
@@ -87,6 +88,8 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
     // trong phiên, mất sạch khi tải lại trang.
     { id: 'lich-su-kho', label: 'Lịch sử kho',        icon: <History size={16} /> },
     ...(isFamilyScope(scope, 'phoi-son-han') ? [{ id: 'xuat-sat' as TabId, label: 'Phân phối nội bộ', icon: <Share2 size={16} /> }] : []),
+    // Tồn đoạn theo lệnh (13/11/2026): thủ kho Phôi xem tồn / giữ cho lệnh / dư theo mã đoạn và kiểm kê đoạn.
+    ...(warehouseKindOf(scope) === 'PHOI' ? [{ id: 'ton-doan' as TabId, label: 'Tồn đoạn', icon: <Scissors size={16} /> }] : []),
     ...(canSeePacking ? [
       { id: 'chuyen-kiem' as TabId, label: 'Chuyền kiểm', icon: <ClipboardCheck size={16} /> },
       { id: 'dong-goi'    as TabId, label: 'Đóng gói',    icon: <Box size={16} /> },
@@ -111,7 +114,7 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
     // Phôi Sơn Hàn không được dùng "Chuyển kho tự do" (2026-09-15, quyết định nghiệp vụ) - họ chỉ
     // xuất sắt cho SX qua "Phân phối nội bộ" (xuat-sat), không tự ý chuyển vật tư đi kho khác.
     // Đợt 7: riêng kho Phôi mở "Chuyển kho" để chuyển đá cắt sang kho Hàn cùng xưởng (trang tự giới hạn kho đích).
-    if (isFamilyScope(scope, 'phoi-son-han')) return ALL_TABS.filter(t => ['materials','nhap-kho','xuat-kho', ...(warehouseKindOf(scope) === 'PHOI' ? ['chuyen-tu-do'] : []),'lich-su-kho','xuat-sat','vat-tu-van-phong','vat-tu-can-ve'].includes(t.id))
+    if (isFamilyScope(scope, 'phoi-son-han')) return ALL_TABS.filter(t => ['materials','nhap-kho','xuat-kho', ...(warehouseKindOf(scope) === 'PHOI' ? ['chuyen-tu-do'] : []),'lich-su-kho','xuat-sat','ton-doan','vat-tu-van-phong','vat-tu-can-ve'].includes(t.id))
     if (isThanhPhamScope(scope)) return ALL_TABS.filter(t => ['materials','nhap-kho','xuat-kho','chuyen-tu-do','lich-su-kho','chuyen-kiem','dong-goi','nhap-dan','vat-tu-van-phong','vat-tu-can-ve'].includes(t.id))
     if (scope) return ALL_TABS.filter(t => t.id !== 'materials')
     return ALL_TABS
@@ -295,6 +298,7 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
         )}
         {tab === 'chuyen-tu-do' && <ChuyenKhoTuDoPage scope={scope} />}
         {tab === 'xuat-sat'   && isFamilyScope(scope, 'phoi-son-han') && <PhanPhoiNoiBoPage />}
+        {tab === 'ton-doan'   && scope && warehouseKindOf(scope) === 'PHOI' && <KhoPhoiPage canStocktake lockedWarehouseCode={scope} />}
         {tab === 'chuyen-kiem' && canSeePacking && <KhoChuyenKiemPage warehouseScope={scope} />}
         {tab === 'dong-goi'    && canSeePacking && <KhoDongGoiPage warehouseScope={scope} />}
         {/* Anh Nhân 09/11/2026: kho Phụ kiện không xuất mảnh nữa (mảnh xuất đan từ kho Sơn - Phân phối nội bộ > Xuất đan) - chỉ
