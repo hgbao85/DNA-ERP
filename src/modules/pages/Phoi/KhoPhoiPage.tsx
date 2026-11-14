@@ -36,8 +36,12 @@ const card: React.CSSProperties = { background: 'var(--surface)', border: '1px s
 
 type Tab = 'duyet' | 'thua'
 
-/** Kho ảo đối ứng (Hàn / Sơn dùng đoạn thì đoạn "ra" kho này) - không phải tồn thật. */
-const PRODUCTION_WAREHOUSE_CODE = 'PRODUCTION'
+/**
+ * Kho ảo đối ứng - không phải tồn thật: PRODUCTION (Hàn / Sơn dùng đoạn thì đoạn "ra" kho này, KCS đạt thì "vào" từ đây),
+ * OPENING_BALANCE "Cân đối tồn kho" (kiểm kê đoạn, chuyển đổi dữ liệu cũ). /segment-stock/balances trả mọi kho có dòng đoạn nên
+ * phải bỏ cả 2 - thử bật công tắc 14/11 trên bản sao: sau kiểm kê, "Cân đối tồn kho" hiện thành 1 kho với số âm.
+ */
+const VIRTUAL_WAREHOUSE_CODES = new Set(['PRODUCTION', 'OPENING_BALANCE', 'SUPPLIER', 'SCRAP'])
 
 const fmt = (n: number) => n.toLocaleString('vi-VN', { maximumFractionDigits: 4 })
 const fmtMm = (n: number) => n.toLocaleString('vi-VN', { maximumFractionDigits: 1 })
@@ -63,7 +67,7 @@ export default function KhoPhoiPage({ canStocktake = false, lockedWarehouseCode 
   // Các kho Phôi có đoạn (bỏ kho ảo). Mặc định: kho người xem đang được gán, không có thì kho đầu tiên.
   const warehouses = useMemo(() => {
     const m = new Map<string, string>()
-    for (const b of balances ?? []) if (b.warehouseCode !== PRODUCTION_WAREHOUSE_CODE) m.set(b.warehouseCode, b.warehouseName)
+    for (const b of balances ?? []) if (!VIRTUAL_WAREHOUSE_CODES.has(b.warehouseCode)) m.set(b.warehouseCode, b.warehouseName)
     return [...m.entries()].map(([code, name]) => ({ code, name })).sort((a, b) => a.name.localeCompare(b.name, 'vi'))
   }, [balances])
   const [kiemKe, setKiemKe] = useState<BeSegmentBalance | null>(null)
