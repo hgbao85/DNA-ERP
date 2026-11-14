@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useCloseNavOnNotification } from '../../../hooks/useCloseNavOnNotification'
-import { LayoutDashboard, Package, LogOut, Grid, CalendarClock, ClipboardList, Warehouse, FilePlus, Layers, PackageCheck, Menu, X } from 'lucide-react'
+import { LayoutDashboard, Package, LogOut, Grid, CalendarClock, ClipboardList, Warehouse, FilePlus, Layers, PackageCheck, Menu, X, AlertTriangle } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import { useFetch } from '../../../hooks/useFetch'
 import { useIsCompact, useIsMobile } from '../../../hooks/useMediaQuery'
@@ -17,11 +17,12 @@ import ThongKePagePlan from '../Manufacturing/ThongKePagePlan'
 import LenhSXPage from './LenhSXPage'
 import GomDotCatPage from './GomDotCatPage'
 import VatTuCanVePage from '../MaterialsDue/VatTuCanVePage'
+import SoBaoVuotDoanPage from '../Manufacturing/SoBaoVuotDoanPage'
 import ThemeToggle from '../../../components/ThemeToggle'
 
-type Page = 'planforms' | 'duyet-sku' | 'vattu' | 'thongke' | 'lenh-sx' | 'gom-cat' | 'warehouses' | 'vat-tu-can-ve'
+type Page = 'planforms' | 'duyet-sku' | 'vattu' | 'thongke' | 'lenh-sx' | 'gom-cat' | 'warehouses' | 'vat-tu-can-ve' | 'so-bao-vuot-doan'
 
-const PAGE_VALUES: Page[] = ['planforms', 'duyet-sku', 'vattu', 'thongke', 'lenh-sx', 'gom-cat', 'warehouses', 'vat-tu-can-ve']
+const PAGE_VALUES: Page[] = ['planforms', 'duyet-sku', 'vattu', 'thongke', 'lenh-sx', 'gom-cat', 'warehouses', 'vat-tu-can-ve', 'so-bao-vuot-doan']
 const isPage = (v: string | null): v is Page => !!v && (PAGE_VALUES as string[]).includes(v)
 
 interface Props { onBack?: () => void }
@@ -78,6 +79,8 @@ export default function ProductionPlanApp({ onBack }: Props) {
     { page: 'warehouses', icon: <Warehouse size={16} />,       label: 'Tổng hợp kho' },
     // Phần A – Đợt 4: chỉ xem, KHÔNG badge (Sếp 05/11).
     { page: 'vat-tu-can-ve', icon: <PackageCheck size={16} />, label: 'Vật tư cần về' },
+    // Tồn đoạn theo lệnh - anh Nhân 14/11: KHSX xem sổ báo vượt (QLSX mới đóng dòng).
+    { page: 'so-bao-vuot-doan', icon: <AlertTriangle size={16} />, label: 'Sổ báo vượt đoạn' },
   ]
 
   const selectPage = (page: Page) => { setActivePage(page); setDrawerOpen(false) }
@@ -159,6 +162,7 @@ export default function ProductionPlanApp({ onBack }: Props) {
       {activePage === 'gom-cat'    && <GomDotCatPage onDone={() => setActivePage('lenh-sx')} onRecheckChanged={refetchRecheck} recheck={Array.isArray(recheckPending) ? recheckPending : null} />}
       {activePage === 'warehouses' && <MfgWarehousesPage />}
       {activePage === 'vat-tu-can-ve' && <VatTuCanVePage />}
+      {activePage === 'so-bao-vuot-doan' && <SoBaoVuotDoanPage canResolve={false} />}
     </>
   )
 
