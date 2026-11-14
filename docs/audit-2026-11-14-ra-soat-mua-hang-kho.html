@@ -1,0 +1,418 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DNA-ERP — Rà soát Mua hàng + Kho (14/11/2026)</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=Be+Vietnam+Pro:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --bg:#eef1f0;
+    --surface:#ffffff;
+    --surface-2:#f5f7f6;
+    --border:#d7dcda;
+    --border-strong:#c1c9c6;
+    --text:#182220;
+    --text-muted:#56635f;
+    --text-faint:#8a948f;
+    --accent:#1f6f78;
+    --accent-strong:#154e55;
+    --accent-soft:#dcecec;
+    --active:#a8382b;
+    --active-soft:#f6e3df;
+    --dead:#96631f;
+    --dead-soft:#f3e6d3;
+    --resolved:#3f6b4f;
+    --resolved-soft:#e1ede4;
+    --moot:#727d78;
+    --moot-soft:#eceeed;
+    --shadow: 0 1px 2px rgba(20,30,28,0.06), 0 6px 20px -12px rgba(20,30,28,0.18);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#10171a; --surface:#161f22; --surface-2:#1b2528;
+      --border:#2a3538; --border-strong:#39464a;
+      --text:#e7ede9; --text-muted:#a3b2ac; --text-faint:#728079;
+      --accent:#63b9bd; --accent-strong:#8fd0d2; --accent-soft:#1e3436;
+      --active:#e07a68; --active-soft:#3a231e;
+      --dead:#d9ab68; --dead-soft:#392e1b;
+      --resolved:#84c096; --resolved-soft:#1f3526;
+      --moot:#8ea198; --moot-soft:#212b28;
+      --shadow: 0 1px 2px rgba(0,0,0,0.4), 0 10px 30px -14px rgba(0,0,0,0.6);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#10171a; --surface:#161f22; --surface-2:#1b2528;
+    --border:#2a3538; --border-strong:#39464a;
+    --text:#e7ede9; --text-muted:#a3b2ac; --text-faint:#728079;
+    --accent:#63b9bd; --accent-strong:#8fd0d2; --accent-soft:#1e3436;
+    --active:#e07a68; --active-soft:#3a231e;
+    --dead:#d9ab68; --dead-soft:#392e1b;
+    --resolved:#84c096; --resolved-soft:#1f3526;
+    --moot:#8ea198; --moot-soft:#212b28;
+    --shadow: 0 1px 2px rgba(0,0,0,0.4), 0 10px 30px -14px rgba(0,0,0,0.6);
+  }
+
+  *{box-sizing:border-box;}
+  html{-webkit-text-size-adjust:100%;}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:'Be Vietnam Pro', system-ui, sans-serif;
+    font-size:16px; line-height:1.6; -webkit-font-smoothing:antialiased;
+  }
+  a{color:var(--accent-strong);}
+  a:focus-visible, button:focus-visible, summary:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+  code, .mono{ font-family:'IBM Plex Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+
+  .wrap{ max-width:960px; margin:0 auto; padding: clamp(28px, 6vw, 64px) clamp(18px, 5vw, 28px) 96px; }
+
+  header.hero{ border-bottom:1px solid var(--border); padding-bottom:28px; margin-bottom:32px; }
+  .eyebrow{ display:flex; align-items:center; gap:10px; font-family:'IBM Plex Mono', monospace; font-size:12.5px; letter-spacing:0.09em; text-transform:uppercase; color:var(--accent-strong); margin-bottom:14px; }
+  .eyebrow .dot{ width:6px; height:6px; border-radius:50%; background:var(--accent); box-shadow:0 0 0 3px var(--accent-soft); }
+  h1{ font-family:'Archivo', system-ui, sans-serif; font-weight:800; font-size:clamp(28px, 4.4vw, 40px); line-height:1.12; letter-spacing:-0.01em; margin:0 0 12px; text-wrap:balance; color:var(--text); }
+  .dek{ color:var(--text-muted); font-size:16.5px; max-width:70ch; margin:0 0 20px; }
+  .meta-row{ display:flex; flex-wrap:wrap; gap:10px 22px; font-size:13.5px; color:var(--text-faint); }
+  .meta-row b{ color:var(--text-muted); font-weight:600; }
+
+  .stats{ display:grid; grid-template-columns:repeat(auto-fit, minmax(130px,1fr)); gap:1px; background:var(--border); border:1px solid var(--border); border-radius:10px; overflow:hidden; margin:28px 0 4px; }
+  .stat{ background:var(--surface); padding:16px 16px 15px; }
+  .stat .n{ font-family:'Archivo', sans-serif; font-weight:800; font-size:26px; line-height:1; color:var(--text); }
+  .stat .n.active{color:var(--active);}
+  .stat .n.dead{color:var(--dead);}
+  .stat .n.resolved{color:var(--resolved);}
+  .stat .l{ margin-top:6px; font-size:12px; color:var(--text-faint); letter-spacing:0.02em; }
+
+  section{ margin-top:52px; }
+  .section-head{ display:flex; align-items:baseline; gap:12px; margin-bottom:6px; }
+  .section-num{ font-family:'IBM Plex Mono', monospace; font-size:13px; color:var(--text-faint); }
+  h2{ font-family:'Archivo', sans-serif; font-weight:700; font-size:22px; letter-spacing:-0.005em; margin:0; color:var(--text); }
+  .section-note{ color:var(--text-muted); font-size:15px; max-width:74ch; margin:10px 0 22px; }
+  .section-note code{ background:var(--surface-2); border:1px solid var(--border); border-radius:4px; padding:1px 5px; font-size:0.9em; }
+
+  .finding{ background:var(--surface); border:1px solid var(--border); border-left:4px solid var(--moot); border-radius:8px; padding:18px 20px 20px; margin-bottom:14px; box-shadow:var(--shadow); }
+  .finding.active{ border-left-color:var(--active); }
+  .finding.dead{ border-left-color:var(--dead); }
+  .finding.resolved{ border-left-color:var(--resolved); }
+  .finding.clean{ border-left-color:var(--accent); }
+
+  .finding-top{ display:flex; align-items:flex-start; justify-content:space-between; gap:14px; flex-wrap:wrap; margin-bottom:8px; }
+  .finding-title{ font-family:'Archivo', sans-serif; font-weight:700; font-size:16.5px; color:var(--text); margin:0; }
+  .badge{ display:inline-flex; align-items:center; gap:5px; font-family:'IBM Plex Mono', monospace; font-size:11px; letter-spacing:0.04em; text-transform:uppercase; padding:3px 8px; border-radius:999px; white-space:nowrap; font-weight:600; }
+  .badge.active{ background:var(--active-soft); color:var(--active); }
+  .badge.dead{ background:var(--dead-soft); color:var(--dead); }
+  .badge.resolved{ background:var(--resolved-soft); color:var(--resolved); }
+  .badge.moot{ background:var(--moot-soft); color:var(--moot); }
+  .badge.clean{ background:var(--accent-soft); color:var(--accent-strong); }
+
+  .loc{ display:block; font-family:'IBM Plex Mono', monospace; font-size:12.5px; color:var(--text-faint); margin-bottom:10px; }
+  .finding p{ margin:0 0 10px; color:var(--text); font-size:15px; }
+  .finding p:last-child{ margin-bottom:0; }
+  .finding .scenario{ background:var(--surface-2); border:1px solid var(--border); border-radius:6px; padding:10px 13px; font-size:14px; color:var(--text-muted); }
+  .finding .scenario b{ color:var(--text); font-weight:600; }
+  .finding .quote{ font-size:13.5px; color:var(--text-faint); border-left:2px solid var(--border); padding-left:10px; font-style:italic; margin:0 0 10px; }
+
+  .status-list{ display:flex; flex-direction:column; gap:1px; background:var(--border); border:1px solid var(--border); border-radius:8px; overflow:hidden; }
+  .status-row{ background:var(--surface); padding:13px 16px; display:flex; gap:14px; align-items:flex-start; }
+  .status-row .badge{ margin-top:2px; flex-shrink:0; }
+  .status-row .body b{ color:var(--text); }
+  .status-row .body{ color:var(--text-muted); font-size:14.5px; }
+
+  .cmp-table{ width:100%; border-collapse:collapse; font-size:14px; }
+  .cmp-table th{ text-align:left; font-family:'IBM Plex Mono', monospace; font-size:11px; letter-spacing:0.05em; text-transform:uppercase; color:var(--text-faint); padding:0 12px 8px; border-bottom:1px solid var(--border-strong); }
+  .cmp-table td{ padding:11px 12px; border-bottom:1px solid var(--border); color:var(--text-muted); vertical-align:top; }
+  .cmp-table td:first-child{ color:var(--text); font-weight:600; }
+  .cmp-table tr:last-child td{ border-bottom:none; }
+  .table-wrap{ overflow-x:auto; border:1px solid var(--border); border-radius:8px; background:var(--surface); box-shadow:var(--shadow); margin-bottom:14px; }
+
+  footer{ margin-top:64px; padding-top:20px; border-top:1px solid var(--border); font-size:12.5px; color:var(--text-faint); }
+
+  .tags{ display:inline-flex; flex-wrap:wrap; gap:6px; }
+  .badge.me{ background:var(--surface-2); color:var(--text-muted); border:1px solid var(--border); }
+  .badge.part{ background:var(--surface-2); color:var(--accent-strong); border:1px dashed var(--border-strong); }
+  .finding .scenario{ margin-top:4px; }
+  h3.sub{ font-family:'Archivo', sans-serif; font-weight:700; font-size:16px; margin:28px 0 8px; color:var(--text); }
+  ol.steps, ul.plain{ margin:0; padding-left:22px; color:var(--text); font-size:15px; }
+  ol.steps li, ul.plain li{ margin-bottom:8px; }
+  ol.steps{ background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px 20px 10px 40px; box-shadow:var(--shadow); }
+  .section-note b{ color:var(--text); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <div class="eyebrow"><span class="dot"></span>Rà soát nội bộ · Mua hàng + Kho</div>
+    <h1>Rà soát Mua hàng + Kho</h1>
+    <p class="dek">Rà toàn bộ code BE phần Mua hàng và Kho (nhánh <code>main</code>, bản 14/11/2026), tìm ra khoảng 30 lỗi. <b>Chưa sửa lỗi nào.</b> 22 lỗi có mô tả đủ đều đã được kiểm lại trong code: 16 đúng, 6 đúng một phần, không lỗi nào sai. Cả 4 lỗi mức cao đều có thật. Bản này đã sửa theo bản review ngày 14/11.</p>
+    <div class="meta-row">
+      <span><b>Ngày chốt:</b> 14/11/2026</span>
+      <span><b>Phạm vi:</b> D:\DNA-ERP-BE (Mua hàng, Kho, Chuyển kho, Tồn đoạn)</span>
+      <span><b>Phương pháp:</b> 4 agent chỉ đọc code + Claude tự kiểm 8 lỗi + review độc lập kiểm 22 lỗi, chưa chạy thử</span>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="n">30</div><div class="l">Lỗi tìm thấy (ước lượng)</div></div>
+      <div class="stat"><div class="n active">4</div><div class="l">Mức cao — đều có thật</div></div>
+      <div class="stat"><div class="n dead">14</div><div class="l">Mức trung bình</div></div>
+      <div class="stat"><div class="n">12</div><div class="l">Mức thấp — mới mô tả 3</div></div>
+      <div class="stat"><div class="n resolved">22</div><div class="l">Đã kiểm trong code: 16 đúng, 6 đúng một phần</div></div>
+    </div>
+  </header>
+
+  <section>
+    <div class="section-head"><span class="section-num">00</span><h2>Kết luận chính</h2></div>
+    <div class="status-list">
+      <div class="status-row">
+        <span class="badge active">Nhóm A</span>
+        <div class="body"><b>Tính lại dòng mua đếm sai hàng đã nhận</b>, và không dùng chung khoá với bước Giám đốc ký đơn. Đang làm sai số mua ngay bây giờ, không phụ thuộc công tắc nào (mục 01).</div>
+      </div>
+      <div class="status-row">
+        <span class="badge active">Nhóm B</span>
+        <div class="body"><b>Quỹ giữ chỗ tính theo lệnh / vật tư / quy cách, không theo kho</b>, nên vỡ sau khi đổi xưởng. Muốn sửa tận gốc phải thiết kế lại; riêng CK6 sửa độc lập được (mục 02).</div>
+      </div>
+      <div class="status-row">
+        <span class="badge dead">Kho xuất</span>
+        <div class="body"><b>Xác nhận phiếu XK không so với kho in trên phiếu</b>, và một số luồng xuất không chặn theo định mức (mục 03).</div>
+      </div>
+      <div class="status-row">
+        <span class="badge moot">Tồn đoạn</span>
+        <div class="body">Công tắc <code class="mono">SEGMENT_STOCK_ENABLED</code> đang tắt nên <b>chưa ảnh hưởng dữ liệu thật</b>, nhưng phải sửa hết trước khi bật. Thứ tự bật công tắc ghi trong bản trước là sai (mục 04).</div>
+      </div>
+      <div class="status-row">
+        <span class="badge resolved">Đo bước 1</span>
+        <div class="body">Trên DB dev <b>chưa có dòng mua sai nào xảy ra</b>; PI-2026-003 / VTK-004 sẽ mua dư 15 ở lần tính lại tới. Production chưa đo (mục 08).</div>
+      </div>
+    </div>
+    <p class="section-note">Cách đọc các thẻ dưới đây: nhãn màu là mức độ; <b>Review</b> là kết luận khi kiểm lại trong code (Đúng = lỗi có thật như mô tả; Đúng một phần = có thật nhưng điều kiện hoặc hậu quả khác); <b>Claude ✔</b> = Claude đã tự mở code kiểm. Số dòng là của code hiện tại; dấu ~ là khoảng. Chỉ đọc code, không chạy thử: điều kiện xảy ra và hậu quả là suy ra từ code.</p>
+  </section>
+
+  <section>
+    <div class="section-head"><span class="section-num">01</span><h2>Nhóm A — tính lại dòng mua đếm sai hàng đã nhận</h2></div>
+    <p class="section-note">Đang làm sai số mua ngay bây giờ nên sửa đầu tiên. MH1 gặp ở gần như mọi vật tư mua mới, vì điều kiện chỉ là lần tính đầu chưa có tồn.</p>
+
+    <div class="finding active">
+      <div class="finding-top"><h3 class="finding-title">MH1 — Tính lại thì mua thêm cả hàng đã nhận</h3><span class="tags"><span class="badge active">Cao</span><span class="badge clean">Review: Đúng</span><span class="badge me">Claude ✔</span></span></div>
+      <span class="loc mono">stock-reservations.service.ts:136–140, :287–306 · consumable-material-purchase.service.ts:272–305 · piece-material-yield-purchase.service.ts:221–245 · material-yield-recipe-purchase.service.ts:152–168</span>
+      <p>Lần tính đầu chưa có tồn thì <code class="mono">reserveOrAdjust</code> không tạo dòng giữ chỗ. Hàng về, <code class="mono">creditPool</code> tạo dòng "của cả lệnh" PRODUCTION_INVOICE. Lần tính lại, <code class="mono">shrinkToFloor</code> chỉ thu nhỏ dòng của đúng nguồn mua; <code class="mono">getAvailableQty</code> gọi không truyền lệnh của mình nên trừ luôn dòng PRODUCTION_INVOICE, như thể lệnh khác đang giữ.</p>
+      <p>Gặp khi tính lại nhu cầu, khi Admin bấm "Tạo lại", và ở endpoint <code class="mono">POST production-invoices/:id/piece-material-yield-purchase-proposals</code>. "Đóng phần thiếu" (<code class="mono">closeShortage</code>, <code class="mono">supplier-orders.service.ts:431–541</code>) không tính lại nên không dính trực tiếp; hậu quả đến ở lần tính lại sau.</p>
+      <div class="scenario"><b>Ví dụ:</b> cần 100, tồn 0, đã nhận 60, nhu cầu tăng lên 120. Hệ thống tạo dòng mới 80 thay vì 20, tức mua dư 60.</div>
+    </div>
+
+    <div class="finding dead">
+      <div class="finding-top"><h3 class="finding-title">MH2 — Nhánh "chỉ còn dòng đã đóng" trừ sai số đã nhận</h3><span class="tags"><span class="badge dead">Trung bình</span><span class="badge clean">Review: Đúng</span></span></div>
+      <span class="loc mono">purchase-recompute.util.ts:144–149 (so với :161)</span>
+      <p>Khi chỉ còn dòng đã đóng, <code class="mono">shortfall = newBuyQty − purchased[0].receivedQty</code>: chỉ trừ số nhận của dòng đầu, và trừ hàng đã nhận lần thứ 2 vì <code class="mono">newBuyQty</code> đã tính trên tồn gồm hàng đã nhận. Nhánh kia cộng <code class="mono">receivedQty</code> vào để so cùng gốc.</p>
+      <div class="scenario"><b>Hậu quả:</b> mua thiếu khi hàng đã nhận còn trong tồn; mua trùng khi có từ 2 dòng đã đóng (ví dụ dòng đóng thiếu + dòng đặt lại).</div>
+    </div>
+
+    <div class="finding dead">
+      <div class="finding-top"><h3 class="finding-title">MH3 — Tính lại và Giám đốc ký đơn không khoá chặn nhau</h3><span class="tags"><span class="badge dead">Trung bình</span><span class="badge clean">Review: Đúng</span><span class="badge me">Claude ✔</span></span></div>
+      <span class="loc mono">purchase-proposal-merge: consumable :349 · pat :212 · công thức :144 · cutting-proposals.service.ts:2689 — purchase-proposal-mutate: purchase-proposals.service.ts:494 · supplier-orders.service.ts:157/377/460 · purchase-receipts.service.ts:145</span>
+      <p>Tính lại khoá <code class="mono">purchase-proposal-merge:&lt;lệnh&gt;</code>, Giám đốc ký đơn khoá <code class="mono">purchase-proposal-mutate:&lt;đề xuất&gt;</code>; không luồng nào lấy cả 2. Tính lại đọc dòng không FOR UPDATE rồi update không kiểm trạng thái.</p>
+      <div class="scenario"><b>Hậu quả:</b> có thể ghi đè hoặc đóng mất dòng vừa được ký. Cửa sổ thời gian hẹp.</div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head"><span class="section-num">02</span><h2>Nhóm B — giữ chỗ không theo kho, vỡ sau đổi xưởng</h2></div>
+    <p class="section-note">Quỹ giữ chỗ (<code>loadPool</code> / <code>creditPool</code> / <code>drainPool</code>) tính theo lệnh / vật tư / quy cách, không theo kho. Sau khi đổi xưởng, phần giữ và hàng thật nằm ở 2 kho khác nhau. Sửa tận gốc phải thiết kế lại cho giữ chỗ đi theo kho, tính cả phần đợt A/B/C chưa commit.</p>
+
+    <div class="finding active">
+      <div class="finding-top"><h3 class="finding-title">CK1 — Hàng nhận ở kho mới bị cộng vào dòng giữ chỗ ở kho cũ</h3><span class="tags"><span class="badge active">Cao</span><span class="badge clean">Review: Đúng</span><span class="badge me">Claude ✔</span></span></div>
+      <span class="loc mono">stock-reservations.service.ts:260–317 (creditPool)</span>
+      <p><code class="mono">creditPool</code> cộng hàng nhận vào dòng đầu tiên của (lệnh, vật tư, quy cách), không xét kho. Kho của hàng nhận chỉ dùng khi chưa có dòng nào.</p>
+      <div class="scenario"><b>Hậu quả:</b> thủ kho cũ bị yêu cầu chuyển hàng mình không có; hàng thật ở kho mới không được giữ, lệnh khác lấy mất. Phần đợt C (chưa commit) tính "đủ sắt" theo giữ chỗ ở kho của xưởng, nên lệnh vừa đổi xưởng có thể kẹt "Chờ sắt" dù sắt đã ở kho mới.</div>
+    </div>
+
+    <div class="finding active">
+      <div class="finding-top"><h3 class="finding-title">CK2 — Tính lại chuyển giữ chỗ sang kho mới dù hàng còn ở kho cũ</h3><span class="tags"><span class="badge active">Cao</span><span class="badge clean">Review: Đúng</span></span></div>
+      <span class="loc mono">stock-reservations.service.ts:142–152 (reserveOrAdjust)</span>
+      <p>Lần tính sau đọc tồn ở kho khác thì <code class="mono">reserveOrAdjust</code> chuyển dòng giữ chỗ (chưa tiêu) sang kho mới, dù hàng vẫn nằm ở kho cũ.</p>
+      <div class="scenario"><b>Hậu quả:</b> hàng ở kho cũ bị bỏ quên, phải mua lại.</div>
+    </div>
+
+    <div class="finding dead">
+      <div class="finding-top"><h3 class="finding-title">CK3 — Xuất rút giữ chỗ ở bất kỳ kho nào</h3><span class="tags"><span class="badge dead">Trung bình</span><span class="badge moot">Review: Đúng một phần</span></span></div>
+      <span class="loc mono">stock-reservations.service.ts:336–396 (drainPool) · steel-issues.service.ts ~:500–513</span>
+      <p><code class="mono">drainPool</code> rút qua mọi dòng của lệnh không xét kho, trả kho của dòng đầu; xuất sắt so dòng đầu với kho mong đợi.</p>
+      <div class="scenario"><b>Hậu quả:</b> chỉ gặp khi giữ chỗ của lệnh nằm ở 2 kho (phiếu chuyển nhận thiếu tách dòng, hoặc do CK1), và chỉ ở lệnh chưa xuất sắt. Xuất sắt có thể báo lỗi oan; xuất vật tư (<code class="mono">drainPoolBestEffort</code>) lệch âm thầm, không báo lỗi.</div>
+    </div>
+
+    <div class="finding dead">
+      <div class="finding-top"><h3 class="finding-title">CK4 — Phiếu chuyển của lệnh đổi xưởng không giữ hàng, không kiểm tồn</h3><span class="tags"><span class="badge dead">Trung bình</span><span class="badge moot">Review: Đúng một phần</span><span class="badge me">Claude ✔</span></span></div>
+      <span class="loc mono">warehouse-transfers.service.ts:999–1037 (createWorkshopMove)</span>
+      <p><code class="mono">createWorkshopMove</code> không tạo giữ chỗ chuyển kho, không kiểm tồn; xác nhận ghi bút toán không kiểm tồn.</p>
+      <div class="scenario"><b>Hậu quả:</b> hàng vẫn đang được giữ cho chính lệnh ở kho cũ nên lệnh khác không lấy được. Kho nguồn chỉ âm khi tồn thật giảm vì lý do khác: sửa tay, xuất theo đường CK6, hoặc giữ chỗ lớn hơn tồn thật từ đầu.</div>
+    </div>
+
+    <div class="finding dead">
+      <div class="finding-top"><h3 class="finding-title">CK5 — Phiếu chuyển của lần đổi xưởng trước vẫn xác nhận được</h3><span class="tags"><span class="badge dead">Trung bình</span><span class="badge moot">Review: Đúng một phần</span></span></div>
+      <span class="loc mono">warehouse-transfers.service.ts:711–858 (confirm) · afterWorkshopChanged · getPlans</span>
+      <p>Xác nhận chỉ kiểm trạng thái chờ và phạm vi kho đích, không so xưởng hiện tại của lệnh; <code class="mono">afterWorkshopChanged</code> không huỷ phiếu cũ; <code class="mono">getPlans</code> trừ phiếu đang chờ mà không xét kho đích.</p>
+      <div class="scenario"><b>Hậu quả:</b> hàng sang kho của lần đổi trước, sửa được bằng 1 phiếu nữa, không mất hàng. Rủi ro chính là kẹt tiến độ và lệch giữ chỗ.</div>
+    </div>
+
+    <div class="finding dead">
+      <div class="finding-top"><h3 class="finding-title">CK6 — Đổi xưởng đua với xuất sắt / phiếu XK</h3><span class="tags"><span class="badge dead">Trung bình</span><span class="badge clean">Review: Đúng</span><span class="badge resolved">Sửa sớm</span></span></div>
+      <span class="loc mono">steel-issues.service.ts:354 (prepareIssue), :428–462 (createInTx) · issue-slips.service.ts (prepareLine) · changeWorkshop · assertPiHasActiveFloorLocked</span>
+      <p>Xuất sắt tra kho ngoài transaction; <code class="mono">createInTx</code> không tra lại kho, không kiểm lại cờ "cần kiểm lại phương án cắt". Phiếu XK cũng vậy. <code class="mono">changeWorkshop</code> không khoá lệnh SX hay PI; <code class="mono">assertPiHasActiveFloorLocked</code> chỉ khoá production_orders, nên 2 luồng không có khoá chung.</p>
+      <div class="scenario"><b>Hậu quả:</b> vẫn xuất được từ kho xưởng cũ sau khi đã đổi xưởng, và lách được cả cờ kiểm lại phương án cắt. <b>Sửa độc lập được</b> với thiết kế lại nhóm B: tra lại kho và cờ trong <code class="mono">createInTx</code>.</div>
+    </div>
+
+    <div class="finding">
+      <div class="finding-top"><h3 class="finding-title">Mảnh sang Sơn — phiếu chuyển không kiểm tồn mảnh ở kho nguồn</h3><span class="tags"><span class="badge moot">Chưa xếp mức</span><span class="badge clean">Review: Đúng</span></span></div>
+      <span class="loc mono">warehouse-transfers.service.ts:413–668 (createPieceTransfer / getPieceTransferPlan)</span>
+      <p>Có kiểm số mảnh đã qua KCS (trừ phiếu khác), nhưng không kiểm tồn mảnh ở kho nguồn; xác nhận ghi bút toán không kiểm tồn.</p>
+      <div class="scenario"><b>Hậu quả:</b> chuyển được số mảnh nhiều hơn tồn thật ở kho nguồn.</div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head"><span class="section-num">03</span><h2>Kho xuất</h2></div>
+    <p class="section-note">Lỗi nặng nhất là XK1. XK6 (mức thấp) cùng gốc với nhóm B: giữ chỗ không theo kho.</p>
+
+    <div class="finding dead">
+      <div class="finding-top"><h3 class="finding-title">XK1 — Xác nhận phiếu XK không so với kho in trên phiếu</h3><span class="tags"><span class="badge dead">Trung bình</span><span class="badge clean">Review: Đúng</span><span class="badge me">Claude ✔</span></span></div>
+      <span class="loc mono">issue-slips.service.ts:534 (confirm), :681 (cancel), :899–983 (prepareLine), :914, :964 · MaterialIssuesService.prepareIssue :206</span>
+      <p><code class="mono">confirm</code> không gọi <code class="mono">assertSlipScope</code>, chỉ <code class="mono">cancel</code> gọi. <code class="mono">prepareLine</code> vẫn kiểm phạm vi người xác nhận theo kho hiện tại của lệnh, nhưng không so với kho in trên phiếu (trừ mảnh đan). Tài khoản có quyền <code class="mono">MATERIAL_ISSUE:CREATE</code> mà phạm vi kho để trống được coi là tổng kho, bỏ qua mọi kiểm kho.</p>
+      <div class="scenario"><b>Hậu quả:</b> sau khi đổi xưởng, phiếu in cho Phú An có thể bị xuất hàng ở kho Phước An; tài khoản phạm vi trống xác nhận được phiếu mọi kho. Trên DB local (bản sao cũ) có vài tài khoản KHSX, Sales, mua hàng, quản lý vật tư mang vai trò thủ kho với phạm vi trống — cần đối chiếu production.</div>
+    </div>
+
+    <div class="finding dead">
+      <div class="finding-top"><h3 class="finding-title">XK2 — Xuất vật tư kèm đan không giới hạn theo định mức</h3><span class="tags"><span class="badge dead">Trung bình</span><span class="badge clean">Review: Đúng</span></span></div>
+      <span class="loc mono">weaving-issues.service.ts:410–475, :479–560 · so với assertPieceCapInTx :236–262</span>
+      <p>Chỉ kiểm vật tư thuộc danh sách đi kèm của mảnh và kho, rồi chặn theo tồn khả dụng. Không có trần theo định mức như mảnh xuất đan.</p>
+    </div>
+
+    <div class="finding dead">
+      <div class="finding-top"><h3 class="finding-title">XK3 — Xuất nguyên liệu theo công thức (nhôm thanh) không giới hạn theo định mức</h3><span class="tags"><span class="badge dead">Trung bình</span><span class="badge clean">Review: Đúng</span></span></div>
+      <span class="loc mono">material-yield-recipe-issues.service.ts:109–183, :157–162</span>
+      <p>Chỉ chặn số xuất lớn hơn tồn. Các luồng tiêu hao, vật tư thành phẩm, đóng gói đều có chặn "vượt quá số lượng còn có thể xuất"; riêng luồng công thức không có.</p>
+    </div>
+
+    <div class="finding dead">
+      <div class="finding-top"><h3 class="finding-title">XK4 — Xuất sắt không kiểm chiều dài cây theo phương án cắt</h3><span class="tags"><span class="badge dead">Trung bình</span><span class="badge clean">Review: Đúng</span></span></div>
+      <span class="loc mono">SteelIssuesService.prepareIssue :371–416 · drainPool</span>
+      <p>Không so chiều dài cây với <code class="mono">bestStockLengthMm</code> của phương án đã duyệt; <code class="mono">drainPool</code> không lọc theo chiều dài; tồn bị trừ ở ô chiều dài người nhập.</p>
+      <div class="scenario"><b>Hậu quả:</b> xuất sai chiều dài, lệch tồn theo chiều dài. Phương án duyệt trước mốc cutover không trừ tồn nên không bị lệch.</div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head"><span class="section-num">04</span><h2>Tồn đoạn — sửa trước khi bật công tắc</h2></div>
+    <p class="section-note">Công tắc <code>SEGMENT_STOCK_ENABLED</code> đang tắt nên các lỗi dưới đây chưa ảnh hưởng dữ liệu thật. Phải sửa hết trước khi bật.</p>
+
+    <div class="finding active">
+      <div class="finding-top"><h3 class="finding-title">TĐ1 — Phía cộng ghi đoạn "ảo" khi tổng của lệnh giảm</h3><span class="tags"><span class="badge active">Cao</span><span class="badge clean">Review: Đúng</span><span class="badge me">Claude ✔</span><span class="badge part">Phía cộng</span></span></div>
+      <span class="loc mono">segment-stock.service.ts:290–303 (syncOrderProduction)</span>
+      <p>Khi tổng của lệnh giảm, <code class="mono">l = max(lWanted, −q, x − a, x − s0)</code> có thể ra dương, nên ghi SEGMENT_PRODUCE nhập đoạn không có thật.</p>
+      <div class="scenario"><b>Ví dụ:</b> lệnh đang dư 8; đích mới giữ +5, dư 0 (tổng −3); dư dùng được của ô a = 0. Ra l = 5: nhập +5, giữ +5, dư vẫn 8, trong khi tồn phải giảm 3. <b>Hậu quả:</b> tồn kho Phôi cao hơn thực tế.</div>
+    </div>
+
+    <div class="finding dead">
+      <div class="finding-top"><h3 class="finding-title">TĐ2 — Trừ đoạn khoá các ô không theo thứ tự cố định</h3><span class="tags"><span class="badge dead">Trung bình</span><span class="badge clean">Review: Đúng</span><span class="badge me">Claude ✔</span><span class="badge part">Phía trừ</span></span></div>
+      <span class="loc mono">production-batches.service.ts ~:1060–1150 (consumeSegmentsByCode) · so với segment-stock.service.ts:278</span>
+      <p>Khoá từng ô theo thứ tự của <code class="mono">pieceBom.findMany</code> không <code class="mono">orderBy</code>; phía cộng có sắp xếp.</p>
+      <div class="scenario"><b>Hậu quả:</b> kẹt khoá chéo (deadlock) giữa 2 đợt trừ, hoặc giữa phía trừ và phía cộng. Postgres huỷ 1 bên, người báo phải gửi lại; không sai số.</div>
+    </div>
+
+    <div class="finding dead">
+      <div class="finding-top"><h3 class="finding-title">TĐ3 — Đếm "vượt lệnh" sai khi gửi KCS lệch thứ tự</h3><span class="tags"><span class="badge dead">Trung bình</span><span class="badge clean">Review: Đúng</span><span class="badge me">Claude ✔</span><span class="badge part">Phía trừ</span></span></div>
+      <span class="loc mono">production-batches.service.ts ~:1097–1112</span>
+      <p>Tổng các đợt lấy theo id ≤ đợt hiện tại và đã gửi, không theo thứ tự gửi KCS.</p>
+      <div class="scenario"><b>Ví dụ:</b> kế hoạch 10; đợt id 3 báo 8, đợt id 5 báo 8; gửi đợt 5 trước thì mỗi đợt thấy tổng 8, không ghi vượt, trong khi thực tế vượt 6. <b>Hậu quả:</b> sổ báo vượt đoạn sai cả số lẫn loại (vượt lệnh / làm lại).</div>
+    </div>
+
+    <div class="finding dead">
+      <div class="finding-top"><h3 class="finding-title">TĐ4 — Mở lại lệnh không khôi phục phần đoạn đã nhả</h3><span class="tags"><span class="badge dead">Trung bình</span><span class="badge clean">Review: Đúng</span><span class="badge part">Kết thúc / mở lại lệnh</span></span></div>
+      <span class="loc mono">segment-stock.service.ts:491–544 (releaseOrderHoldings) · startFloor</span>
+      <p><code class="mono">releaseOrderHoldings</code> chỉ sửa giữ đoạn, không sửa <code class="mono">segmentProduction</code>. "Tiếp tục" đưa lệnh về đang chạy mà không khôi phục; tính lại chỉ cộng phần chênh so với số cũ nên không giữ lại được.</p>
+      <div class="scenario"><b>Hậu quả:</b> lệnh mở lại không còn đoạn được giữ. Đoạn về cột Dư chung, vẫn dùng được nhưng phải tranh với lệnh khác.</div>
+    </div>
+
+    <div class="finding dead">
+      <div class="finding-top"><h3 class="finding-title">TĐ5 — Chuyển đổi dữ liệu cũ hở với Hàn / Sơn gửi KCS</h3><span class="tags"><span class="badge dead">Trung bình</span><span class="badge moot">Review: Đúng một phần</span><span class="badge part">Chuyển đổi dữ liệu cũ</span></span></div>
+      <span class="loc mono">segment-legacy-conversion.service.ts:75</span>
+      <p>KCS (phía cộng) và bước chuyển đổi cùng khoá theo lệnh nên không đua. Chỗ hở là phía trừ: Hàn / Sơn bấm Gửi KCS không lấy khoá chuyển đổi, nên tồn ô có thể lệch nếu gửi đúng lúc chuyển đổi đang chạy.</p>
+      <div class="scenario"><b>Thứ tự bật công tắc (đính chính bản trước):</b> không thể "chuyển đổi trước rồi mới bật" — dòng 75 chặn chạy thật khi công tắc tắt. Ngược lại, bật rồi mà có 1 đợt trừ / KCS ghi dữ liệu thì chuyển đổi bị từ chối, vì chỉ chạy khi bảng giữ chỗ / sản xuất còn trống. Hai cách: <b>(1)</b> với code hiện tại, chạy thử (dry-run) trên dữ liệu thật rồi bật công tắc và chạy chuyển đổi ngay, trong giờ không ai báo Phôi / Hàn / Sơn hay KCS; <b>(2)</b> sửa code cho chạy chuyển đổi khi công tắc tắt, hoặc chặn báo / KCS trong lúc chuyển đổi. Changelog 14/11 cũng phải sửa theo cách được chọn.</div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head"><span class="section-num">05</span><h2>Lỗi mức thấp</h2></div>
+    <p class="section-note">Khoảng 12 lỗi thấp (MH4–MH7, XK5–XK8, CK7–CK9, TĐ6). Mới mô tả được 3 lỗi dưới đây; bản review đã kiểm cả 3. Các lỗi còn lại chưa có mô tả nên chưa kiểm, sẽ bổ sung khi đến lượt sửa nhóm tương ứng.</p>
+    <div class="table-wrap">
+      <table class="cmp-table">
+        <thead><tr><th>Lỗi</th><th>Review</th><th>Vị trí code</th><th>Hậu quả</th></tr></thead>
+        <tbody>
+          <tr><td>Xoá NCC đang có đơn</td><td>Đúng một phần</td><td><code class="mono">suppliers.service.ts:79–83</code> xoá thẳng, bị khoá ngoại chặn; P2003 được <code class="mono">all-exceptions.filter.ts:120–126</code> đổi thành 400.</td><td>Báo 400 (không phải 500) với câu chung "bản ghi đang được dùng ở chỗ khác", chưa nói rõ là NCC đang có đơn.</td></tr>
+          <tr><td>Số phiếu NK in trước</td><td>Đúng</td><td><code class="mono">purchase-receipts.service.ts:409–410</code> giữ số kèm người in; xác nhận nhập (<code class="mono">:174–178</code>) không kiểm người.</td><td>Người khác dùng được số đã in, lệch dấu vết ai in, ai nhận. Không ảnh hưởng tồn hay tiền.</td></tr>
+          <tr><td>Transaction chuyển kho 5 giây</td><td>Đúng một phần</td><td><code class="mono">warehouse-transfers.service.ts</code>: create <code class="mono">:260</code>, createPieceTransfer <code class="mono">:478</code>, confirm <code class="mono">:742</code>, reject <code class="mono">:881</code> dùng mặc định 5 giây; chỉ createWorkshopMove có 20 giây.</td><td>Phiếu nhiều dòng có thể hết giờ. Hết giờ thì rollback sạch, bấm lại được, không để dữ liệu dở dang.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head"><span class="section-num">06</span><h2>Thứ tự sửa đề xuất</h2></div>
+    <p class="section-note">Nhóm A trước vì đang làm sai số mua ngay bây giờ, rồi CK6 vì sửa độc lập được. Tồn đoạn để cuối, nhưng phải xong trước khi bật công tắc.</p>
+    <ol class="steps">
+      <li><b>Nhóm A</b> (MH1–MH3): tính lại dòng mua trừ đúng phần đã nhận của chính lệnh; dùng chung khoá với bước Giám đốc ký đơn. Sửa MH1 và MH2 cùng lúc.</li>
+      <li><b>CK6:</b> tra lại kho và cờ "cần kiểm lại phương án cắt" trong <code class="mono">createInTx</code>, có khoá chung với đổi xưởng.</li>
+      <li><b>Nhóm B</b> (CK1–CK5, XK6, mảnh sang Sơn): thiết kế lại để giữ chỗ đi theo kho, tính cả phần đợt A/B/C chưa commit (chia máy cắt, máy rảnh tự kéo lệnh).</li>
+      <li><b>Kho xuất</b> (XK1–XK4): xác nhận phiếu XK kiểm kho của phiếu; chặn theo định mức; kiểm chiều dài sắt.</li>
+      <li><b>Tồn đoạn</b> (TĐ1–TĐ5): sửa trước khi bật; chọn 1 trong 2 cách bật công tắc ở mục 04.</li>
+      <li><b>Lỗi thấp:</b> làm xen khi đụng đúng file.</li>
+    </ol>
+  </section>
+
+  <section>
+    <div class="section-head"><span class="section-num">07</span><h2>Checklist bước làm tiếp theo</h2></div>
+    <div class="status-list">
+      <div class="status-row"><span class="badge resolved">Xong (dev)</span><div class="body"><b>1. Đo ảnh hưởng MH1/MH2 (chỉ đọc dữ liệu).</b> Đã đo trên DB dev (mục 08); production chưa đo.</div></div>
+      <div class="status-row"><span class="badge moot">Chưa làm</span><div class="body"><b>2. Sửa nhóm A (MH1–MH3).</b> Trừ đúng phần đã nhận của chính lệnh ở cả 3 nguồn và nhánh "chỉ còn dòng đã đóng"; dùng chung khoá với bước Giám đốc ký đơn; test theo ví dụ 100 → 120 và thử sống trên bản sao local.</div></div>
+      <div class="status-row"><span class="badge moot">Chưa làm</span><div class="body"><b>3. Sửa CK6.</b> Tra lại kho và cờ trong transaction khi xuất sắt và xác nhận phiếu XK, có khoá chung với đổi xưởng. Báo phần đổi xưởng trước khi sửa.</div></div>
+      <div class="status-row"><span class="badge moot">Chưa làm</span><div class="body"><b>4. Thiết kế lại nhóm B (CK1–CK5, XK6).</b> File thiết kế ngắn cho giữ chỗ đi theo kho, tính cả đợt A/B/C; thống nhất với phần đổi xưởng rồi mới code.</div></div>
+      <div class="status-row"><span class="badge moot">Chưa làm</span><div class="body"><b>5. Kho xuất (XK1–XK4).</b> So kho in trên phiếu; chặn vượt định mức vật tư kèm đan và công thức; kiểm chiều dài cây sắt; kiểm tài khoản có quyền xuất mà phạm vi kho trống.</div></div>
+      <div class="status-row"><span class="badge moot">Chưa làm</span><div class="body"><b>6. Tồn đoạn trước khi bật (TĐ1–TĐ5).</b> Sửa phía trừ / chuyển đổi (TĐ2, TĐ3, TĐ5) và phía cộng / kết thúc lệnh (TĐ1, TĐ4); chọn cách bật; chạy thử chuyển đổi trên dữ liệu thật rồi mới bật.</div></div>
+      <div class="status-row"><span class="badge moot">Xuyên suốt</span><div class="body"><b>Lỗi mức thấp.</b> Đến lượt nhóm nào thì mô tả, kiểm và sửa luôn lỗi thấp của nhóm đó.</div></div>
+    </div>
+    <h3 class="sub">Việc làm trước khi sửa</h3>
+    <ul class="plain">
+      <li>Đo ảnh hưởng MH1 / MH2 trên production (chỉ đọc), rồi quyết định có chỉnh các đơn đang mở không.</li>
+      <li>Kiểm trên production các tài khoản có quyền xuất kho mà phạm vi kho để trống (XK1); nếu có thì gán phạm vi hoặc bỏ vai trò thủ kho.</li>
+    </ul>
+    <h3 class="sub">Phối hợp theo phần việc</h3>
+    <ul class="plain">
+      <li><b>Phía cộng tồn đoạn:</b> TĐ1.</li>
+      <li><b>Kết thúc / mở lại lệnh:</b> TĐ4.</li>
+      <li><b>Đổi xưởng:</b> CK6, và thiết kế chung nhóm B (đụng cả đợt A/B/C).</li>
+      <li><b>Phía cộng / tính lại tồn đoạn:</b> đã có sửa thêm <code class="mono">transferOrderHoldings</code> (<code class="mono">segment-stock.service.ts</code>) và tách <code class="mono">recomputeInTx</code> (<code class="mono">segment-production.service.ts</code>).</li>
+    </ul>
+  </section>
+
+  <section>
+    <div class="section-head"><span class="section-num">08</span><h2>Kết quả đo MH1/MH2 — bước 1, trên DB dev</h2></div>
+    <p class="section-note">Truy vấn chỉ đọc (transaction READ ONLY) trên DB dev chung ngày 14/11/2026; bỏ sắt phần mềm vì đi luồng phương án cắt. Dữ liệu chạy thử: 5 lệnh (đều đang sản xuất), 107 nhóm (lệnh, vật tư, quy cách), 122 dòng mua. Dấu hiệu MH1 là giữ chỗ "của cả lệnh" tạo khi hàng về: có 4 dòng, tổng 101,21; chưa dòng mua nào được tạo thêm sau khi hàng về, tức chưa lần tính lại nào mua dư.</p>
+    <div class="table-wrap">
+      <table class="cmp-table">
+        <thead><tr><th>Lệnh / vật tư</th><th>Hiện trạng</th><th>Lần tính lại tới (nếu nhu cầu không đổi)</th></tr></thead>
+        <tbody>
+          <tr><td>PI-2026-003 · VTK-004</td><td>1 dòng đã ký mua 20,30, đã nhận 15 (giữ "của cả lệnh" 15)</td><td><b style="color:var(--active)">Tạo dòng mới mua 15, dư 15.</b> Tồn khả dụng bị trừ 15 đã nhận nên cần mua ra 20,30; trừ phần còn chờ về 5,30 còn 15.</td></tr>
+          <tr><td>PI-2026-004 · TR-001</td><td>1 dòng đã đóng, mua và nhận 81,20 (giữ "của cả lệnh" 81,20)</td><td>Không mua thêm. MH1 và MH2 triệt tiêu nhau, tình cờ ra đúng.</td></tr>
+          <tr><td>PI-2026-001 · TAM-LA-01</td><td>1 dòng đã đóng, mua 1,01, đặt 2, nhận 2; giữ còn 0,01</td><td>Lệch tối đa 0,01, không đáng kể.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="finding resolved">
+      <div class="finding-top"><h3 class="finding-title">Kết luận bước 1</h3><span class="badge resolved">Không cần chỉnh đơn</span></div>
+      <p>Trên DB dev không có đơn đang mở nào cần chỉnh, và chưa có nhóm nào từ 2 dòng đã đóng trở lên (chưa có ca MH2 mua trùng). Nên sửa nhóm A trước khi có ai thao tác làm tính lại PI-2026-003, và sửa MH1 + MH2 cùng lúc — sửa 1 lỗi thì trường hợp TR-001 sẽ thành sai.</p>
+      <div class="scenario"><b>Giới hạn:</b> chưa tính lại nhu cầu thật, mới giả định nhu cầu không đổi và hàng đã nhận còn nguyên trong kho. Production (nếu đã có) cần chạy cùng truy vấn.</div>
+    </div>
+  </section>
+
+  <footer>
+    Rà soát 14/11/2026 — 4 agent chỉ đọc code chạy song song theo 4 mảng (Mua hàng, Kho xuất, Chuyển kho + đổi xưởng, Tồn đoạn); Claude tự kiểm 8 lỗi nặng nhất trong code; bản review độc lập cùng ngày kiểm lại cả 22 lỗi có mô tả và bổ sung vị trí code. Chưa chạy thử lại lỗi nào. Chưa rà phần FE và phần đợt A/B/C chưa commit.
+  </footer>
+</div>
+</body>
+</html>
