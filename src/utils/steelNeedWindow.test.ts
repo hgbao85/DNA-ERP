@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { DEFAULT_MERGE_MAX_SKUS, DEFAULT_MERGE_WINDOW_DAYS, maxGapDays, steelNeedDate, steelNeedSpan, steelNeedSpanMessage } from './steelNeedWindow'
 
 describe('mặc định', () => {
-  it('khung 3 ngày, tối đa 2 SKU mỗi lệnh gộp', () => {
-    expect(DEFAULT_MERGE_WINDOW_DAYS).toBe(3)
+  it('khung 5 ngày, tối đa 2 SKU mỗi lệnh gộp', () => {
+    expect(DEFAULT_MERGE_WINDOW_DAYS).toBe(5)
     expect(DEFAULT_MERGE_MAX_SKUS).toBe(2)
   })
 })
@@ -63,6 +63,11 @@ describe('steelNeedSpanMessage', () => {
     expect(steelNeedSpanMessage(at('2026-11-01', '2026-11-02'), 3)).toBeNull()
     expect(steelNeedSpanMessage(at('2026-11-01', '2026-11-03'), 3)).toBeNull() // chênh 2 = N - 1: được
     expect(steelNeedSpanMessage(at('2026-11-01', '2026-11-04'), 3)).not.toBeNull() // chênh 3: chặn
+  })
+
+  it('khung mặc định 5 ngày (13/11/2026): ngày 10 gộp được ngày 14, không gộp được ngày 15', () => {
+    expect(steelNeedSpanMessage(at('2026-11-10', '2026-11-14'), DEFAULT_MERGE_WINDOW_DAYS)).toBeNull()
+    expect(steelNeedSpanMessage(at('2026-11-10', '2026-11-15'), DEFAULT_MERGE_WINDOW_DAYS)).not.toBeNull()
   })
 
   it('khung 1 ngày = chỉ gộp cùng ngày; không có span thì không báo', () => {

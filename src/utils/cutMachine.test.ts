@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { fmtBundles, fmtBundleSummary, fmtPercent, lineMachine, linesMachine, machineLabel } from './cutMachine';
+import {
+  fmtBundles, fmtBundleSummary, fmtPercent, groupHint, lineMachine, linesMachine, machineClassSummaryText, machineClassTotals, machineLabel,
+  patternGroupColors, patternGroupLabel, patternMachineText, punchedSegmentsText,
+} from './cutMachine';
+import type { CuttingPatternMachineGroup } from '../services/cutting-proposals-api';
 
 describe('fmtBundles - cách cắt theo bó của một kiểu cắt', () => {
   it('sắp hệ số giảm dần, thêm cây cắt tay', () => {
@@ -59,5 +63,65 @@ describe('fmtPercent - dấu phẩy thập phân', () => {
   it('0,27 và 12,50', () => {
     expect(fmtPercent(0.274)).toBe('0,27');
     expect(fmtPercent('12.5')).toBe('12,50');
+  });
+});
+
+describe('Lớp máy của nhóm cây (13/11/2026)', () => {
+  const punched = (over: Partial<CuttingPatternMachineGroup['punchedSegments'][number]> = {}) =>
+    ({ cutLengthMm: 425, countPerBar: 2, ...over });
+  const grp = (machineClass: CuttingPatternMachineGroup['machineClass'], bars = 10, segs = [punched()]): CuttingPatternMachineGroup =>
+    ({ bars, machineClass, punchedSegments: machineClass === 'TU_DONG' ? [] : segs });
+
+  it('nhãn theo lớp và theo việc xưởng có laze hay không', () => {
+    expect(patternGroupLabel(grp('TU_DONG'), true)).toBe('MC Tự động');
+    expect(patternGroupLabel(grp('LASER'), true)).toBe('MC Laser');
+    expect(patternGroupLabel(grp('LASER'), false)).toBe('MC Tự động · lỗ làm tay');
+    expect(patternGroupLabel(grp('TU_DONG'), false)).toBe('MC Tự động');
+  });
+
+  it('câu đoạn dập: nhiều chiều dài, kiểu Việt, không có đoạn dập', () => {
+    expect(punchedSegmentsText(grp('LASER'))).toBe('đoạn dập 425 mm × 2');
+    expect(punchedSegmentsText(grp('LASER', 5, [punched(), punched({ cutLengthMm: 300, countPerBar: 1 })])))
+      .toBe('đoạn dập 425 mm × 2; đoạn dập 300 mm × 1');
+    // Chiều dài ghi kiểu Việt như màn Tối ưu cắt sắt: ngăn nghìn bằng dấu chấm, thập phân bằng dấu phẩy.
+    expect(punchedSegmentsText(grp('LASER', 5, [punched({ cutLengthMm: 1200 })]))).toBe('đoạn dập 1.200 mm × 2');
+    expect(punchedSegmentsText(grp('LASER', 5, [punched({ cutLengthMm: 427.5 })]))).toBe('đoạn dập 427,5 mm × 2');
+    expect(punchedSegmentsText(grp('TU_DONG'))).toBe('');
+  });
+
+  it('câu phụ', () => {
+    expect(groupHint(grp('LASER'), true)).toBe('Có đoạn dập lỗ ô van: không cắt máy tự động');
+    expect(groupHint(grp('TU_DONG'), true)).toBeNull();
+    expect(groupHint(grp('LASER'), false)).toBe('Xưởng không có laze: lỗ công nhân làm tay');
+    expect(groupHint(grp('TU_DONG'), false)).toBeNull();
+  });
+
+  it('màu: tự động trung tính, laze đỏ nhạt; không có laze thì trung tính', () => {
+    expect(patternGroupColors('TU_DONG', true).bg).toBe('var(--bg-eceff1)');
+    expect(patternGroupColors('LASER', true).bg).toBe('var(--bg-fee2e2)');
+    expect(patternGroupColors('LASER', false).bg).toBe('var(--bg-eceff1)');
+  });
+
+  it('chữ cột Máy: 1 nhóm, nhiều nhóm, chưa phân loại', () => {
+    expect(patternMachineText([grp('LASER')])).toBe('MC Laser · đoạn dập 425 mm × 2');
+    expect(patternMachineText([grp('TU_DONG')])).toBe('MC Tự động');
+    expect(patternMachineText([grp('LASER', 50), grp('TU_DONG', 10)]))
+      .toBe('50 cây · MC Laser · đoạn dập 425 mm × 2 | 10 cây · MC Tự động');
+    expect(patternMachineText(null)).toBe('');
+    expect(patternMachineText([])).toBe('');
+  });
+
+  it('tổng số cây theo lớp và dòng tóm tắt (bỏ lớp = 0)', () => {
+    const patterns = [
+      { machineGroups: [grp('TU_DONG', 40), grp('LASER', 50)] },
+      { machineGroups: [grp('TU_DONG', 20), grp('LASER', 30)] },
+      { machineGroups: null },
+    ];
+    expect(machineClassTotals(patterns)).toEqual({ TU_DONG: 60, LASER: 80 });
+    expect(machineClassSummaryText(patterns)).toBe('60 cây MC Tự động · 80 cây MC Laser');
+    expect(machineClassSummaryText(patterns, false)).toBe('60 cây MC Tự động · 80 cây MC Tự động · lỗ làm tay');
+    expect(machineClassSummaryText([{ machineGroups: [grp('LASER', 7)] }])).toBe('7 cây MC Laser');
+    expect(machineClassSummaryText([{ machineGroups: null }])).toBeNull();
+    expect(machineClassSummaryText(undefined)).toBeNull();
   });
 });

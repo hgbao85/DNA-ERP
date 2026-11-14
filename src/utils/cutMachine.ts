@@ -3,7 +3,13 @@
  * Dùng chung cho Tối ưu cắt sắt (KHSX), Lệnh sản xuất (Sếp/QLSX), Hướng dẫn cắt (Phôi), Admin.
  */
 import type { SolverMachine } from '../types/admin';
-import type { CuttingBundleSummary, PatternBundles } from '../services/cutting-proposals-api';
+import type {
+  CuttingBundleSummary, CuttingPatternMachineGroup, CuttingProposalPattern, PatternBundles, PatternMachineClass,
+} from '../services/cutting-proposals-api';
+import { fmtNum } from './numberFormat';
+
+// fmtPercent chuyển sang utils/numberFormat (13/11/2026, hàm ghi số dùng chung); giữ export ở đây cho các nơi đang import.
+export { fmtPercent } from './numberFormat';
 
 export const MACHINE_LABEL: Record<SolverMachine, string> = {
   laser: 'MC Laser',
@@ -53,16 +59,81 @@ export function lineMachine(line: { machine?: SolverMachine | null; feasible?: b
   return line.machine ?? (line.feasible ? 'laser' : null);
 }
 
-/** Máy cắt của cả phương án: máy của dòng đầu tiên biết máy (xem lineMachine). */
+/**
+ * Máy cắt của cả phương án (xem lineMachine). 13/11/2026: phương án MC Tự động có thể có dòng tính theo cắt từng cây (quy cách
+ * ngoài bảng số cây/bó -> dòng mang máy laser), nên CÓ dòng MC Tự động thì cả phương án là MC Tự động; không có thì lấy máy của
+ * dòng đầu tiên biết máy như trước.
+ */
 export function linesMachine(lines: { machine?: SolverMachine | null; feasible?: boolean }[] | null | undefined): SolverMachine | null {
+  let first: SolverMachine | null = null;
   for (const l of lines ?? []) {
     const m = lineMachine(l);
-    if (m) return m;
+    if (m === 'tu_dong') return m;
+    if (m && !first) first = m;
   }
-  return null;
+  return first;
 }
 
-/** Số thập phân kiểu Việt (dấu phẩy) cho % hao hụt trên các màn kết quả cắt: 0,27% - cùng cách số mm đang hiển thị. */
-export function fmtPercent(n: number | string, digits = 2): string {
-  return Number(n).toLocaleString('vi-VN', { minimumFractionDigits: digits, maximumFractionDigits: digits });
+// ── Lớp máy của nhóm cây trong kiểu cắt (13/11/2026): MC Tự động / MC Laser (cây có đoạn dập lỗ ô van) ─────────────
+
+/** Xưởng không có laze (laserAllowed=false, vd Phước An): mọi cây đều lên MC Tự động, lỗ ô van công nhân làm tay. */
+const MANUAL_HOLE_LABEL = 'MC Tự động · lỗ làm tay';
+
+/** Nhãn lớp máy của một nhóm cây: TU_DONG -> "MC Tự động"; LASER -> "MC Laser", hoặc "MC Tự động · lỗ làm tay" khi xưởng không có laze. */
+export function patternGroupLabel(group: Pick<CuttingPatternMachineGroup, 'machineClass'>, laserAllowed: boolean): string {
+  if (group.machineClass === 'TU_DONG') return MACHINE_LABEL.tu_dong;
+  return laserAllowed ? 'MC Laser' : MANUAL_HOLE_LABEL;
+}
+
+/** Chiều dài mm kiểu Việt, không phụ thuộc ICU: 1200 -> "1.200", 427.5 -> "427,5" (khớp cách ghi mm ở màn Tối ưu cắt sắt). */
+function fmtMmVi(n: number): string {
+  return fmtNum(n);
+}
+
+/** "đoạn dập 425 mm × 2"; nhiều chiều dài nối "; ". Không có đoạn dập -> "". */
+export function punchedSegmentsText(group: Pick<CuttingPatternMachineGroup, 'punchedSegments'>): string {
+  return (group.punchedSegments ?? [])
+    .map((s) => `đoạn dập ${fmtMmVi(s.cutLengthMm)} mm × ${s.countPerBar}`)
+    .join('; ');
+}
+
+/** Câu phụ ngắn giải thích vì sao nhóm nằm ở máy đó; null khi không cần (cây không có đoạn dập). */
+export function groupHint(group: Pick<CuttingPatternMachineGroup, 'machineClass' | 'punchedSegments'>, laserAllowed: boolean): string | null {
+  if (laserAllowed) return group.machineClass === 'LASER' ? 'Có đoạn dập lỗ ô van: không cắt máy tự động' : null;
+  return (group.punchedSegments ?? []).length > 0 ? 'Xưởng không có laze: lỗ công nhân làm tay' : null;
+}
+
+/** Tên biến màu CSS của huy hiệu lớp máy (đã có sẵn trong theme): tự động trung tính, laze đỏ nhạt.
+ *  Xưởng không có laze thì mọi nhóm là MC Tự động -> màu trung tính. */
+export function patternGroupColors(machineClass: PatternMachineClass, laserAllowed: boolean): { bg: string; color: string } {
+  if (machineClass === 'TU_DONG' || !laserAllowed) return { bg: 'var(--bg-eceff1)', color: 'var(--fg-546e7a)' };
+  return { bg: 'var(--bg-fee2e2)', color: 'var(--fg-b91c1c)' };
+}
+
+/** Chữ thuần của cột Máy cho 1 kiểu cắt (in, Excel, bảng gọn): 1 nhóm -> "Ưu tiên laze · đoạn dập 425 mm × 2 (1 lỗ ô van)";
+ *  nhiều nhóm -> "50 cây · Bắt buộc laze · đoạn dập ... | 10 cây · MC Tự động". Chưa phân loại -> "". */
+export function patternMachineText(groups: CuttingPatternMachineGroup[] | null | undefined, laserAllowed = true): string {
+  const list = groups ?? [];
+  const parts = list.map((g) => {
+    const items = [patternGroupLabel(g, laserAllowed), punchedSegmentsText(g)].filter((x) => x !== '');
+    if (list.length > 1) items.unshift(`${g.bars} cây`);
+    return items.join(' · ');
+  });
+  return parts.join(' | ');
+}
+
+/** Tổng số cây theo lớp máy của cả loại sắt (dòng tóm tắt "Theo loại cây"). Kiểu cắt chưa có machineGroups thì không tính. */
+export function machineClassTotals(patterns: Pick<CuttingProposalPattern, 'machineGroups'>[] | null | undefined): Record<PatternMachineClass, number> {
+  const totals: Record<PatternMachineClass, number> = { TU_DONG: 0, LASER: 0 };
+  for (const p of patterns ?? []) for (const g of p.machineGroups ?? []) totals[g.machineClass] += g.bars;
+  return totals;
+}
+
+/** "60 cây MC Tự động · 50 cây MC Laser" (bỏ lớp = 0); xưởng không có laze: "N cây MC Tự động · lỗ làm tay". null khi không có nhóm nào. */
+export function machineClassSummaryText(patterns: Pick<CuttingProposalPattern, 'machineGroups'>[] | null | undefined, laserAllowed = true): string | null {
+  const t = machineClassTotals(patterns);
+  const parts: string[] = [];
+  if (t.TU_DONG > 0) parts.push(`${t.TU_DONG} cây ${MACHINE_LABEL.tu_dong}`);
+  if (t.LASER > 0) parts.push(laserAllowed ? `${t.LASER} cây MC Laser` : `${t.LASER} cây ${MANUAL_HOLE_LABEL}`);
+  return parts.length > 0 ? parts.join(' · ') : null;
 }

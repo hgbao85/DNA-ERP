@@ -15,7 +15,9 @@ import { tableWrap, tbl, th, td, row, badge, tableScrollBox, stickyHeaderRow } f
 import { cardTitle } from '../../../../styles/typography'
 import { buildCuttingGuideTable, exportCuttingGuideExcel, printCuttingGuide } from '../../../../utils/cuttingGuide'
 import PrintExportButton from '../../../../components/PrintExportButton'
-import { fmtBundles, fmtBundleSummary, fmtPercent, linesMachine, machineLabel } from '../../../../utils/cutMachine'
+import { PatternMachineCell } from '../../ProductionPlan/CuttingSolvePanel'
+import { fmtBundles, fmtBundleSummary, linesMachine, machineLabel } from '../../../../utils/cutMachine'
+import { fmtMm, fmtNum, fmtPct } from '../../../../utils/numberFormat'
 import {
   getCuttingProposals,
   getCuttingProposal,
@@ -39,7 +41,14 @@ const DISPLAY_LABELS: Record<Exclude<CuttingProposalDisplayStatus, 'SUPERSEDED'>
 
 const ALL_KEY = '__all__'
 const fmtDate = (d: string | null) => (d ? new Date(d).toLocaleString('vi-VN') : '—')
-const fmtPct = (n: number | null) => (n == null ? '—' : `${fmtPercent(n)}%`)
+/** 0.413 -> "0,41 s" (dấu phẩy thập phân như các số khác, 13/11/2026). */
+const fmtSeconds = (s: number) => `${fmtNum(Math.round(s * 100) / 100)} s`
+/** "Sắt phi 6zem · Ø19" - cùng cách ghi loại sắt ở Tối ưu cắt sắt / Lệnh SX; thiếu tên thì rơi về mã. */
+const materialMain = (l: { materialCode: string; materialName?: string | null; materialSpec?: string | null }) => {
+  const n = l.materialName?.trim() || l.materialCode
+  const sp = l.materialSpec?.trim()
+  return sp ? `${n} · ${sp}` : n
+}
 
 /** "Đang tính... (đã chạy X phút)" - thời gian solve dao động rất lớn (đo thật: 4,7 -> hơn 15
  *  phút tuỳ vật tư). Tự đếm bằng interval riêng (không phụ thuộc refetch cha) để số luôn đúng dù
@@ -169,6 +178,9 @@ export default function CuttingProposalsPage() {
 
   // Dòng khả thi chưa ghi máy = phương án cũ = MC Laser (quy tắc chung ở cutMachine.ts).
   const detailMachine = machineLabel(linesMachine(detail?.lines))
+  // Chi tiết có nhãn máy từng kiểu cắt (MC Tự động / MC Laser theo loại cây): "Máy cắt: MC Laser" bên cạnh dễ bị hiểu là máy thứ hai
+  // -> ghi là máy dùng để TÍNH (13/11/2026).
+  const detailHasPatternMachines = detail?.lines?.some((l) => l.patterns?.some((pt) => (pt.machineGroups?.length ?? 0) > 0)) ?? false
 
   const renderStatus = (p: CuttingProposal) => {
     if (p.displayStatus === 'CALCULATING') return <CalculatingBadge requestedAt={p.requestedAt} />
@@ -229,7 +241,7 @@ export default function CuttingProposalsPage() {
               meta: [
                 { label: 'SKU / Sản phẩm', value: p.mfgProductName ? `${p.mfgProductCode} — ${p.mfgProductName}` : p.mfgProductCode },
                 { label: 'Ngày yêu cầu', value: fmtDate(p.requestedAt) },
-                { label: 'Tổng số cây', value: p.totalBarsAll ?? '—' },
+                { label: 'Tổng số cây', value: fmtNum(p.totalBarsAll) },
                 { label: 'Hao hụt %', value: fmtPct(p.wastePercentage) },
               ],
               footer: p.displayStatus === 'NEEDS_ACTION' ? <div style={{ display: 'flex', justifyContent: 'flex-end' }}>{retryBtn(p)}</div> : undefined,
@@ -260,7 +272,7 @@ export default function CuttingProposalsPage() {
                     <td style={td}>{p.salesOrderCode ?? '—'}</td>
                     <td style={td}>{p.mfgProductName ? `${p.mfgProductCode} — ${p.mfgProductName}` : p.mfgProductCode}</td>
                     <td style={td}>{renderStatus(p)}</td>
-                    <td style={{ ...td, textAlign: 'right' }}>{p.totalBarsAll ?? '—'}</td>
+                    <td style={{ ...td, textAlign: 'right' }}>{fmtNum(p.totalBarsAll)}</td>
                     <td style={{ ...td, textAlign: 'right' }}>{fmtPct(p.wastePercentage)}</td>
                     <td style={td}>{fmtDate(p.requestedAt)}</td>
                     <td style={td} onClick={e => e.stopPropagation()}>
@@ -287,7 +299,8 @@ export default function CuttingProposalsPage() {
           <div
             onClick={e => e.stopPropagation()}
             style={{
-              position: 'fixed', top: 0, right: 0, height: '100dvh', width: isMobile ? '100vw' : 'min(720px, 92vw)',
+              // 960 px (13/11/2026, trước 720): bảng 7 cột + dòng bó MC Tự động chật, tên loại sắt xuống 3 dòng.
+              position: 'fixed', top: 0, right: 0, height: '100dvh', width: isMobile ? '100vw' : 'min(960px, 92vw)',
               background: 'var(--surface)', boxShadow: '-8px 0 32px rgba(0,0,0,.18)',
               display: 'flex', flexDirection: 'column',
             }}
@@ -298,11 +311,11 @@ export default function CuttingProposalsPage() {
                 {detail && (
                   <div style={{ fontSize: 12, color: 'var(--text3)' }}>
                     {detail.salesOrderCode ?? '—'} — {detail.mfgProductCode}
-                    {detailMachine && <span> · Máy cắt: {detailMachine}</span>}
+                    {detailMachine && <span> · {detailHasPatternMachines ? `Tính theo thông số ${detailMachine}` : `Máy cắt: ${detailMachine}`}</span>}
                     {/* Tổng thời gian giải THẬT cộng dồn mọi loại sắt (2026-09-22) - mức tổng quan
                         "ở ngoài", tách bạch với thời gian riêng từng dòng hiện trong bảng bên dưới. */}
                     {detail.totalSolveSeconds != null && (
-                      <span> · Tổng thời gian giải: {detail.totalSolveSeconds}s</span>
+                      <span> · Tổng thời gian giải: {fmtSeconds(detail.totalSolveSeconds)}</span>
                     )}
                   </div>
                 )}
@@ -341,13 +354,15 @@ export default function CuttingProposalsPage() {
             <table style={isCompact ? { ...tbl, minWidth: 760 } : tbl}>
               <thead>
                 <tr style={{ background: 'var(--surface2)' }}>
+                  {/* Bảng chia cột đều (table-layout fixed) - đặt độ rộng riêng (13/11/2026) để cột Số cây đủ chỗ cho dòng
+                      "4 bó + 5 cây cắt tay = 9 lần cắt", cột Vật tư đủ "Tên · Quy cách" trên 1 dòng. */}
                   <th style={{ ...th, width: 36 }}></th>
-                  <th style={th}>Vật tư</th>
-                  <th style={th}>Khả thi</th>
-                  <th style={{ ...th, textAlign: 'right' }}>Số cây</th>
-                  <th style={{ ...th, textAlign: 'right' }}>Hao hụt %</th>
-                  <th style={{ ...th, textAlign: 'right' }}>Chiều dài</th>
-                  <th style={{ ...th, textAlign: 'right' }}>Thời gian</th>
+                  <th style={{ ...th, width: '27%', textAlign: 'left' }}>Vật tư</th>
+                  <th style={{ ...th, width: '12%', textAlign: 'left' }}>Khả thi</th>
+                  <th style={{ ...th, width: '25%', textAlign: 'right' }}>Số cây</th>
+                  <th style={{ ...th, width: '11%', textAlign: 'right' }}>Hao hụt %</th>
+                  <th style={{ ...th, width: '14%', textAlign: 'right' }}>Chiều dài</th>
+                  <th style={{ ...th, width: '11%', textAlign: 'right' }}>Thời gian</th>
                 </tr>
               </thead>
               <tbody>
@@ -368,11 +383,13 @@ export default function CuttingProposalsPage() {
                           {hasGuide ? (
                             // Nút thật cho bàn phím/trình đọc màn hình; click/Enter nổi bọt lên onClick của hàng nên không cần onClick riêng.
                             <button type="button" aria-expanded={expanded} style={{ padding: 0, border: 'none', background: 'none', color: 'inherit', font: 'inherit', textAlign: 'left', cursor: 'pointer' }}>
-                              {l.materialCode} — {l.materialName}
+                              {materialMain(l)}
                             </button>
                           ) : (
-                            <>{l.materialCode} — {l.materialName}</>
+                            <>{materialMain(l)}</>
                           )}
+                          {/* "Tên · Quy cách" như các màn cắt sắt khác (13/11/2026); mã xám bên dưới. */}
+                          {materialMain(l) !== l.materialCode && <div style={{ fontSize: 11, color: 'var(--text3)' }}>{l.materialCode}</div>}
                           {l.displayReason && (
                             <div style={{ fontSize: 11, color: 'var(--fg-c62828)', marginTop: 4, maxWidth: 320 }}>{l.displayReason}</div>
                           )}
@@ -383,10 +400,11 @@ export default function CuttingProposalsPage() {
                           </span>
                         </td>
                         <td style={{ ...td, textAlign: 'right' }}>
-                          {l.totalBars ?? '—'}
+                          {fmtNum(l.totalBars)}
                           {/* MC Tự động: nói luôn số bó / cây cắt tay / lần cắt ngay dưới số cây. */}
                           {l.machine === 'tu_dong' && fmtBundleSummary(l.bundleSummary) && (
-                            <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 2, whiteSpace: isMobile ? 'normal' : 'nowrap' }}>{fmtBundleSummary(l.bundleSummary)}</div>
+                            // Cho xuống dòng (13/11/2026): để 1 dòng thì chữ tràn đè sang cột Hao hụt trong khung chi tiết hẹp.
+                            <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 2, whiteSpace: 'normal', minWidth: 120 }}>{fmtBundleSummary(l.bundleSummary)}</div>
                           )}
                         </td>
                         <td style={{ ...td, textAlign: 'right' }}>
@@ -401,7 +419,7 @@ export default function CuttingProposalsPage() {
                           )}
                         </td>
                         <td style={{ ...td, textAlign: 'right' }}>
-                          {l.bestStockLengthMm ? `${l.bestStockLengthMm}mm` : '—'}
+                          {l.bestStockLengthMm ? fmtMm(l.bestStockLengthMm) : '—'}
                           {/* Cỡ đặt riêng (auto_scan mở lại 2026-08-26) - không phải cây chuẩn NCC
                               bán sẵn, phải nổi bật ngay ở bảng tóm tắt này. */}
                           {l.lengthSource === 'scan' && (
@@ -409,7 +427,7 @@ export default function CuttingProposalsPage() {
                           )}
                         </td>
                         <td style={{ ...td, textAlign: 'right' }}>
-                          {l.solveSeconds != null ? `${l.solveSeconds}s` : '—'}
+                          {l.solveSeconds != null ? fmtSeconds(l.solveSeconds) : '—'}
                         </td>
                       </tr>
                       {guide && (
@@ -417,7 +435,7 @@ export default function CuttingProposalsPage() {
                           <td colSpan={7} style={{ padding: '4px 12px 16px 32px', background: 'var(--surface2)' }}>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                               <div style={{ fontSize: 12, color: 'var(--text3)' }}>
-                                Tổng khúc thừa (phế liệu): {l.totalWasteMm ?? 0}mm
+                                Tổng khúc thừa (phế liệu): {fmtMm(l.totalWasteMm ?? 0)}
                               </div>
                               {/* stopPropagation trên cả khối - PrintExportButton tự có menu con,
                                   click chọn Excel/PDF bên trong cũng không được để lọt lên tr.onClick
@@ -426,8 +444,8 @@ export default function CuttingProposalsPage() {
                                 <PrintExportButton
                                   label="In"
                                   color={ACCENT}
-                                  onExcel={() => exportCuttingGuideExcel(detail.poNumber, l)}
-                                  onPdf={() => printCuttingGuide(detail.poNumber, [l])}
+                                  onExcel={() => exportCuttingGuideExcel(detail.poNumber, l, detail.machineContext?.laserAllowed !== false)}
+                                  onPdf={() => printCuttingGuide(detail.poNumber, [l], detail.machineContext?.laserAllowed !== false)}
                                 />
                               </div>
                             </div>
@@ -445,9 +463,15 @@ export default function CuttingProposalsPage() {
                                     }}
                                   >
                                     <div style={{ fontSize: 12, marginBottom: 6 }}>
-                                      Thanh <b>{l.bestStockLengthMm ?? '—'}mm</b> × <b>{r.barCount} cây</b>
-                                      <span style={{ color: 'var(--text3)' }}> · phần thừa {r.wastePerBarMm != null ? r.wastePerBarMm.toLocaleString('vi-VN') : '—'}mm/cây</span>
+                                      Thanh <b>{fmtMm(l.bestStockLengthMm)}</b> × <b>{fmtNum(r.barCount)} cây</b>
+                                      <span style={{ color: 'var(--text3)' }}> · phần thừa {fmtMm(r.wastePerBarMm)}/cây</span>
                                     </div>
+                                    {/* Lớp máy của kiểu cắt (13/11/2026): huy hiệu + số cây mỗi nhóm khi kiểu có nhiều nhóm. */}
+                                    {r.machineGroups && (
+                                      <div style={{ marginBottom: 6 }}>
+                                        <PatternMachineCell groups={r.machineGroups} laserAllowed={detail.machineContext?.laserAllowed !== false} />
+                                      </div>
+                                    )}
                                     {fmtBundles(r.bundles) && (
                                       <div style={{ fontSize: 12, marginBottom: 6, fontWeight: 600 }}>{fmtBundles(r.bundles)}</div>
                                     )}

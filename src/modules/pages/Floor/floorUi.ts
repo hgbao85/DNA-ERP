@@ -6,6 +6,12 @@
 import { ApiError } from '../../../services/core/apiError'
 import type { BeMyOutputRow } from '../../../services/floor-api'
 
+/** Tên tổ và tên công đoạn hiển thị - dùng chung cho màn quét và màn QLSX. */
+export const STAGE_LABEL: Record<string, string> = { PHOI: 'Phôi', HAN: 'Hàn', SON: 'Sơn' }
+export const STEP_LABEL: Record<string, string> = {
+  CAT: 'Cắt', UON: 'Uốn', DAP: 'Dập', DUC_LO: 'Đục lỗ', TAN: 'Tán', TOP_DAU: 'Tóp đầu', XE: 'Xẻ', NHAN: 'Nhấn',
+}
+
 export interface ErrorInfo {
   /** `warn` = chưa gửi được vì mạng (số còn nguyên, gửi lại được); `err` = máy chủ từ chối / lỗi khác. */
   tone: 'warn' | 'err'

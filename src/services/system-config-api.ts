@@ -26,6 +26,8 @@ export async function updateSystemConfig(data: Partial<SystemConfig>): Promise<S
     // Thông số MC Laser (11/11): BE có từ trước nhưng màn Cấu hình chưa có ô sửa - phải liệt kê ở đây thì BE mới nhận.
     solverBladeWidthMm: data.solverBladeWidthMm,
     solverTrimStartMm: data.solverTrimStartMm,
+    // 13/11/2026: đoạn cuối tối thiểu của laze (mm, 0 = tắt) - thiếu dòng này thì không bao giờ gửi lên BE.
+    solverLaserMinTailMm: data.solverLaserMinTailMm,
     // Thông số chung cả hai máy (12/11) - cùng lý do: phải liệt kê tên ở đây thì BE mới nhận.
     solverStockLengths: data.solverStockLengths,
     solverMaxWastePercentage: data.solverMaxWastePercentage,
@@ -45,6 +47,11 @@ export async function updateSystemConfig(data: Partial<SystemConfig>): Promise<S
     // ở màn Cấu hình hệ thống mà BE không bao giờ nhận được - thêm field mới phải thêm ở cả đây.
     solverMergeWindowDays: data.solverMergeWindowDays,
     solverMergeMaxSkus: data.solverMergeMaxSkus,
+    // Luật số cỡ đoạn/cây theo xưởng (13/11/2026) - cùng lý do: phải liệt kê tên ở đây thì BE mới nhận.
+    solverMaxSizesPerBarByWorkshop: data.solverMaxSizesPerBarByWorkshop,
+    // Máy cắt bắt buộc theo xưởng + số cây/bó theo quy cách (13/11/2026) - cùng lý do: phải liệt kê tên ở đây thì BE mới nhận.
+    solverMachineByWorkshop: data.solverMachineByWorkshop,
+    solverBundleFactorsBySpec: data.solverBundleFactorsBySpec,
     // Thể tích cont 40HC (Phần A YC9) - cùng lý do: không liệt kê ở đây thì Admin sửa mà BE không nhận.
     containerVolumeM3: data.containerVolumeM3,
     // Phần A – Đợt 3 (YC10): năng lực sản xuất (chỉ cảnh báo) - cùng lý do: phải liệt kê tên ở đây.

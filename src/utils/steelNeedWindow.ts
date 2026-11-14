@@ -1,7 +1,8 @@
 /**
  * Luật cứng của lệnh gộp (Sếp Nhân chốt 2026-10-24, làm rõ cùng ngày): "bắt buộc chỉ được gộp tối đa 2 lệnh
  * có ngày cắt sắt cách nhau không quá 3 ngày (ví dụ: ngày 1 gộp được ngày 3, ngày 1 không được gộp với ngày 4)".
- * Tức là KHUNG gộp N ngày (N = SystemConfig.solverMergeWindowDays, mặc định 3, Admin chỉnh 1-365) tính CẢ HAI
+ * 13/11/2026 Sếp nới khung mặc định lên 5 ngày: ngày 10 gộp được ngày 14, không gộp được ngày 15.
+ * Tức là KHUNG gộp N ngày (N = SystemConfig.solverMergeWindowDays, mặc định 5, Admin chỉnh 1-365) tính CẢ HAI
  * ĐẦU: mốc sớm nhất và muộn nhất chênh nhau tối đa N - 1 ngày (xem maxGapDays). N = 1 -> chỉ gộp cùng ngày.
  * Cắt/mua sắt đi theo PI nên cả nhóm mua một lần; mốc cách xa thì SKU sớm phải chờ hoặc SKU muộn phải mua sớm.
  * BE chặn khi lưu (400) - file này là bản tính cùng công thức ở FE để báo NGAY trong hộp "Sửa thời hạn".
@@ -14,7 +15,7 @@
  */
 
 /** Mặc định khi BE cũ chưa trả cấu hình (cùng mặc định phía BE/Admin). */
-export const DEFAULT_MERGE_WINDOW_DAYS = 3
+export const DEFAULT_MERGE_WINDOW_DAYS = 5
 /** Mặc định số SKU tối đa mỗi lệnh gộp (SystemConfig.solverMergeMaxSkus) khi BE cũ chưa trả. */
 export const DEFAULT_MERGE_MAX_SKUS = 2
 

@@ -98,8 +98,8 @@ test.describe('Golden path', () => {
 
       const customerInput = page.getByPlaceholder('Tìm hoặc chọn khách hàng *');
       await customerInput.click();
-      await customerInput.fill('MEIJING');
-      await page.getByRole('button', { name: /MEIJING/ }).click();
+      await customerInput.fill('Meiying');
+      await page.getByRole('button', { name: /Meiying/i }).click();
 
       const skuInput = page.getByPlaceholder('Tìm hoặc chọn SKU đã duyệt *');
       await skuInput.click();
@@ -177,6 +177,8 @@ test.describe('Golden path', () => {
       const row = page.getByRole('row').filter({ hasText: poCode });
       await expect(row).toBeVisible({ timeout: 30_000 });
       await row.getByRole('checkbox').check();
+      // 13/11/2026: phải chọn Xưởng cơ khí mới bấm Tính được (lệnh tạo ra mang xưởng này) - cùng xưởng với bước Gửi QLSX bên dưới.
+      await page.locator('#solver-workshop').selectOption({ label: 'Xưởng Phú An' });
 
       // Đơn lẻ test (1 SKU, không gộp) không lấp đầy nổi 1 cây chuẩn 6000mm nên luôn vượt ngưỡng
       // hao hụt mặc định (1%) - chọn chế độ "Chấp nhận hao hụt cao hơn (đơn gấp)" kèm lý do, đúng
