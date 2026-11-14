@@ -23,7 +23,7 @@ export const warehouseGroup: GuideGroup = {
       purpose:
         'Có 9 kho. Phú An 7 kho: Phôi, Hàn, Sơn, Phụ kiện, Thành phẩm 1, 2, 3. Phước An 2 kho: Phôi, Hàn. Mảnh đi theo dòng sản xuất: kho Phôi/Hàn/Sơn (khung cơ khí) → mảnh cần đan xuất thẳng từ kho Sơn ra điểm đan (kho Phụ kiện cấp dây, gỗ, đinh, nút kèm bằng phiếu riêng), mảnh không đan chuyển thẳng sang kho Thành phẩm của lệnh → kho Thành phẩm. Mỗi tài khoản thủ kho làm ở 1 kho tại một thời điểm và chỉ thấy bộ tab của kho đó.',
       steps: [
-        'Kho Phôi (Phú An, Phước An): Tổng hợp vật tư, Nhập kho, Xuất theo đơn hàng, Chuyển kho ngoài đơn hàng (chỉ để chuyển đá cắt sang kho Hàn cùng xưởng), Lịch sử kho, Phân phối nội bộ (xuất sắt, xuất vật tư TP, phiếu xuất), Văn phòng phẩm.',
+        'Kho Phôi (Phú An, Phước An): Tổng hợp vật tư, Nhập kho, Xuất theo đơn hàng, Chuyển kho ngoài đơn hàng (chỉ để chuyển đá cắt sang kho Hàn cùng xưởng), Lịch sử kho, Phân phối nội bộ (xuất sắt, xuất vật tư TP, phiếu xuất), Tồn đoạn (xem và kiểm kê đoạn sắt đã cắt), Văn phòng phẩm.',
         'Kho Hàn (Phú An, Phước An) và Kho Sơn: Tổng hợp vật tư, Nhập kho, Xuất theo đơn hàng, Lịch sử kho, Phân phối nội bộ (xuất vật tư hàn — hoặc sơn —, Xuất đan, phiếu xuất), Văn phòng phẩm.',
         'Kho Phụ kiện: Tổng hợp vật tư, Nhập kho, Xuất theo đơn hàng, Chuyển kho ngoài đơn hàng, Lịch sử kho, Vật tư kèm đan, Quản lý điểm đan, Văn phòng phẩm.',
         'Kho Thành phẩm: Tổng hợp vật tư, Nhập kho, Xuất theo đơn hàng, Chuyển kho ngoài đơn hàng, Lịch sử kho, Chuyền kiểm, Đóng gói, Theo dõi nhập đan, Văn phòng phẩm.',
@@ -81,10 +81,56 @@ export const warehouseGroup: GuideGroup = {
       ],
       result: 'Đối chiếu được tồn kho và truy lại được từng lần nhập/xuất mà không cần hỏi Admin.',
       warnings: [
-        'Đây là hai màn CHỈ XEM. Sửa số tồn kho (điều chỉnh tay) chỉ Admin làm được ở Admin > Quản lý kho.',
+        'Đây là hai màn CHỈ XEM. Sửa số tồn kho (điều chỉnh tay) chỉ Admin làm được ở Admin > Quản lý kho. Riêng đoạn sắt đã cắt, thủ kho Phôi tự kiểm kê ở tab "Tồn đoạn".',
       ],
       tags: ['tổng hợp vật tư', 'lịch sử kho', 'tồn kho', 'khả dụng', 'sổ kho'],
       sourceRefs: ['src/modules/pages/ProductionPlan/VatTuDashboardPage.tsx', 'src/components/WarehouseLedgerHistory.tsx'],
+    },
+    {
+      id: 'wh-ton-doan',
+      title: 'Tồn đoạn & kiểm kê đoạn (kho Phôi)',
+      roles: ['warehouse'],
+      purpose:
+        'Tab "Tồn đoạn" của kho Phôi cho thấy đoạn sắt đã cắt đang nằm trong kho, theo từng MÃ ĐOẠN (loại sắt + chiều dài cắt + công đoạn: trơn / dập / uốn...). Thủ kho không nhập tay đoạn vào hay ra: Phôi KCS đạt thì đoạn tự vào, Hàn / Sơn báo thì tự trừ. Thủ kho chỉ chỉnh khi kiểm kê.',
+      preconditions: ['Đang làm ở kho Phôi (Phú An hoặc Phước An).'],
+      mock: {
+        title: 'Kho phôi',
+        columns: ['Mã đoạn', 'Tồn', 'Giữ cho lệnh', 'Dư', 'ĐVT', ''],
+        rows: [
+          ['SAT-002 — đoạn 800mm · Dập', '15', '10 (1 lệnh)', '5', 'cái', 'Kiểm kê'],
+          ['SAT-001 — đoạn 400mm · Trơn', '30', '0', '30', 'cái', 'Kiểm kê'],
+        ],
+        buttons: ['Đoạn chuẩn', 'Đoạn thừa (chờ xử lý)', 'Kiểm kê'],
+      },
+      steps: [
+        'Mở tab "Tồn đoạn". Màn chỉ hiện kho Phôi bạn đang làm.',
+        'Đếm thực tế số đoạn của một mã đoạn, bấm "Kiểm kê" ở dòng đó.',
+        { text: 'Nhập SỐ ĐẾM ĐƯỢC (không phải số chênh), ghi chú (bắt buộc), xem dòng "Chênh" rồi bấm "Ghi kiểm kê".', critical: true },
+        'Mã đoạn chưa có dòng nào trên màn (chưa từng có tồn) thì báo IT / Admin.',
+      ],
+      tables: [
+        {
+          title: 'Ba cột số',
+          columns: ['Cột', 'Nghĩa'],
+          rows: [
+            ['Tồn', 'Đoạn thật trong kho = Giữ cho lệnh + Dư.'],
+            ['Giữ cho lệnh', 'Đoạn đã đủ công đoạn và KCS đạt của các lệnh đang chạy, chờ Hàn / Sơn dùng. Lệnh khác không lấy được phần này.'],
+            ['Dư', 'Đoạn cắt vượt của xưởng — lệnh nào thiếu thì lấy từ đây. Phần kiểm kê tăng / giảm cũng vào / ra cột này.'],
+          ],
+        },
+      ],
+      result: 'Số đoạn trên phần mềm khớp số đếm thực tế; phần chênh ghi vào Lịch sử kho với đối ứng "Cân đối tồn kho".',
+      warnings: [
+        'Số âm (chữ đỏ) là dữ liệu cũ trước khi quản đoạn theo lệnh — IT sẽ chuyển đổi trước khi bật; trong lúc chờ thì kiểm kê đưa về số đếm thật.',
+        'Đếm ít hơn phần "Giữ cho lệnh" thì Hàn / Sơn của lệnh đó sẽ thiếu đoạn (phần mềm ghi "Sổ báo vượt đoạn" cho QLSX) — hộp kiểm kê có cảnh báo khi xảy ra.',
+        'Lệnh đổi xưởng thì phần đoạn lệnh còn giữ tự chuyển sang kho Phôi của xưởng mới, thủ kho không cần làm phiếu cho đoạn.',
+      ],
+      commonErrors: [
+        { issue: '"Tồn ... vừa đổi (... → ...) - tải lại rồi nhập lại số đếm"', cause: 'Trong lúc bạn đếm, Hàn / Sơn báo hoặc KCS Phôi đạt làm tồn thay đổi.', fix: 'Tải lại trang, đếm lại nếu cần, nhập lại số đếm.' },
+        { issue: '"Bạn chỉ kiểm kê được kho mình phụ trách"', cause: 'Đang làm kho khác.', fix: 'Đổi "Kho đang làm" sang đúng kho Phôi.' },
+      ],
+      tags: ['tồn đoạn', 'kiểm kê đoạn', 'kho phôi', 'giữ cho lệnh', 'dư', 'mã đoạn', 'đếm đoạn'],
+      sourceRefs: ['src/modules/pages/Phoi/KhoPhoiPage.tsx', 'src/modules/pages/InboundWarehouse/InboundWarehouseApp.tsx'],
     },
     {
       id: 'wh-nhap-kho',
