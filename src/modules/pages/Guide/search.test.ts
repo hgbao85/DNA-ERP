@@ -30,6 +30,9 @@ describe('searchArticles (nội dung guide thật)', () => {
     ['gui kcs', 'mfg-qr-qlsx-hang-doi'],
     ['tem qr', 'mfg-qr-qlsx-thiet-lap'],
     ['quet qr', 'mfg-qr-bao-san-luong'],
+    // 14/11/2026: tồn đoạn theo lệnh.
+    ['so bao vuot doan', 'mfg-so-bao-vuot-doan'],
+    ['kiem ke doan', 'wh-ton-doan'],
   ])('"%s" -> %s đứng trong 2 kết quả đầu', (q, id) => {
     expect(ids(q).slice(0, 2)).toContain(id);
   });

@@ -22,7 +22,7 @@ export const manufacturingGroup: GuideGroup = {
       roles: ['qlsx', 'phoi', 'han', 'son', 'kcs', 'spec_steel', 'spec_detail'],
       purpose: 'Phân hệ Sản xuất dùng chung cho nhiều vai trò; mỗi tài khoản chỉ thấy đúng bộ tab của công việc mình.',
       steps: [
-        'QLSX: Tổng hợp lệnh SX, Xử lý lệnh sản xuất, Sản lượng xưởng (4 tab: Sản lượng & gửi KCS · Báo cáo · Máy & tem QR · Công nhân), Danh sách SKU (chỉ xem), Tổng hợp vật tư, Tổng hợp kho.',
+        'QLSX: Tổng hợp lệnh SX, Xử lý lệnh sản xuất, Sản lượng xưởng (4 tab: Sản lượng & gửi KCS · Báo cáo · Máy & tem QR · Công nhân), Sổ báo vượt đoạn, Danh sách SKU (chỉ xem), Tổng hợp vật tư, Tổng hợp kho.',
         'Công nhân tổ Phôi/Hàn/Sơn có tài khoản riêng: KHÔNG dùng phân hệ này mà quét mã QR dán ở máy bằng điện thoại để báo sản lượng (xem bài "Tổ Phôi / Hàn / Sơn — quét mã QR tại máy để báo sản lượng").',
         'Tổ Phôi: Lệnh sản xuất, Hướng dẫn cắt, Xác nhận nhận sắt, Danh sách định mức mảnh, Kho phôi.',
         'Tổ Hàn: Lệnh sản xuất, Xác nhận nhận vật tư, Danh sách định mức mảnh, Khung hàn.',
@@ -394,7 +394,7 @@ export const manufacturingGroup: GuideGroup = {
       purpose: 'Các màn chỉ xem, hỗ trợ Tổ Phôi làm việc chính xác hơn.',
       screenshot: '/guide-screens/mfg-phoi-tra-cuu.png',
       steps: [
-        '"Kho phôi": xem tồn đoạn sắt thật tại kho (Đoạn chuẩn chờ chuyển Hàn / Đoạn thừa chờ xử lý).',
+        '"Kho phôi": xem tồn đoạn sắt theo MÃ ĐOẠN (loại sắt + chiều dài cắt + công đoạn, vd "SAT-002 — đoạn 800mm · Dập") của kho Phôi từng xưởng (bấm tên kho để đổi). Cột "Tồn" = đoạn thật trong kho, "Giữ cho lệnh" = đoạn đã đủ công đoạn và KCS đạt của các lệnh đang chạy (số lệnh trong ngoặc), "Dư" = đoạn cắt vượt của xưởng, chia cho lệnh sau. Tab "Đoạn chuẩn" / "Đoạn thừa (chờ xử lý)" như trước.',
         '"Hướng dẫn cắt": xem bảng cắt bắt buộc theo phương án đã duyệt cho PO/PI, có thể bấm "In" (Excel/PDF). Dòng "Máy cắt: …" cho biết phương án tính cho máy nào; nếu là MC Tự động, cột "Cách cắt theo bó cây" ghi cách cắt từng kiểu, vd "16 cây × 12 bó cây + 5 cây cắt tay" = cắt 12 bó, mỗi bó 16 cây, thêm 5 cây cắt tay (từng cây).',
         '"Danh sách định mức mảnh": tra nhanh định mức sắt của từng mảnh theo SKU (Tên mảnh / Loại sắt / Quy cách / Chiều dài cắt).',
       ],
@@ -403,7 +403,7 @@ export const manufacturingGroup: GuideGroup = {
         '"Hướng dẫn cắt" hiện thông báo "Chưa có phương án cắt nào đã duyệt cho PO/PI này" nếu lệnh chưa có phương án cắt dùng được.',
         'Loại sắt có dòng "⚠ Cỡ đặt riêng ...mm — không phải cây chuẩn" = phải cắt trên cây đặt riêng, đừng lấy nhầm cây chuẩn.',
       ],
-      tags: ['kho phôi', 'hướng dẫn cắt', 'định mức mảnh'],
+      tags: ['kho phôi', 'hướng dẫn cắt', 'định mức mảnh', 'giữ cho lệnh', 'dư', 'mã đoạn'],
       sourceRefs: ['src/modules/pages/Phoi/KhoPhoiPage.tsx', 'src/modules/pages/Phoi/HuongDanCatPage.tsx'],
     },
     {
@@ -426,7 +426,7 @@ export const manufacturingGroup: GuideGroup = {
       ],
       result: 'Đợt chuyển sang chờ KCS duyệt; sau khi KCS duyệt xong, sản phẩm sẵn sàng cho công đoạn tiếp theo (Sơn, hoặc Đan/Chuyền kiểm nếu là Sơn).',
       warnings: [
-        'Không chặn nhập vượt số "Còn lại" theo định mức — số liệu chỉ mang tính tham khảo.',
+        'Không chặn nhập vượt số "Còn lại" theo định mức — số liệu chỉ mang tính tham khảo. Khi đã bật quản đoạn theo lệnh, báo thiếu đoạn hay vượt số lượng lệnh vẫn lưu được nhưng phần mềm ghi vào "Sổ báo vượt đoạn" và báo QLSX.',
         'Nếu KCS chấm có lỗi, KCS KHÔNG tự tạo lô làm lại cho Hàn/Sơn — phải tự báo một đợt hoàn toàn mới (dùng "Bù đủ" để tự điền số cần bù) và gửi KCS lại như bình thường.',
         'Cột "Đã hàn"/"Đã sơn" ở danh sách SKU = số sản phẩm ráp được đủ mọi mảnh (tính theo mảnh thiếu nhất), không phải tổng số mảnh đã báo.',
         'Banner đỏ "chưa cân đối" xuất hiện khi các mảnh của cùng một SKU chưa cắt/hàn/sơn đều số lượng với nhau — cần chú ý để tránh lệch dây chuyền.',
@@ -442,6 +442,56 @@ export const manufacturingGroup: GuideGroup = {
       ],
       tags: ['hàn', 'sơn', 'báo sản lượng', 'lưu đợt', 'gửi kcs'],
       sourceRefs: ['src/modules/pages/Han/LenhSanXuatHan.tsx', 'src/modules/pages/Son/LenhSanXuatSon.tsx'],
+    },
+    {
+      id: 'mfg-so-bao-vuot-doan',
+      title: 'Sổ báo vượt đoạn — QLSX kiểm tra và đóng dòng',
+      roles: ['qlsx', 'khsx', 'boss'],
+      purpose:
+        'Đoạn sắt đã cắt được quản theo từng lệnh: Phôi cắt xong và KCS đạt thì đoạn tự vào kho Phôi và được giữ cho lệnh đó; Hàn (hoặc Sơn, với mảnh không qua Hàn) báo sản lượng thì phần mềm tự trừ đoạn. Hàn / Sơn báo thiếu đoạn hay làm vượt số lượng lệnh vẫn KHÔNG bị chặn — mỗi lần như vậy phần mềm ghi một dòng vào sổ này để QLSX kiểm tra rồi đóng.',
+      preconditions: [
+        'Chỉ có dòng khi IT đã bật chế độ quản đoạn theo lệnh. Khi chưa bật, sổ trống và Hàn / Sơn vẫn trừ đoạn theo cách cũ.',
+      ],
+      mock: {
+        title: 'Sổ báo vượt đoạn',
+        columns: ['Lúc báo', 'Lệnh', 'Mảnh', 'Mã đoạn', 'Cần / lấy được', 'Thiếu', 'Vượt lệnh', 'Người báo', ''],
+        rows: [
+          ['09:08 14-11', 'PBG-1', 'PB-B · Hàn', 'SAT-002 @ 800mm · Dập', '15 / 5', '10', 'Báo vượt: 5 mảnh vượt lệnh, lấy thêm 5 đoạn', 'Tổ Hàn', 'Đóng dòng'],
+        ],
+        buttons: ['Chưa xử lý', 'Đã đóng', 'Tất cả', 'Đóng dòng'],
+      },
+      steps: [
+        'QLSX nhận thông báo "<số LSX>: Hàn báo vượt đoạn (<mảnh>)" — bấm vào để mở tab "Sổ báo vượt đoạn". Có thể tự mở tab này bất cứ lúc nào.',
+        'Mặc định xem "Chưa xử lý". Mỗi dòng là một MÃ ĐOẠN của một lần báo (một lần báo dùng 2 loại đoạn thì ra 2 dòng).',
+        'Kiểm tra thực tế: đếm lại đoạn ở kho Phôi, hỏi tổ Phôi có cắt bù không, hay Hàn làm lại do KCS chấm lỗi.',
+        { text: 'Bấm "Đóng dòng", ghi lý do (bắt buộc, vd "Phôi cắt bù 10 đoạn", "Đã đếm lại", "Cho qua khẩn") rồi bấm "Đóng dòng" để xác nhận.', critical: true },
+        'Xem lại các dòng đã đóng (ai đóng, lúc nào, lý do) ở bộ lọc "Đã đóng".',
+      ],
+      tables: [
+        {
+          title: 'Đọc một dòng sổ',
+          columns: ['Cột', 'Nghĩa'],
+          rows: [
+            ['Cần / lấy được', 'Số đoạn lần báo này cần theo định mức / số đoạn phần mềm trừ được trong kho Phôi của xưởng làm lệnh.'],
+            ['Thiếu', 'Số đoạn không trừ được vì kho không còn (tồn đoạn không bao giờ âm). Phần mềm lấy phần giữ của chính lệnh trước, thiếu thì lấy phần Dư của xưởng, còn thiếu nữa mới ghi vào đây.'],
+            ['Vượt lệnh — "Báo vượt"', 'Lần báo làm tổng số mảnh vượt số lượng lệnh; ghi số mảnh vượt và số đoạn lấy thêm tương ứng.'],
+            ['Vượt lệnh — "Làm lại"', 'Như trên nhưng trước đó KCS đã chấm lỗi mảnh / công đoạn này — Hàn lấy thêm sắt để làm lại.'],
+          ],
+        },
+      ],
+      result: 'Mọi lần báo thiếu / vượt đều có người kiểm tra và có lý do lưu lại; thông báo tự đóng khi QLSX đóng hết các dòng của lần báo đó.',
+      warnings: [
+        'Chỉ QLSX đóng được dòng. KHSX và Giám đốc chỉ xem. QLSX gắn với một xưởng chỉ thấy và chỉ đóng được dòng của lệnh thuộc xưởng mình.',
+        'Đóng dòng KHÔNG cộng / trừ tồn kho. Số đoạn thật lệch thì thủ kho Phôi sửa bằng "Kiểm kê" ở tab "Tồn đoạn".',
+        'Mảnh cần cả Hàn lẫn Sơn chỉ trừ đoạn một lần lúc Hàn báo; Sơn báo không trừ thêm.',
+      ],
+      commonErrors: [
+        { issue: '"Dòng này đã được đóng - tải lại trang"', cause: 'Người khác vừa đóng dòng này trước bạn.', fix: 'Tải lại trang, xem lý do ở bộ lọc "Đã đóng".' },
+        { issue: '"Bạn phụ trách ... - dòng báo vượt này thuộc xưởng khác"', cause: 'Lệnh làm ở xưởng khác.', fix: 'QLSX của xưởng đó đóng.' },
+        { issue: 'Nút "Đóng dòng" mờ', cause: 'Chưa ghi lý do hoặc lý do dưới 3 ký tự.', fix: 'Ghi lý do rõ ràng.' },
+      ],
+      tags: ['sổ báo vượt', 'báo vượt đoạn', 'thiếu đoạn', 'vượt lệnh', 'làm lại', 'đóng dòng', 'tồn đoạn'],
+      sourceRefs: ['src/modules/pages/Manufacturing/SoBaoVuotDoanPage.tsx', 'src/modules/pages/ProductionPlan/ProductionPlanApp.tsx'],
     },
     {
       id: 'mfg-han-son-nhan-vattu',
