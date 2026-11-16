@@ -22,7 +22,7 @@ import { errMsg } from '../../../utils/errors'
 import Modal from '../../../components/Modal'
 import LoadingState from '../../../components/LoadingState'
 import LoadErrorState from '../../../components/LoadErrorState'
-import { btn, card, input, isCutUnassigned, KIND_LABEL, kindWithMachine, Notice, Pill, STAGE_LABEL, STEP_LABEL, summarizeCutMachines, td, th, UNASSIGNED_WORKSHOP_TITLE } from './qlsxUi'
+import { btn, card, countNonCutUnassigned, input, isCutUnassigned, isWorkshopUnassigned, KIND_LABEL, kindWithMachine, Notice, Pill, STAGE_LABEL, STEP_LABEL, summarizeCutMachines, td, th, UNASSIGNED_DEFAULT_WORKSHOP_TITLE, UNASSIGNED_WORKSHOP_TITLE } from './qlsxUi'
 import { isLocalOrigin, kindCaption, printTems, qrDataUrl, workstationLink } from './qrPrint'
 
 const STAGES: FloorStage[] = ['PHOI', 'HAN', 'SON']
@@ -89,7 +89,8 @@ function AddWorkstation({ workshops, defaultWorkshopId, onDone, onCancel }: {
   const [stage, setStage] = useState<FloorStage>('PHOI')
   const [kind, setKind] = useState<WorkstationKind>('CUT')
   const [step, setStep] = useState('UON')
-  // Máy cắt: loại máy BẮT BUỘC chọn (không mặc định, tránh khai nhầm laze); xưởng mặc định = xưởng phụ trách của QLSX.
+  // Máy cắt: loại máy BẮT BUỘC chọn (không mặc định, tránh khai nhầm laze). Xưởng áp cho mọi loại máy (BE lấy hàng đợi theo xưởng
+  // của máy); mặc định = xưởng phụ trách của QLSX.
   const [cutType, setCutType] = useState<SolverMachine | ''>('')
   const [workshopId, setWorkshopId] = useState(defaultWorkshopId ?? '')
   const [busy, setBusy] = useState(false)
@@ -107,7 +108,8 @@ function AddWorkstation({ workshops, defaultWorkshopId, onDone, onCancel }: {
     try {
       await floorAdmin.createWorkstation({
         code: code.trim(), name: name.trim(), stage, kind, processStep: kind === 'STEP' ? step : undefined,
-        ...(kind === 'CUT' ? { cutMachineType: cutType || undefined, workshopId: workshopId || undefined } : {}),
+        workshopId: workshopId || undefined,
+        ...(kind === 'CUT' ? { cutMachineType: cutType || undefined } : {}),
       })
       onDone()
     } catch (e2) { setErr(errMsg(e2)); setBusy(false) }
@@ -131,17 +133,15 @@ function AddWorkstation({ workshops, defaultWorkshopId, onDone, onCancel }: {
             {STEPS.map((s) => <option key={s} value={s}>{STEP_LABEL[s]}</option>)}</select></label>
       )}
       {kind === 'CUT' && (
-        <>
-          <label style={{ display: 'grid', gap: 4 }}>{lab('Loại máy cắt')}
-            <select style={input} value={cutType} onChange={(e) => setCutType(e.target.value as SolverMachine | '')}>
-              <option value="">- Chọn loại -</option>
-              {CUT_TYPES.map((t) => <option key={t} value={t}>{MACHINE_LABEL[t]}</option>)}</select></label>
-          <label style={{ display: 'grid', gap: 4 }}>{lab('Xưởng')}
-            <select style={input} value={workshopId} onChange={(e) => setWorkshopId(e.target.value)}>
-              <option value="">- Chưa gán xưởng -</option>
-              {workshops.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</select></label>
-        </>
+        <label style={{ display: 'grid', gap: 4 }}>{lab('Loại máy cắt')}
+          <select style={input} value={cutType} onChange={(e) => setCutType(e.target.value as SolverMachine | '')}>
+            <option value="">- Chọn loại -</option>
+            {CUT_TYPES.map((t) => <option key={t} value={t}>{MACHINE_LABEL[t]}</option>)}</select></label>
       )}
+      <label style={{ display: 'grid', gap: 4 }}>{lab('Xưởng')}
+        <select style={input} value={workshopId} onChange={(e) => setWorkshopId(e.target.value)}>
+          <option value="">- Chưa gán xưởng -</option>
+          {workshops.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</select></label>
       <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
         <button type="submit" disabled={!valid || busy} style={btn('primary', !valid || busy)}>Tạo máy</button>
         <button type="button" onClick={onCancel} style={btn('secondary')}>Hủy</button>
@@ -189,6 +189,7 @@ function Workstations() {
   const list = data ?? []
   const workshops = shops.data ?? []
   const cutSummary = summarizeCutMachines(list, workshops.map((x) => x.name))
+  const otherUnassigned = countNonCutUnassigned(list)
   // Địa chỉ in lên tem: đã cài thì dùng, chưa cài thì địa chỉ đang mở.
   const savedBase = settings.data?.publicUrl ?? null
   const base = savedBase ?? (typeof window !== 'undefined' ? window.location.origin : '')
@@ -218,11 +219,12 @@ function Workstations() {
     </>
   )
   const workshopCell = (w: BeWorkstation, full: boolean) => {
-    if (w.kind !== 'CUT') return w.workshopName ?? ''
-    const none = isCutUnassigned(w)
+    const isCut = w.kind === 'CUT'
+    const none = isCut ? isCutUnassigned(w) : isWorkshopUnassigned(w)
+    // Luôn đặt borderColor (không thêm / bớt): bớt thuộc tính lẻ khi style còn `border` gộp thì React cảnh báo và có thể giữ sai viền.
     return (
-      <select style={{ ...selStyle(full), ...(none ? { borderColor: 'var(--amber)' } : {}) }} value={w.workshopId ?? ''} aria-label={`Xưởng của ${w.code}`}
-        title={none ? UNASSIGNED_WORKSHOP_TITLE : undefined}
+      <select style={{ ...selStyle(full), borderColor: none ? 'var(--amber)' : 'var(--border2)' }} value={w.workshopId ?? ''} aria-label={`Xưởng của ${w.code}`}
+        title={none ? (isCut ? UNASSIGNED_WORKSHOP_TITLE : UNASSIGNED_DEFAULT_WORKSHOP_TITLE) : undefined}
         onChange={(e) => void patch(w, { workshopId: e.target.value || null })}>
         <option value="">- Chưa gán -</option>
         {workshops.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
@@ -280,6 +282,11 @@ function Workstations() {
           <div style={{ fontSize: 12, color: 'var(--text3)' }}>Hệ thống dùng danh sách này để chia sắt cho máy laze / máy tự động - máy nào chưa gán xưởng thì khai thêm ở bảng dưới.</div>
         </div>
       )}
+      {otherUnassigned > 0 && (
+        <Notice tone="warn">
+          {otherUnassigned} máy / điểm làm việc chưa gán xưởng - đang được tính theo xưởng mặc định. Máy đặt ở xưởng khác phải gán đúng xưởng, nếu không công nhân quét tem sẽ thấy lệnh của xưởng mặc định.
+        </Notice>
+      )}
       {adding && <AddWorkstation workshops={workshops} defaultWorkshopId={scopedWorkshopId} onCancel={() => setAdding(false)} onDone={() => { setAdding(false); void refetch() }} />}
       {err && <Notice tone="err">{err}</Notice>}
       {isLoading ? <LoadingState /> : error ? <LoadErrorState error={error} onRetry={() => void refetch()} /> : list.length === 0 ? (
@@ -296,19 +303,17 @@ function Workstations() {
                   {statusCell(w)}
                 </div>
                 <div style={{ fontSize: 12, color: 'var(--text2)' }}>Tổ {STAGE_LABEL[w.stage]}</div>
+                <label style={{ display: 'grid', gap: 4 }}>
+                  <span style={{ fontSize: 12, color: 'var(--text2)', fontWeight: 600 }}>Xưởng</span>
+                  {workshopCell(w, true)}
+                </label>
                 {w.kind === 'CUT' ? (
-                  <>
-                    <label style={{ display: 'grid', gap: 4 }}>
-                      <span style={{ fontSize: 12, color: 'var(--text2)', fontWeight: 600 }}>Xưởng</span>
-                      {workshopCell(w, true)}
-                    </label>
-                    <label style={{ display: 'grid', gap: 4 }}>
-                      <span style={{ fontSize: 12, color: 'var(--text2)', fontWeight: 600 }}>Loại máy cắt</span>
-                      {typeCell(w, true)}
-                    </label>
-                  </>
+                  <label style={{ display: 'grid', gap: 4 }}>
+                    <span style={{ fontSize: 12, color: 'var(--text2)', fontWeight: 600 }}>Loại máy cắt</span>
+                    {typeCell(w, true)}
+                  </label>
                 ) : (
-                  <div style={{ fontSize: 13 }}>{typeCell(w, true)}{w.workshopName ? ` · ${w.workshopName}` : ''}</div>
+                  <div style={{ fontSize: 13 }}>{typeCell(w, true)}</div>
                 )}
                 {qrActions(w)}
               </div>
