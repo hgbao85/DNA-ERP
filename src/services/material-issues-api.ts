@@ -17,6 +17,7 @@
  *    PO nào) - endpoint riêng cho đúng trường hợp này, xem ListMaterialIssuesQueryDto (BE).
  */
 import { http } from './core/http';
+import { getAllPages } from './core/getAllPages';
 import type { Sku } from '../types/sku';
 import { resolveProductionOrderId } from './production-invoice-item';
 
@@ -70,10 +71,7 @@ export async function getMaterialIssuePlan(pf: Sku, stage: MaterialIssueStage): 
 /** Tổ Hàn/Sơn xem đợt chờ/đã nhận của công đoạn mình — flat qua mọi PO, không cần resolve
  *  productionOrderId (permission không đủ để tự resolve, xem comment đầu file). */
 export async function getMaterialIssuesByStage(stage: MaterialIssueStage): Promise<BeMaterialIssue[]> {
-  const res = await http.get<BeMaterialIssue[] | { data: BeMaterialIssue[] }>(
-    `/material-issues?stage=${stage}&limit=100`,
-  );
-  return Array.isArray(res) ? res : res.data;
+  return getAllPages<BeMaterialIssue>(`/material-issues?stage=${stage}`);
 }
 
 // Xuất vật tư tiêu hao từng dòng (POST /production-orders/:id/material-issues) đã gỡ ở Đợt 6 - xuất qua phiếu XK, xem

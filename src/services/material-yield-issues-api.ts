@@ -10,6 +10,7 @@
  * XuatVatTuTieuHaoPage (chọn SKU trước, plan/issue theo đúng productionOrderId của SKU đó).
  */
 import { http } from './core/http';
+import { getAllPages } from './core/getAllPages';
 import type { Sku } from '../types/sku';
 import { resolveProductionOrderId } from './production-invoice-item';
 
@@ -60,10 +61,7 @@ export async function getMaterialYieldIssuePlan(pf: Sku): Promise<BeMaterialYiel
 export async function getMaterialYieldIssuesForOrder(
   productionOrderId: string,
 ): Promise<BeMaterialYieldIssue[]> {
-  const res = await http.get<BeMaterialYieldIssue[] | { data: BeMaterialYieldIssue[] }>(
-    `/production-orders/${productionOrderId}/material-yield-issues?limit=100`,
-  );
-  return Array.isArray(res) ? res : res.data;
+  return getAllPages<BeMaterialYieldIssue>(`/production-orders/${productionOrderId}/material-yield-issues`);
 }
 
 /** Phôi xem đợt chờ/đã nhận của mình — flat qua mọi PO, không cần resolve productionOrderId
@@ -71,11 +69,7 @@ export async function getMaterialYieldIssuesForOrder(
 export async function getMaterialYieldIssuesByStatus(
   status?: 'ISSUED' | 'RECEIVED',
 ): Promise<BeMaterialYieldIssue[]> {
-  const qs = status ? `status=${status}&limit=100` : 'limit=100';
-  const res = await http.get<BeMaterialYieldIssue[] | { data: BeMaterialYieldIssue[] }>(
-    `/material-yield-issues?${qs}`,
-  );
-  return Array.isArray(res) ? res : res.data;
+  return getAllPages<BeMaterialYieldIssue>('/material-yield-issues', { status });
 }
 
 // issueMaterialYield() (xuất thẳng, không phiếu) ĐÃ GỠ 09/11/2026 - xuất qua phiếu XK (issue-slips-api.ts).

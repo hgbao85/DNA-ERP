@@ -7,6 +7,7 @@
  *   2) Đăng nhập qua BE thật (services/auth-api.ts) để có JWT hợp lệ, nếu không /users trả 401.
  */
 import { http } from './core/http';
+import { getAllPages } from './core/getAllPages';
 import type { SystemUser } from '../types/admin';
 import type { BeRole, BeUserProfile } from '../types/auth';
 import { deriveRoleIds, hasMfgAttrs, mapBeToFe, mfgAttrsPayload, splitName } from './users-mapper';
@@ -16,8 +17,8 @@ import { deriveRoleIds, hasMfgAttrs, mapBeToFe, mfgAttrsPayload, splitName } fro
 // nên tránh cache để không phải lo bug đọc phải dữ liệu cũ khi role vừa bị đổi/xoá.
 async function getRoleMap(): Promise<Record<string, string>> {
   // GET /roles có phân trang: envelope.data = { data: BeRole[], meta }. limit đủ lớn để lấy hết 15 role 1 lần.
-  const page = await http.get<{ data: BeRole[] }>('/roles?limit=100');
-  return Object.fromEntries(page.data.map((r) => [r.name, r.id]));
+  const roles = await getAllPages<BeRole>('/roles');
+  return Object.fromEntries(roles.map((r) => [r.name, r.id]));
 }
 
 // ─── API công khai (ghi đè hàm mock cùng tên trong facade services/api) ───────
@@ -25,8 +26,7 @@ async function getRoleMap(): Promise<Record<string, string>> {
 export async function getUsers(): Promise<SystemUser[]> {
   // GET /users có phân trang giống /roles: envelope.data = { data: BeUser[], meta }.
   // Nhận cả 2 shape (mảng thẳng hoặc {data}) cho chắc.
-  const res = await http.get<BeUserProfile[] | { data: BeUserProfile[] }>('/users?limit=100');
-  const list = Array.isArray(res) ? res : res.data;
+  const list = await getAllPages<BeUserProfile>('/users');
   return list.map(mapBeToFe);
 }
 

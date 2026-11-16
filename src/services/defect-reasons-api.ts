@@ -4,6 +4,7 @@
  * BE không hỗ trợ filter theo stageType trên query — lọc phía client như bản mock cũ.
  */
 import { http } from './core/http';
+import { getAllPages } from './core/getAllPages';
 
 export interface BeDefectReason {
   id: number;
@@ -12,8 +13,7 @@ export interface BeDefectReason {
 }
 
 export async function getDefectReasons(stageType?: string): Promise<BeDefectReason[]> {
-  const res = await http.get<BeDefectReason[] | { data: BeDefectReason[] }>('/defect-reasons?limit=100');
-  const list = Array.isArray(res) ? res : res.data;
+  const list = await getAllPages<BeDefectReason>('/defect-reasons');
   return stageType ? list.filter((d) => d.stageType === stageType) : list;
 }
 

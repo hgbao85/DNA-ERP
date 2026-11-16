@@ -13,6 +13,7 @@
  * xem WarehouseXuatPage.tsx cho cách nhồi thông tin PI vào `note` thay vì giả một field cấu trúc.
  */
 import { http, withIdempotencyKey } from './core/http';
+import { getAllPages } from './core/getAllPages';
 import type { TransferStatus, WarehouseTransfer, WarehouseTransferItem, WarehouseTransferPieceItem } from '../types/warehouse-transfer';
 
 interface BeWarehouseTransferItem {
@@ -152,12 +153,19 @@ export async function getWarehouseTransfer(id: string | number): Promise<Warehou
 // tăng được nữa) - dùng cho hộp thư PENDING (InternalTransferSections.tsx): vẫn còn top-100
 // PENDING gần nhất thay vì top-100 lẫn lộn mọi status, nên 1 phiếu PENDING không còn bị các phiếu
 // CONFIRMED/REJECTED cũ hơn (chiếm phần lớn dữ liệu thực tế) đẩy ra khỏi trang đầu.
+// 16/11/2026: có `status` (hộp thư PENDING cần xử lý) thì tải ĐỦ mọi trang qua getAllPages - quá 100 phiếu
+// chờ thì phiếu cũ vẫn mất. Không có `status` (lịch sử) vẫn CỐ Ý 1 trang: mỗi phiếu còn gọi thêm 1 request chi tiết.
 export async function getWarehouseTransfers(status?: TransferStatus): Promise<WarehouseTransfer[]> {
-  const res = await http.get<BeWarehouseTransfer[] | { data: BeWarehouseTransfer[] }>(
-    '/warehouse-transfers',
-    { params: status ? { status, limit: 100 } : { limit: 100 } },
-  );
-  const list = Array.isArray(res) ? res : res.data;
+  let list: BeWarehouseTransfer[]
+  if (status) {
+    list = await getAllPages<BeWarehouseTransfer>('/warehouse-transfers', { status });
+  } else {
+    const res = await http.get<BeWarehouseTransfer[] | { data: BeWarehouseTransfer[] }>(
+      '/warehouse-transfers',
+      { params: { limit: 100 } },
+    );
+    list = Array.isArray(res) ? res : res.data;
+  }
   return Promise.all(list.map((t) => getWarehouseTransfer(t.id)));
 }
 

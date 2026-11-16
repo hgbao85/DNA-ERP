@@ -19,6 +19,7 @@
  * trừ tồn 1 lần lúc duyệt phương án cắt) — xem comment đầu SteelIssuesService (BE).
  */
 import { http } from './core/http';
+import { getAllPages } from './core/getAllPages';
 import type { ProcessStep } from '../types/sku';
 
 export type SteelIssueStatus = 'ISSUED' | 'RECEIVED' | 'IN_PROCESS' | 'AWAITING_QC' | 'QC_PASSED';
@@ -166,10 +167,7 @@ export async function getSteelIssuePlan(productionInvoiceId: string): Promise<Be
 
 /** Lịch sử các đợt kho đã xuất cho 1 PI (mọi trạng thái) — dùng cho detail view của kho. */
 export async function getSteelIssuesForInvoice(productionInvoiceId: string): Promise<BeSteelIssue[]> {
-  const res = await http.get<BeSteelIssue[] | { data: BeSteelIssue[] }>(
-    `/production-invoices/${productionInvoiceId}/steel-issues?limit=100`,
-  );
-  return unwrap(res);
+  return getAllPages<BeSteelIssue>(`/production-invoices/${productionInvoiceId}/steel-issues`);
 }
 
 /** Gộp nhiều PI 1 lần — "Bảng thống kê" (ThongKePagePlan.tsx) cần tiến độ Phôi cho nhiều SKU
@@ -532,17 +530,11 @@ export interface BeQcReview {
 
 /** Tải HẾT các trang (2026-10-09) - BE giới hạn limit tối đa 100 và sắp mới nhất trước; trước đây chỉ
  *  lấy trang 1 nên khi tổng số lượt chấm (mọi nhánh Phôi/Hàn/Sơn) vượt 100, lượt chấm cũ rơi mất và
- *  số "Lỗi" của các lô cũ ở "Xác nhận nhận sắt" thành 0 ("KCS: ĐẠT" sai). Chặn trần MAX_PAGES để 1 màn
- *  không bắn quá nhiều request khi dữ liệu lớn - lúc đó cần BE trả sẵn tổng lỗi theo lô. */
-const QC_REVIEW_MAX_PAGES = 20;
+ *  số "Lỗi" của các lô cũ ở "Xác nhận nhận sắt" thành 0 ("KCS: ĐẠT" sai). 16/11/2026: dùng chung
+ *  getAllPages (trần MAX_PAGES, tải theo đợt nhỏ) thay cho vòng lặp riêng. */
 export async function getQcReviewsForSteelIssues(): Promise<BeQcReview[]> {
-  type Page = BeQcReview[] | { data: BeQcReview[]; meta?: { totalPages?: number } };
-  const first = await http.get<Page>('/qc-reviews?limit=100&page=1');
-  const totalPages = Array.isArray(first) ? 1 : Math.min(first.meta?.totalPages ?? 1, QC_REVIEW_MAX_PAGES);
-  const rest = await Promise.all(
-    Array.from({ length: totalPages - 1 }, (_, i) => http.get<Page>(`/qc-reviews?limit=100&page=${i + 2}`)),
-  );
-  return [first, ...rest].flatMap((p) => unwrap<BeQcReview>(p)).filter((r) => r.steelIssueId != null || r.stepBundleId != null);
+  const list = await getAllPages<BeQcReview>('/qc-reviews');
+  return list.filter((r) => r.steelIssueId != null || r.stepBundleId != null);
 }
 
 // ── Admin "Quản lý tệp đính kèm" (2026-09-11) - xem changelog audit-upload-file ────────────────
@@ -550,8 +542,7 @@ export async function getQcReviewsForSteelIssues(): Promise<BeQcReview[]> {
 /** Liệt kê MỌI qc_review (không lọc nhánh) - dùng cho màn Admin, tự lọc photoUrl != null ở FE
  *  (BE không có filter riêng, danh sách demo chưa đủ lớn để cần thêm - xem plan). */
 export async function getAllQcReviews(): Promise<BeQcReview[]> {
-  const res = await http.get<BeQcReview[] | { data: BeQcReview[] }>('/qc-reviews?limit=100');
-  return unwrap(res);
+  return getAllPages<BeQcReview>('/qc-reviews');
 }
 
 /** Admin-override: sửa/xóa ảnh bằng chứng (`photoUrl: null` = xóa hẳn) - route BE chặn role

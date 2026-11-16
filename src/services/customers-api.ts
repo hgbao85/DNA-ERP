@@ -7,6 +7,7 @@
  * ở materials-api.ts).
  */
 import { http } from './core/http';
+import { getAllPages } from './core/getAllPages';
 
 export interface BeCustomer {
   id: number;
@@ -22,8 +23,7 @@ export interface BeCustomer {
 }
 
 export async function getCustomers(): Promise<BeCustomer[]> {
-  const res = await http.get<BeCustomer[] | { data: BeCustomer[] }>('/customers?limit=100');
-  return Array.isArray(res) ? res : res.data;
+  return getAllPages<BeCustomer>('/customers');
 }
 
 export async function createCustomer(data: Record<string, unknown>): Promise<BeCustomer> {

@@ -47,6 +47,7 @@
  * này ghi đè/lẫn sang dòng kia.
  */
 import { http } from './core/http';
+import { getAllPages } from './core/getAllPages';
 import type { KhoKey, PurchaseProposal, PurchaseProposalItem } from '../context/InspectionContext';
 import { warehouseFamilyOf } from '../utils/warehouseFamily';
 import { fixedWarehouseName } from '../utils/warehouseKinds';
@@ -297,11 +298,15 @@ export async function getPurchaseProposal(id: string): Promise<PurchaseProposal>
 // Không truyền activeOnly (vd "Lịch sử đã mua", status=purchased) vẫn cắt cụt ở top-100 nếu số
 // phiếu PURCHASED vượt 100 - chấp nhận được vì đây thuần là tra cứu lịch sử, không phải hàng đợi
 // cần xử lý (cùng mức rủi ro đã chấp nhận cho stock-ledger, xem stock-api.ts:getStockLedger).
+//
+// 16/11/2026: `activeOnly` giờ tải ĐỦ mọi trang (getAllPages) - đây là hàng đợi cần xử lý, vượt 100 phiếu
+// đang mở thì phiếu cũ vẫn rơi khỏi trang 1. Không truyền activeOnly (lịch sử) vẫn CỐ Ý chỉ 1 trang như trên.
 export async function getPurchaseProposals(opts?: { activeOnly?: boolean }): Promise<PurchaseProposal[]> {
-  const url = opts?.activeOnly
-    ? '/purchase-proposals?limit=100&activeOnly=true'
-    : '/purchase-proposals?limit=100';
-  const res = await http.get<BeProposal[] | { data: BeProposal[] }>(url);
+  if (opts?.activeOnly) {
+    const active = await getAllPages<BeProposal>('/purchase-proposals', { activeOnly: true });
+    return active.map(toProposal);
+  }
+  const res = await http.get<BeProposal[] | { data: BeProposal[] }>('/purchase-proposals?limit=100');
   const list = Array.isArray(res) ? res : res.data;
   return list.map(toProposal);
 }

@@ -4,6 +4,7 @@
  * BE dùng id dạng bigint-as-string — giữ nguyên string, không ép Number().
  */
 import { http } from './core/http';
+import { getAllPages } from './core/getAllPages';
 
 export interface BeWarehouse {
   id: string;
@@ -19,8 +20,7 @@ export interface BeWarehouse {
 }
 
 export async function getWarehouses(): Promise<BeWarehouse[]> {
-  const res = await http.get<BeWarehouse[] | { data: BeWarehouse[] }>('/warehouses?limit=100');
-  return Array.isArray(res) ? res : res.data;
+  return getAllPages<BeWarehouse>('/warehouses');
 }
 
 export async function createWarehouse(data: { code: string; name: string; isVirtual?: boolean; note?: string }): Promise<BeWarehouse> {

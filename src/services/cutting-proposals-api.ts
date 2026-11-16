@@ -7,6 +7,7 @@
  * cắt vẫn chỉ làm qua API (POST /cutting-proposals/:id/approve), chưa có UI.
  */
 import { http, withIdempotencyKey } from './core/http';
+import { getAllPages } from './core/getAllPages';
 import type { SolverMachine } from '../types/admin';
 
 export type CuttingProposalStatus = 'CALCULATING' | 'DRAFT' | 'FAILED' | 'APPROVED' | 'SUPERSEDED';
@@ -165,10 +166,7 @@ export interface CuttingProposal {
 }
 
 export async function getCuttingProposals(): Promise<CuttingProposal[]> {
-  const res = await http.get<CuttingProposal[] | { data: CuttingProposal[] }>(
-    '/cutting-proposals?limit=100',
-  );
-  return Array.isArray(res) ? res : res.data;
+  return getAllPages<CuttingProposal>('/cutting-proposals');
 }
 
 export async function getCuttingProposal(id: string): Promise<CuttingProposal> {
@@ -178,20 +176,14 @@ export async function getCuttingProposal(id: string): Promise<CuttingProposal> {
 /** Mọi phương án cắt (mọi trạng thái) đã tính cho 1 PO — dùng để tìm bản APPROVED mới nhất khi
  *  Phôi cần tra đúng pattern đã duyệt lúc báo cắt xong (xem steel-issues-api.ts). */
 export async function getCuttingProposalsForOrder(productionOrderId: string): Promise<CuttingProposal[]> {
-  const res = await http.get<CuttingProposal[] | { data: CuttingProposal[] }>(
-    `/production-orders/${productionOrderId}/cutting-proposals?limit=100`,
-  );
-  return Array.isArray(res) ? res : res.data;
+  return getAllPages<CuttingProposal>(`/production-orders/${productionOrderId}/cutting-proposals`);
 }
 
 /** Mọi phương án cắt (mọi trạng thái) phủ 1 PI — gồm cả phương án neo thẳng vào PI (đợt gộp) lẫn
  *  neo vào từng PO thành viên (SKU cắt riêng). Dùng thay getCuttingProposalsForOrder() từ khi
  *  SteelIssue gộp theo cả PI (changelog 2026-08-18-xuat-sat-po-pi-vat-tu.md). */
 export async function getCuttingProposalsForInvoice(productionInvoiceId: string): Promise<CuttingProposal[]> {
-  const res = await http.get<CuttingProposal[] | { data: CuttingProposal[] }>(
-    `/production-invoices/${productionInvoiceId}/cutting-proposals?limit=100`,
-  );
-  return Array.isArray(res) ? res : res.data;
+  return getAllPages<CuttingProposal>(`/production-invoices/${productionInvoiceId}/cutting-proposals`);
 }
 
 /** Nút "Tính lại" cho phương án neo VÀO 1 LỆNH SX riêng - gọi theo productionOrderId (không phải
