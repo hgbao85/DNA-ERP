@@ -5,9 +5,8 @@ import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
 import { ImagePlus, Plus, X } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
-import { useAuditLog } from '../../../context/AuditLogContext'
 import type { Sku, CreateSkuPayload } from '../../../types/sku'
-import { SKUDetail, SkuMobileCard, SkuStatusBadge, STATUS_MAP, needsManhReview, needsDetailReview, SKU_ENTITY } from './SKUDetail'
+import { SKUDetail, SkuMobileCard, SkuStatusBadge, STATUS_MAP, needsManhReview, needsDetailReview } from './SKUDetail'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
 import SearchInput from '../../../components/SearchInput'
 import SearchableSelect from '../../../components/SearchableSelect'
@@ -48,7 +47,6 @@ const emptyForm = (): CreateSkuPayload => ({
 
 export default function SKUReviewPage() {
   const { isBoss } = useAuth()
-  const { logAction } = useAuditLog()
   const isPending = isBoss ? isBossPending : isPlannerPending
   const FILTERS = isBoss ? BOSS_FILTERS : PLANNER_FILTERS
   const { data: skus = [], isLoading, error: skusError, refetch } = useFetch(() => api.getSkus(), [])
@@ -123,7 +121,6 @@ export default function SKUReviewPage() {
         name: skuCode,
         customerName: editCustomerName.trim() || undefined,
       })
-      logAction(SKU_ENTITY, String(editingPf.id), 'sku.updated', skuCode)
       closeEdit()
       refetch()
       if (selectedPf?.id === editingPf.id) setSelectedPf(updated)
@@ -143,7 +140,6 @@ export default function SKUReviewPage() {
       imageUrl,
     })
     if (createdSku?.id != null) {
-      logAction(SKU_ENTITY, String(createdSku.id), 'sku.created', skuCode)
     }
     closeForm()
     setSuccess(true)
@@ -187,7 +183,6 @@ export default function SKUReviewPage() {
   const handleApproveDetail = async () => {
     if (!selectedPf) return
     const updated = await api.approveDetailSku(selectedPf.id)
-    logAction(SKU_ENTITY, String(selectedPf.id), 'sku.detail_approved')
     refetch()
     setSelectedPf(updated)
   }
@@ -198,7 +193,6 @@ export default function SKUReviewPage() {
   const handleApproveParts = async () => {
     if (!selectedPf) return
     const updated = await api.approvePartsSku(selectedPf.id)
-    logAction(SKU_ENTITY, String(selectedPf.id), 'sku.parts_approved')
     refetch()
     setSelectedPf(updated)
   }
@@ -209,7 +203,6 @@ export default function SKUReviewPage() {
   const handleApproveBossRequest = async () => {
     if (!selectedPf) return
     await api.approveFullSku(selectedPf.id)
-    logAction(SKU_ENTITY, String(selectedPf.id), 'sku.boss_approved')
     refetch()
     setSelectedPf(null)
   }
@@ -219,7 +212,6 @@ export default function SKUReviewPage() {
   const handleBossReject = async (reason?: string) => {
     if (!selectedPf) return
     await api.rejectSkuByBoss(selectedPf.id, reason)
-    logAction(SKU_ENTITY, String(selectedPf.id), 'sku.boss_rejected', reason)
     refetch()
     setSelectedPf(null)
   }

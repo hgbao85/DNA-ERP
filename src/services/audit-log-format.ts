@@ -4,6 +4,7 @@
  */
 import { format } from 'date-fns';
 import type { BeAuditLogEntry } from './audit-log-api';
+import { AUDIT_ACTIONS } from '../context/AuditLogContext';
 
 /** Tên bảng BE -> nhãn. Cũng là danh sách lựa chọn ở bộ lọc "Đối tượng". */
 export const AUDIT_TABLE_LABEL: Record<string, string> = {
@@ -54,6 +55,7 @@ export const AUDIT_TABLE_LABEL: Record<string, string> = {
   WeavingReceipt: 'Nhận đan',
   TransferCheckDefect: 'Lỗi chuyền kiểm',
   bookings: 'Booking xuất hàng',
+  SkuHistory: 'Lịch sử duyệt SKU',
 };
 
 export const AUDIT_ACTION_META: Record<BeAuditLogEntry['action'], { label: string; color: string; bg: string }> = {
@@ -131,6 +133,12 @@ export function auditFieldLabel(field: string): string {
 export function auditRecordName(entry: BeAuditLogEntry): string | null {
   const snap = asSnapshot(entry.newValue) ?? asSnapshot(entry.oldValue);
   if (!snap) return null;
+  // Dòng lịch sử duyệt SKU (BE sku-history.ts): newValue = { event: 'sku.boss_approved', note } -
+  // hiện tên bước thay vì tìm mã/tên như bản ghi thường. recordId là id SKU (PlanForm).
+  if (entry.tableName === 'SkuHistory' && typeof snap.event === 'string') {
+    const label = (AUDIT_ACTIONS as Record<string, { label: string }>)[snap.event]?.label ?? snap.event;
+    return typeof snap.note === 'string' && snap.note ? `${label} — ${snap.note}` : label;
+  }
   if (typeof snap.firstName === 'string' || typeof snap.lastName === 'string') {
     const full = [snap.lastName, snap.firstName].filter((x) => typeof x === 'string' && x).join(' ');
     if (full) return full;

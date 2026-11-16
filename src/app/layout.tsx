@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
 import { AuthProvider } from '../context/AuthContext';
-import { AuditLogProvider } from '../context/AuditLogContext';
 import { InspectionProvider } from '../context/InspectionContext';
 import { ThemeProvider, THEME_INIT_SCRIPT } from '../context/ThemeContext';
 import { NotificationsProvider } from '../context/NotificationsContext';
@@ -26,13 +25,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             {/* Realtime cần token nên đặt trong AuthProvider; các Provider con (thông báo, work queue,
                 trang nghiệp vụ) đều có thể dùng hooks realtime. */}
             <RealtimeProvider>
-              <AuditLogProvider>
-                <NotificationsProvider>
-                  <WorkQueueProvider>
-                    <InspectionProvider>{children}</InspectionProvider>
-                  </WorkQueueProvider>
-                </NotificationsProvider>
-              </AuditLogProvider>
+              <NotificationsProvider>
+                <WorkQueueProvider>
+                  <InspectionProvider>{children}</InspectionProvider>
+                </WorkQueueProvider>
+              </NotificationsProvider>
             </RealtimeProvider>
           </AuthProvider>
         </ThemeProvider>

@@ -14,9 +14,9 @@ export interface SystemUser extends User {
 }
 
 /**
- * Bản ghi audit log đã persist vào mockStore — cùng shape với `AuditLogEntry`
- * trong AuditLogContext.tsx, tách riêng ở đây để tầng data (src/lib/mock, src/types)
- * không phụ thuộc ngược vào src/context/*. `action` được nới thành `string` vì
+ * 1 dòng nhật ký nghiệp vụ hiển thị bằng AuditLogTimeline (lịch sử duyệt SKU từ BE, lịch sử lô KCS,
+ * vết đề xuất mua) — cùng shape với `AuditLogEntry` trong AuditLogContext.tsx, tách riêng ở đây
+ * để tầng services/types không phụ thuộc ngược vào src/context/*. `action` được nới thành `string` vì
  * danh sách nhãn/màu (AUDIT_ACTIONS) là mối quan tâm UI, thuộc AuditLogContext.
  */
 export interface AuditLogEntry {

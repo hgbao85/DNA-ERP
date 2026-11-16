@@ -11,8 +11,6 @@ import { useConfirm } from '../../../hooks/useConfirm'
 import { useMaterialGroupIds } from '../../../hooks/useMaterialGroupIds'
 import * as api from '../../../services/api'
 import { useAuth } from '../../../context/AuthContext'
-import { useAuditLog } from '../../../context/AuditLogContext'
-import { SKU_ENTITY } from '../../../constants/skuStatus'
 import SpecAccessoryCatalogPage from './SpecAccessoryCatalogPage'
 import type { BaoBiDongGoiItem, DaySonItem, Sku, SkuMaterialOption, VatTuPhuKienItem } from '../../../types/sku'
 import MaterialOptionsPanel from '../../../components/MaterialOptionsPanel'
@@ -143,7 +141,6 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
   // Admin được sửa định mức ngay cả khi KHSX/Sếp đã duyệt (ghi đè trực tiếp, không cần duyệt
   // lại - BE chặn mọi role khác, xem SkusService.resolveNonDraftOrAdminOverride, 2026-10-15).
   const isAdmin = user?.role === 'ADMIN'
-  const { logAction } = useAuditLog()
   // Điện thoại: bảng dòng vật tư 7 cột -> thẻ; ô nhập form co giãn thay vì rộng cố định.
   const isMobile = useIsMobile()
   const fieldW = (w: number): React.CSSProperties => isMobile ? { flex: '1 1 130px', minWidth: 0 } : { width: w }
@@ -425,7 +422,6 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
       // Đang nộp chính nội dung này - huỷ lượt tự lưu nháp còn chờ (sửa rồi bấm Gửi trong vòng 1s).
       savedSnapshot.current = snapshotOf(lines, cushionOptions)
       await api.updateSkuDetailQuota(selectedBom.id, toDetailQuotaPayload(linesToSend), user?.name ?? 'Không rõ', cushionOptions)
-      logAction(SKU_ENTITY, String(selectedBom.id), 'sku.detail_submitted', `${lines.length} vật tư (Sơn/Phụ kiện/Bao bì)`)
       // Nộp thật thành công - BE đã tự xoá detailDraft (xem SkusService.updateDetailQuota).
       setDraftRestoredAt(null)
       setLastSavedAt(null)

@@ -15,6 +15,7 @@
  */
 import { http, withIdempotencyKey } from './core/http';
 import { getAllPages } from './core/getAllPages';
+import type { AuditLogEntry } from '../types/admin';
 import type {
   BaoBiDongGoiItem,
   CreateSkuPayload,
@@ -530,6 +531,34 @@ export async function reviewSkuDetailQuota(
 ): Promise<Sku> {
   const updated = await http.post<BeSku>(`/skus/${id}/detail-quota/review`, { status, reason });
   return toSku(updated);
+}
+
+/** 1 bước trong lịch sử duyệt SKU - BE GET /skus/:id/history (SkuHistoryEntryDto, 16/11/2026). */
+interface BeSkuHistoryEntry {
+  id: string;
+  event: string;
+  note: string | null;
+  actorId: string | null;
+  actorName: string;
+  at: string;
+}
+
+/**
+ * Lịch sử duyệt SKU THẬT (BE tự ghi ở từng bước nộp/duyệt/từ chối, cũ trước) - thay bản mock
+ * localStorage (mỗi trình duyệt chỉ thấy thao tác của chính nó). Trả đúng shape AuditLogEntry để
+ * AuditLogTimeline dùng lại; `action` là key AUDIT_ACTIONS (sku.*).
+ */
+export async function getSkuHistory(id: number | string): Promise<AuditLogEntry[]> {
+  const rows = await http.get<BeSkuHistoryEntry[]>(`/skus/${id}/history`);
+  return rows.map((r) => ({
+    id: r.id,
+    entityType: 'PlanForm',
+    entityId: String(id),
+    action: r.event,
+    actorName: r.actorName,
+    at: r.at,
+    note: r.note ?? undefined,
+  }));
 }
 
 export async function approvePartsSku(id: number | string): Promise<Sku> {

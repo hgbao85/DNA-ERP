@@ -1,6 +1,6 @@
 /**
- * Adapter AUDIT LOG THẬT: FE ⇄ BE `GET /audit-logs` (khác `services/api.ts#getAllAuditLogs`,
- * vốn đọc mockStore trong trình duyệt - nay chỉ còn lịch sử duyệt SKU dùng, xem AuditLogContext).
+ * Adapter AUDIT LOG THẬT: FE ⇄ BE `GET /audit-logs` (bản mock localStorage cũ đã xoá 16/11/2026;
+ * lịch sử duyệt SKU dùng route riêng GET /skus/:id/history - xem sku-api.ts#getSkuHistory).
  *
  * getAuditLogs(): trang Admin "Nhật ký hoạt động" + "Tổng quan" (16/11/2026), lọc/phân trang ở BE.
  *

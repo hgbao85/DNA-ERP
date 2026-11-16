@@ -1,5 +1,5 @@
 import type { ManhOrder } from '../../../types/manh';
-import type { AuditLogEntry, Notification } from '../../../types/admin';
+import type { Notification } from '../../../types/admin';
 
 // ══════════════════════════════════════════════════════════════════════════════
 // MANUFACTURING DATA: PRODUCTION, MATERIALS, SUPPLIERS
@@ -176,7 +176,6 @@ export function createInitialMockState() {
     mfgWarehouses: structuredClone(seedMfgWarehouses),
     mfgWarehouseItems: structuredClone(seedMfgWarehouseItems),
     manhOrders: structuredClone(seedManhOrders),
-    auditLogs: [] as AuditLogEntry[],
     notifications: structuredClone(seedNotifications),
   };
 }

@@ -9,7 +9,7 @@
  * KHÔNG thu gọn). Ở màn hẹp, nếu người dùng mở drawer (☰) rồi không đóng lại mà điều hướng tiếp,
  * CẢ 2 bản cùng tồn tại trong cây 1 lúc - nếu mỗi bản tự poll `unread-count` riêng thì tốn gấp đôi
  * số request (đã thấy trong log BE lúc live-test: nhiều request trùng giờ y hệt). Nâng state lên 1
- * Provider mount 1 lần cho cả cây (`app/layout.tsx`, cùng cấp `AuditLogProvider`) giải quyết dứt
+ * Provider mount 1 lần cho cả cây (`app/layout.tsx`) giải quyết dứt
  * điểm: bao nhiêu `<NotificationCenter>` cùng mount cũng chỉ 1 bộ poll/toast duy nhất.
  */
 import { createContext, useContext } from 'react'

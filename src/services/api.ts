@@ -44,7 +44,8 @@
  *    (NotificationCenter + trang "Thông báo chung" của Admin dùng). Vẫn KHÔNG có update/delete cho
  *    announcement.
  *  - audit log (audit-log-api.ts) — 16/11/2026: Admin "Nhật ký hoạt động" + "Tổng quan" đọc thẳng
- *    GET /audit-logs (bảng audit_logs BE tự ghi). Chỉ còn lịch sử duyệt SKU (AuditLogContext) chạy mock.
+ *    GET /audit-logs (bảng audit_logs BE tự ghi); lịch sử duyệt SKU đọc GET /skus/:id/history
+ *    (sku-api.ts#getSkuHistory). Không còn nhật ký mock nào.
  *  - transfer-check (transfer-check-api.ts) — mốc TRANSFER_CHECK của production-invoices
  *    (KhoChuyenKiemPage), key theo productionInvoiceItemId, resolve qua production-invoice-item.ts.
  *  - packaging (packaging-api.ts) — mốc đóng gói cuối cùng của production-invoices
@@ -82,10 +83,9 @@
  * (getManhOrders — cùng lý do), notifications.service.ts (updateNotification/deleteNotification —
  * UI đã bỏ nút sửa/xóa từ trước), phoi-sat.service.ts (getDotXuatSat — chỉ được gọi bởi
  * PhoiScreen, orchestrator 3 tầng mock cũ trong sanxuat/core.tsx mà bản thân nó cũng không còn
- * trang nào import, đã xoá cùng đợt). Còn lại đúng 2 màn hình thật vẫn chủ ý chạy mock — lịch sử duyệt
- * SKU (AuditLogContext.tsx; trang Admin "Nhật ký hoạt động" đã đổi sang BE thật 16/11) và system stats
+ * trang nào import, đã xoá cùng đợt). Còn lại đúng 1 màn hình thật vẫn chủ ý chạy mock — system stats
  * (SystemStatusPage.tsx, tự khai báo với người dùng là dữ liệu mock localStorage) — xem báo cáo
- * trên để biết lý do giữ nguyên.
+ * trên để biết lý do giữ nguyên. (Nhật ký hoạt động + lịch sử duyệt SKU đã đổi sang BE thật 16/11.)
  */
 export * from '../lib/mock/services';
 export { getUsers, createUser, updateUser, deleteUser, resetUserPassword, setUserActive, getBuyerMaterials, transferBuyerMaterials } from './users-api';
