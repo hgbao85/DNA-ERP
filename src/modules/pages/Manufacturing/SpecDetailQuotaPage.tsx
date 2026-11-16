@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { focusAttr } from '../../../utils/notificationLink'
 import { format } from 'date-fns'
 import { ChevronRight, ChevronLeft, Copy, Pencil, X } from 'lucide-react'
@@ -199,6 +199,10 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
   // Các loại nệm (phụ kiện) Sales được chọn khi lên đơn cho SKU đang mở - tick xong tự có sẵn 1 dòng
   // Phụ kiện cho từng loại (xem changeCushionOptions). Lưu cùng lines (nháp + gửi duyệt).
   const [cushionOptions, setCushionOptions] = useState<SkuMaterialOption[]>([])
+  // Mốc nội dung "đã khớp server" - cùng lý do SpecSteelPage.savedSnapshot: chỉ tự lưu khi người dùng sửa
+  // khác mốc, không để chính lần nạp/huỷ nháp/gửi duyệt của code ghi ra bản nháp mới hơn lần nộp.
+  const savedSnapshot = useRef<string | null>(null)
+  const snapshotOf = (l: DetailLine[], c: SkuMaterialOption[]) => JSON.stringify({ l: toDetailQuotaPayload(l), c })
   const [nextId, setNextId] = useState(1)
   const [savingDetail, setSavingDetail] = useState(false)
   const [submitDetailError, setSubmitDetailError] = useState<string | null>(null)
@@ -256,11 +260,13 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
     const draftSavedAt = pf?.detailDraftSavedAt
     if (draftSavedAt && (!entryAt || new Date(draftSavedAt) > new Date(entryAt))) {
       const { lines: draftLines, nextId: draftNextId } = toDetailLines(pf?.detailDraft, 1)
+      savedSnapshot.current = snapshotOf(draftLines, pf?.detailDraft?.cushionOptions ?? [])
       setLines(draftLines); setNextId(draftNextId)
       setCushionOptions(pf?.detailDraft?.cushionOptions ?? [])
       setDraftRestoredAt(draftSavedAt)
     } else {
       const { lines: existing, nextId: id } = toDetailLines(pf?.quotaManagement?.materialType, 1)
+      savedSnapshot.current = snapshotOf(existing, pf?.quotaManagement?.cushionOptions ?? [])
       setLines(existing); setNextId(id)
       setCushionOptions(pf?.quotaManagement?.cushionOptions ?? [])
     }
@@ -272,6 +278,7 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
     if (!selectedBom) return
     void api.clearSkuDetailDraft(selectedBom.id).then(patchSku).catch(() => {})
     const { lines: existing, nextId: id } = toDetailLines(findPf(selectedBom.id)?.quotaManagement?.materialType, 1)
+    savedSnapshot.current = snapshotOf(existing, findPf(selectedBom.id)?.quotaManagement?.cushionOptions ?? [])
     setLines(existing); setNextId(id)
     setCushionOptions(findPf(selectedBom.id)?.quotaManagement?.cushionOptions ?? [])
     setDraftRestoredAt(null)
@@ -281,6 +288,7 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
   const saveDraftNow = async (currentLines: DetailLine[]) => {
     if (!selectedBom) return
     const updated = await api.saveSkuDetailDraft(selectedBom.id, toDetailQuotaPayload(currentLines), user?.name ?? 'Không rõ', cushionOptions)
+    savedSnapshot.current = snapshotOf(currentLines, cushionOptions)
     setLastSavedAt(updated.detailDraftSavedAt ?? new Date().toISOString())
     patchSku(updated)
   }
@@ -348,14 +356,20 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
     if (!selectedBom) return
     const st = bomStatus(selectedBom.id)
     if ((st === 'pending' || st === 'approved') && !isAdmin) return
+    if (snapshotOf(lines, cushionOptions) === savedSnapshot.current) return
     if (lines.length === 0 && cushionOptions.length === 0) {
       // Xoá hết dòng (dọn sạch form) - xoá luôn nháp trên server, không thì lần mở sau sẽ bị
       // "sống lại" đúng những dòng vừa xoá (đè lên form rỗng người dùng cố ý để lại). Còn tick nệm
       // mà chưa có dòng nào thì vẫn là dữ liệu cần giữ.
+      savedSnapshot.current = snapshotOf(lines, cushionOptions)
       void api.clearSkuDetailDraft(selectedBom.id).then(patchSku).catch(() => {})
       return
     }
-    const t = setTimeout(() => { void saveDraftNow(lines).catch(() => {}) }, 1000)
+    const snap = snapshotOf(lines, cushionOptions)
+    const t = setTimeout(() => {
+      if (snap === savedSnapshot.current) return
+      void saveDraftNow(lines).catch(() => {})
+    }, 1000)
     return () => clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lines, cushionOptions, selectedBom?.id])
@@ -408,6 +422,8 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
     try {
       // Dòng của loại nệm đã tick mà chưa nhập số lượng không gửi lên (BE từ chối số lượng <= 0).
       const linesToSend = dropBlankTickedCushionLines(lines, cushionIdSet)
+      // Đang nộp chính nội dung này - huỷ lượt tự lưu nháp còn chờ (sửa rồi bấm Gửi trong vòng 1s).
+      savedSnapshot.current = snapshotOf(lines, cushionOptions)
       await api.updateSkuDetailQuota(selectedBom.id, toDetailQuotaPayload(linesToSend), user?.name ?? 'Không rõ', cushionOptions)
       logAction(SKU_ENTITY, String(selectedBom.id), 'sku.detail_submitted', `${lines.length} vật tư (Sơn/Phụ kiện/Bao bì)`)
       // Nộp thật thành công - BE đã tự xoá detailDraft (xem SkusService.updateDetailQuota).

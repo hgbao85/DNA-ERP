@@ -65,6 +65,7 @@ export default function OrderManagementPage() {
   const [form, setForm] = useState<FormState>(emptyForm())
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
+  const [depositError, setDepositError] = useState<string | null>(null)
   const isMobile = useIsMobile()
   // Loại dây/nệm Sales được chọn theo từng sản phẩm (định mức ACTIVE) - nạp 1 lần/sản phẩm khi SKU
   // xuất hiện trên form. Chưa có key = đang nạp (chặn lưu cho tới khi biết SKU có bắt chọn không).
@@ -244,8 +245,14 @@ export default function OrderManagementPage() {
 
   const toggleDeposit = async (e: React.MouseEvent, po: SalesOrder) => {
     e.stopPropagation()
-    await api.updateSalesOrder(po.id, { depositConfirmed: !po.depositConfirmed })
-    await refetch()
+    setDepositError(null)
+    try {
+      await api.updateSalesOrder(po.id, { depositConfirmed: !po.depositConfirmed })
+      await refetch()
+    } catch (err) {
+      // Trước đây không bắt lỗi -> unhandled rejection, người dùng bấm mà không thấy gì xảy ra.
+      setDepositError(`${po.orderCode}: ${err instanceof Error ? err.message : 'Không đổi được trạng thái đặt cọc'}`)
+    }
   }
 
   if (isLoading) return <LoadingState />
@@ -272,6 +279,9 @@ export default function OrderManagementPage() {
           <Plus size={14} /> Tạo PO
         </button>
       </div>
+      {depositError && (
+        <div role="alert" style={{ color: 'var(--fg-c62828)', fontSize: 13, marginBottom: 12 }}>{depositError}</div>
+      )}
 
       {isMobile ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>

@@ -166,7 +166,8 @@ export default function MfgApp({ onBack }: MfgAppProps) {
     : user?.role === 'BOSS' ? 'Giám đốc (xem)' : isWarehouse ? 'Thủ kho' : ''
 
   const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
-    ...(isDirector ? [{ id: 'pi-list' as TabId, label: 'Lệnh sản xuất mới', icon: <ClipboardList size={16} /> }] : []),
+    // 'pi-list' (PIListPage) đã bị gỡ; màn thay thế là LenhSXPage ở tab 'lenh-sx' (nhánh render dưới đã cho isDirector).
+    ...(isDirector ? [{ id: 'lenh-sx' as TabId, label: 'Lệnh sản xuất mới', icon: <ClipboardList size={16} /> }] : []),
     ...(isDirector ? [{ id: 'ke-hoach' as TabId, label: 'Kế hoạch SX', icon: <CalendarClock size={16} /> }] : []),
     ...(isProdMgr ? [{ id: 'ke-hoach' as TabId, label: 'Tổng hợp lệnh SX', icon: <CalendarClock size={16} /> }] : []),
     ...(isProdMgr ? [{ id: 'lenh-sx' as TabId, label: 'Xử lý lệnh sản xuất', icon: <Play size={16} /> }] : []),

@@ -75,7 +75,8 @@ export default function XacNhanVatTuPage({ stage, readOnly = false }: { stage: M
 
   const xacNhan = async (i: BeMaterialIssue) => {
     const raw = edit[i.id]
-    const soNhan = raw != null ? Math.max(0, Math.floor(Number(raw) || 0)) : undefined
+    // Giữ phần lẻ: sơn/keo tính theo kg/lít (BE nhận số thực >= 0). Làm tròn 4 chữ số để tránh rác dấu phẩy động.
+    const soNhan = raw != null ? Math.max(0, Math.round((Number(raw) || 0) * 1e4) / 1e4) : undefined
     setBusy(i.id)
     setMsg('')
     try {
@@ -136,7 +137,7 @@ export default function XacNhanVatTuPage({ stage, readOnly = false }: { stage: M
                       </td>
                       <td style={tdR}>
                         {editing ? (
-                          <input type="number" min={0} value={edit[i.id]} autoFocus
+                          <input type="number" min={0} step="any" value={edit[i.id]} autoFocus
                             onChange={e => setEdit(prev => ({ ...prev, [i.id]: e.target.value }))}
                             style={{ width: 72, padding: '4px 8px', border: `1px solid ${ACCENT}`, borderRadius: 6, fontSize: 13, textAlign: 'right', background: 'var(--surface)', color: 'var(--text)' }} />
                         ) : (

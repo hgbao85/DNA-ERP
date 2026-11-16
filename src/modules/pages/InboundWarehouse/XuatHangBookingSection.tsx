@@ -49,7 +49,15 @@ export default function XuatHangBookingSection() {
       {list.length === 0 && !error && (
         <div style={{ ...card, padding: 16, fontSize: 13, color: 'var(--text3)' }}>Không có booking nào chờ xuất ở kho này.</div>
       )}
-      {list.map(b => <BookingShipCard key={b.id} booking={b} onDone={() => { void refetch() }} />)}
+      {/* key gồm tổng đã xuất: sau mỗi lượt xuất (xuất thiếu, booking còn trong danh sách) thẻ dựng lại
+          với Idempotency-Key, số phiếu, ảnh ký và số thực xuất MỚI - không dùng lại của lượt trước. */}
+      {list.map(b => (
+        <BookingShipCard
+          key={`${b.id}:${b.lines.reduce((s, l) => s + l.shippedQty, 0)}`}
+          booking={b}
+          onDone={() => { void refetch() }}
+        />
+      ))}
     </div>
   )
 }

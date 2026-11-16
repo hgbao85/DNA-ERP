@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { focusAttr } from '../../../utils/notificationLink'
 import { format } from 'date-fns'
 import { ChevronRight, ChevronLeft, Plus, X, Pencil, Upload, Copy } from 'lucide-react'
@@ -277,6 +277,11 @@ export default function SpecSteelPage({ subTab }: {
   // Các loại dây (mã SHT) Sales được chọn khi lên đơn cho SKU đang mở - tick xong mỗi mảnh "có thể
   // đan" tự có sẵn 1 dòng Dây cho từng loại (xem changeWireOptions). Lưu cùng manhs (nháp + gửi duyệt).
   const [wireOptions, setWireOptions] = useState<SkuMaterialOption[]>([])
+  // Mốc nội dung "đã khớp server" (vừa nạp / vừa nộp / vừa huỷ nháp / vừa tạm lưu). Tự lưu chỉ chạy khi
+  // người dùng sửa KHÁC mốc này - trước đây chính các lần setManhs của code (mở SKU, huỷ nháp, gửi duyệt)
+  // cũng kích tự lưu, ghi ra 1 bản nháp mới hơn lần nộp ("nháp sống lại").
+  const savedSnapshot = useRef<string | null>(null)
+  const snapshotOf = (m: Manh[], w: SkuMaterialOption[]) => JSON.stringify({ r: m.map(toManhRow), w })
   const [nextId, setNextId] = useState(1)
   const [savingManh, setSavingManh] = useState(false)
   const [submitManhError, setSubmitManhError] = useState<string | null>(null)
@@ -347,11 +352,13 @@ export default function SpecSteelPage({ subTab }: {
     if (draftSavedAt && (!entryAt || new Date(draftSavedAt) > new Date(entryAt))) {
       const draftManhs = (pf?.manhDraft?.pieces ?? []).map(toManh)
       const draftMaxId = draftManhs.flatMap(m => [m.id, ...m.children.map(c => c.id)]).reduce((a, b) => Math.max(a, b), 0)
+      savedSnapshot.current = snapshotOf(draftManhs, pf?.manhDraft?.wireOptions ?? [])
       setManhs(draftManhs)
       setWireOptions(pf?.manhDraft?.wireOptions ?? [])
       setNextId(Math.max(maxId, draftMaxId) + 1)
       setDraftRestoredAt(draftSavedAt)
     } else {
+      savedSnapshot.current = snapshotOf(existing, pf?.manhData?.wireOptions ?? [])
       setManhs(existing)
       setWireOptions(pf?.manhData?.wireOptions ?? [])
       setNextId(maxId + 1)
@@ -366,6 +373,7 @@ export default function SpecSteelPage({ subTab }: {
     patchSku(updated)
     const existing = (findPf(selectedBom.id)?.manhData?.pieces ?? []).map(toManh)
     const maxId = existing.flatMap(m => [m.id, ...m.children.map(c => c.id)]).reduce((a, b) => Math.max(a, b), 0)
+    savedSnapshot.current = snapshotOf(existing, findPf(selectedBom.id)?.manhData?.wireOptions ?? [])
     setManhs(existing)
     setWireOptions(findPf(selectedBom.id)?.manhData?.wireOptions ?? [])
     setNextId(maxId + 1)
@@ -385,6 +393,7 @@ export default function SpecSteelPage({ subTab }: {
     const resolved = hasPendingPhoto ? await resolvePendingPhotos(current) : current
     if (hasPendingPhoto) setManhs(resolved)
     const updated = await api.saveSkuManhDraft(selectedBom.id, resolved.map(toManhRow), user?.name ?? 'Không rõ', wireOptions)
+    savedSnapshot.current = snapshotOf(resolved, wireOptions)
     setLastSavedAt(updated.manhDraftSavedAt ?? new Date().toISOString())
     patchSku(updated)
   }
@@ -459,14 +468,22 @@ export default function SpecSteelPage({ subTab }: {
     if (!selectedBom) return
     const st = manhBomStatus(selectedBom.id)
     if ((st === 'pending' || st === 'approved') && !isAdmin) return
+    // Nội dung chưa khác lần nạp/lưu gần nhất (vd vừa mở SKU, vừa huỷ nháp, vừa gửi duyệt) - không có gì để lưu.
+    if (snapshotOf(manhs, wireOptions) === savedSnapshot.current) return
     if (manhs.length === 0 && wireOptions.length === 0) {
       // Xoá hết mảnh (dọn sạch form) - xoá luôn nháp trên server, không thì lần mở sau sẽ bị
       // "sống lại" đúng những mảnh vừa xoá (đè lên form rỗng người dùng cố ý để lại). Còn tick dây
       // mà chưa có mảnh nào thì vẫn là dữ liệu cần giữ (người nhập có thể tick trước, thêm mảnh sau).
+      savedSnapshot.current = snapshotOf(manhs, wireOptions)
       void api.clearSkuManhDraft(selectedBom.id).then(patchSku).catch(() => {})
       return
     }
-    const t = setTimeout(() => { void saveDraftNow(manhs).catch(() => {}) }, 1000)
+    const snap = snapshotOf(manhs, wireOptions)
+    const t = setTimeout(() => {
+      // Bấm Gửi phê duyệt trong lúc chờ (mốc đã bị đặt lại) thì bỏ lượt tự lưu này.
+      if (snap === savedSnapshot.current) return
+      void saveDraftNow(manhs).catch(() => {})
+    }, 1000)
     return () => clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [manhs, wireOptions, selectedBom?.id])
@@ -475,12 +492,16 @@ export default function SpecSteelPage({ subTab }: {
     if (!selectedBom || totalChildren === 0 || wiresMissingQty.length > 0 || unlistedWires.length > 0) return
     setSavingManh(true)
     setSubmitManhError(null)
+    // Đang nộp chính nội dung này - huỷ lượt tự lưu nháp còn chờ (sửa rồi bấm Gửi trong vòng 1s).
+    savedSnapshot.current = snapshotOf(manhs, wireOptions)
     try {
       // Ảnh Dây chỉ được chọn tại chỗ (blob preview), CHƯA lên Cloudinary - upload thật ngay
       // trước khi gửi, để khớp đúng nguyên tắc "mọi thứ ở trang này chỉ ghi lên server lúc Gửi
       // phê duyệt". Giữ lại state đã upload (setManhs) để gửi lại lần 2 (vd sau khi KHSX từ chối)
       // không upload trùng file cũ.
       const resolvedManhs = await resolvePendingPhotos(manhs)
+      // Đây là dữ liệu sắp NỘP, không phải sửa mới - không để setManhs kích tự lưu nháp song song với lần nộp.
+      savedSnapshot.current = snapshotOf(resolvedManhs, wireOptions)
       setManhs(resolvedManhs)
       // Dòng của loại dây đã tick mà chưa nhập số lượng nghĩa là "mảnh này không dùng loại dây đó" -
       // không gửi lên (BE từ chối số lượng <= 0). Giữ nguyên trên form để còn nhập tiếp lần sau.
