@@ -107,39 +107,6 @@ function PiPoCell({ piCode, poCode }: { piCode: string; poCode: string | null })
   )
 }
 
-// Ô điền số cây thực nhận (2026-10-12) - mặc định điền sẵn số kho xuất, người nhận đếm rồi sửa nếu khác.
-function ReceiveCountInput({ barCount, value, busy, onChange, onConfirm, onCancel }: {
-  barCount: number; value: string; busy: boolean
-  onChange: (v: string) => void; onConfirm: () => void; onCancel: () => void
-}) {
-  const n = Math.floor(Number(value))
-  const diff = Number.isFinite(n) && n > 0 ? n - barCount : 0
-  return (
-    <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}>
-        <span style={{ fontSize: 12, color: 'var(--text3)' }}>Đếm được</span>
-        <input type="number" min={1} value={value} onChange={e => onChange(e.target.value)} autoFocus
-          aria-label="Số cây thực nhận" style={{ width: 64, padding: '4px 6px', fontSize: 13, textAlign: 'right' }} />
-        <span style={{ fontSize: 12, color: 'var(--text3)' }}>/ {barCount} cây</span>
-      </div>
-      <div style={{ display: 'inline-flex', gap: 6 }}>
-        <button onClick={onConfirm} disabled={busy}
-          style={{ whiteSpace: 'nowrap', padding: '4px 12px', fontSize: 12, fontWeight: 600, border: 'none', borderRadius: 6, background: 'var(--bg-e65100)', color: '#fff', cursor: busy ? 'not-allowed' : 'pointer' }}>
-          {busy ? 'Đang lưu…' : 'Xác nhận'}
-        </button>
-        <button onClick={onCancel} disabled={busy}
-          style={{ whiteSpace: 'nowrap', padding: '4px 10px', fontSize: 12, border: '1px solid var(--border)', borderRadius: 6, background: 'var(--surface)', color: 'var(--text2)', cursor: 'pointer' }}>
-          Huỷ
-        </button>
-      </div>
-      {/* Cảnh báo lệch đặt DƯỚI hàng nút và giữ sẵn chỗ -> nút Xác nhận/Huỷ không nhảy khi gõ số (test tay 09/11 điểm 31). */}
-      <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--fg-d97706)', minHeight: 30, maxWidth: 190, lineHeight: 1.3, visibility: diff !== 0 ? 'visible' : 'hidden' }}>
-        {diff < 0 ? `Thiếu ${-diff}` : `Thừa ${diff}`} cây · kho và QLSX sẽ được báo
-      </span>
-    </div>
-  )
-}
-
 // Ai nhận, nhận bao nhiêu (2026-10-12) - chỉ hiện số khi LỆCH số kho xuất, cho đỡ rối dòng khớp.
 function ReceivedNote({ issue }: { issue: BeSteelIssue }) {
   const r = issue.receivedBarCount
@@ -173,25 +140,6 @@ function XacNhanTab({ lines, yieldIssues, recipeIssues, reviews, readOnly, refet
     for (const r of reviews) if (r.steelIssueId) m.set(r.steelIssueId, (m.get(r.steelIssueId) ?? 0) + r.failedQty)
     return m
   }, [reviews])
-
-  // Đang đếm để xác nhận nhận (2026-10-12): id đợt -> số cây người nhận điền (mặc định = số kho xuất).
-  // Người nhận tự đếm, tự điền - lệch thì BE báo kho + QLSX, vẫn cho nhận.
-  const [counting, setCounting] = useState<Record<string, string>>({})
-  // Đã bấm nhận xong nhưng danh sách chưa tải lại kịp: hiện "đã nhận" ngay, khỏi quay về nút cũ (test tay 09/11 điểm 31).
-  const [justReceived, setJustReceived] = useState<Record<string, boolean>>({})
-  const doReceive = async (l: BeSteelIssue) => {
-    const n = Math.floor(Number(counting[l.id]))
-    if (!Number.isFinite(n) || n < 1) { setErr(p => ({ ...p, [l.id]: 'Nhập số cây thực nhận (ít nhất 1). Không nhận được cây nào thì báo kho, đừng xác nhận.' })); return }
-    setBusy(l.id); setErr(p => ({ ...p, [l.id]: '' }))
-    try {
-      await api.receiveSteelIssue(l.id, n)
-      setCounting(p => { const q = { ...p }; delete q[l.id]; return q })
-      setJustReceived(p => ({ ...p, [l.id]: true }))
-      refetch()
-    }
-    catch (e) { setErr(p => ({ ...p, [l.id]: errMsg(e, 'Không xác nhận được') })) }
-    finally { setBusy(null) }
-  }
 
   // Vật tư thành phẩm (2026-09-04) - chỉ ISSUED/RECEIVED (không qua KCS ở đây, khác Sắt).
   const doReceiveYield = async (y: BeMaterialYieldIssue) => {
@@ -241,14 +189,16 @@ function XacNhanTab({ lines, yieldIssues, recipeIssues, reviews, readOnly, refet
   return (
     <div>
       <div style={{ color: 'var(--text3)', fontSize: 13, marginBottom: 16 }}>
-        Xác nhận <b>đã nhận</b> đợt kho vừa xuất (Sắt, Sắt La, Thanh nhôm). Báo sản lượng/công đoạn làm ở <b>Lệnh sản xuất</b>.
-        {(choNhan + choNhanYield + choNhanRecipe) > 0 && <> · <b style={{ color: 'var(--fg-e65100)' }}>{choNhan + choNhanYield + choNhanRecipe}</b> đợt chờ nhận.</>}
+        Sắt cây nhận bằng mã QR &quot;Khu nhận sắt&quot; của xưởng, không xác nhận ở đây. Sắt La và thanh nhôm vẫn bấm <b>Xác nhận đã nhận</b> ở màn này. Báo cắt làm bằng quét mã QR tại máy.
+        {/* Đếm riêng: Sắt La / thanh nhôm là việc của màn này; sắt cây chỉ để biết (nhận ở khu nhận sắt bằng QR). */}
+        {(choNhanYield + choNhanRecipe) > 0 && <> · <b style={{ color: 'var(--fg-e65100)' }}>{choNhanYield + choNhanRecipe}</b> đợt Sắt La / thanh nhôm chờ bạn xác nhận.</>}
+        {choNhan > 0 && <> · {choNhan} lô sắt cây chờ nhận ở khu nhận sắt.</>}
       </div>
 
       {traVe > 0 && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', marginBottom: 14, borderRadius: 10, background: 'var(--red-bg, var(--bg-fef2f2))', color: 'var(--fg-b91c1c)', fontSize: 13 }}>
           <RotateCcw size={16} />
-          <span><b>{traVe}</b> đợt KCS trả về cần <b>cắt lại</b> · tổng <b>{traVeCay}</b> cây — xử lý ở <b>Lệnh sản xuất</b>.</span>
+          <span><b>{traVe}</b> đợt KCS trả về cần <b>cắt lại</b> · tổng <b>{traVeCay}</b> cây — công nhân báo bằng quét mã QR, QLSX kiểm.</span>
         </div>
       )}
 
@@ -282,21 +232,7 @@ function XacNhanTab({ lines, yieldIssues, recipeIssues, reviews, readOnly, refet
                     <td style={{ ...td, color: 'var(--text3)' }}>{new Date(l.issuedAt).toLocaleString('vi-VN')}</td>
                     <td style={{ ...td, textAlign: 'center' }}>
                       {l.status === 'ISSUED' ? (
-                        readOnly ? <span style={{ fontSize: 12, color: 'var(--text3)' }}>chờ xác nhận nhận</span> : justReceived[l.id] ? (
-                          <span style={{ fontSize: 12, color: 'var(--text3)' }}>đã nhận · đang cập nhật…</span>
-                        ) : counting[l.id] == null ? (
-                          <button onClick={() => setCounting(p => ({ ...p, [l.id]: String(l.barCount) }))}
-                            style={{ whiteSpace: 'nowrap', padding: '5px 12px', fontSize: 12, fontWeight: 600, border: 'none', borderRadius: 6, background: 'var(--bg-e65100)', color: '#fff', cursor: 'pointer' }}>
-                            Xác nhận đã nhận
-                          </button>
-                        ) : (
-                          <ReceiveCountInput
-                            barCount={l.barCount} value={counting[l.id]} busy={busy === l.id}
-                            onChange={v => setCounting(p => ({ ...p, [l.id]: v }))}
-                            onConfirm={() => doReceive(l)}
-                            onCancel={() => setCounting(p => { const q = { ...p }; delete q[l.id]; return q })}
-                          />
-                        )
+                        <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--fg-e65100)' }}>Nhận bằng mã QR &quot;Khu nhận sắt&quot;</span>
                       ) : l.status === 'RECEIVED' ? (
                         <span style={{ fontSize: 12, color: 'var(--text3)' }}>đã nhận · chờ cắt</span>
                       ) : l.status === 'IN_PROCESS' ? (

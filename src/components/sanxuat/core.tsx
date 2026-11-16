@@ -267,8 +267,10 @@ function PiListBoard({ groups, cfg, onEnter }: { groups: PiGroup[]; cfg: StageCf
 // ── Tầng 1: Danh sách lệnh (PO) ────────────────────────────────────
 interface PoView { r: ProcRow; s: ReturnType<typeof poSummary>; unlocked: boolean; canEnter: boolean; arranged: boolean; seqUnlocked: boolean; alert: boolean }
 
-function PoListBoard({ rows, cfg, isPhoi, sequential = true, onEnter, onBack, piCode }: {
+function PoListBoard({ rows, cfg, isPhoi, readOnly = false, sequential = true, onEnter, onBack, piCode }: {
   rows: ProcRow[]; cfg: StageCfg; isPhoi: boolean
+  /** Chỉ xem (Hàn/Sơn từ đợt QR): đổi chữ gợi ý nhập sản lượng sang chữ xem. */
+  readOnly?: boolean
   /** "Làm tuần tự" (PO sau chỉ mở khi PO trước đủ 100%) — quy ước riêng của demo/mock, KHÔNG có gì
    *  tương ứng ở BE. Hàn/Sơn nối BE thật (đợt 2) tắt hẳn để không chặn oan PO thật theo thứ tự
    *  bất kỳ trả về từ listProductionOrdersForStage(). */
@@ -332,7 +334,9 @@ function PoListBoard({ rows, cfg, isPhoi, sequential = true, onEnter, onBack, pi
       title={onBack ? `Lệnh ${lenhOf(piCode)}` : `Lệnh sản xuất — Công đoạn ${cfg.label}`}
       subtitle={isPhoi
         ? `Theo dõi tiến độ ${cfg.verb} theo SKU · bấm SKU để xem mảnh & xác nhận cắt theo đợt`
-        : `Theo dõi tiến độ ${cfg.verb} theo SKU · nhập sản lượng theo ${cfg.itemLabel.toLowerCase()}`}
+        : readOnly
+          ? `Theo dõi tiến độ ${cfg.verb} theo SKU · bấm SKU để xem tiến độ theo ${cfg.itemLabel.toLowerCase()}`
+          : `Theo dõi tiến độ ${cfg.verb} theo SKU · nhập sản lượng theo ${cfg.itemLabel.toLowerCase()}`}
       onBack={onBack}
       backLabel="Quay lại danh sách lệnh"
       columns={cols}
@@ -341,11 +345,12 @@ function PoListBoard({ rows, cfg, isPhoi, sequential = true, onEnter, onBack, pi
       rowTone={v => !v.unlocked ? 'muted' : v.alert ? 'alert' : 'default'}
       clickable={v => v.canEnter}
       onRowClick={v => onEnter(v.r.id)}
-      rowTitle={v => !v.arranged ? 'Chủ chuyền chưa sắp xếp lệnh này' : !v.seqUnlocked ? 'Phải hoàn tất SKU trước (đủ 100%) mới mở lệnh này' : v.alert ? 'Chưa khớp đồng bộ — nhấn để xem' : isPhoi ? 'Nhấn để xem các mảnh của SKU' : 'Nhấn để nhập sản lượng theo vật tư'}
+      rowTitle={v => !v.arranged ? 'Chủ chuyền chưa sắp xếp lệnh này' : !v.seqUnlocked ? 'Phải hoàn tất SKU trước (đủ 100%) mới mở lệnh này' : v.alert ? 'Chưa khớp đồng bộ — nhấn để xem' : isPhoi ? 'Nhấn để xem các mảnh của SKU' : readOnly ? 'Nhấn để xem tiến độ theo vật tư' : 'Nhấn để nhập sản lượng theo vật tư'}
       // Đoạn văn thường (không inline-flex): inline-flex biến mỗi đoạn chữ/chữ đậm thành 1 "cột" riêng,
       // màn hẹp bị ép thành các cột chữ vỡ dòng.
       footer={<span style={{ display: 'block', lineHeight: 1.6 }}>
-        <CalendarClock size={14} style={{ verticalAlign: '-2px', marginRight: 4 }} /> Làm <b style={{ color: 'var(--text2)' }}>tuần tự</b>: SKU sau chỉ mở khi SKU trước đủ 100%. {isPhoi
+        {/* Chỉ nói "tuần tự" khi màn thật sự khoá SKU sau (Hàn/Sơn chạy với sequential={!stage} = false). */}
+        {sequential && <><CalendarClock size={14} style={{ verticalAlign: '-2px', marginRight: 4 }} /> Làm <b style={{ color: 'var(--text2)' }}>tuần tự</b>: SKU sau chỉ mở khi SKU trước đủ 100%. </>}{isPhoi
           ? <>Tiến độ theo <b style={{ color: 'var(--text2)' }}>tổng cây đã cắt / cần</b>; <b style={{ color: 'var(--text2)' }}>đồng bộ sắt</b> (điểm nghẽn loại sắt) xem trong từng mảnh.</>
           : <><b style={{ color: 'var(--text2)' }}>{cfg.done}</b> = số sản phẩm ráp được đủ mọi {cfg.itemLabel.toLowerCase()} (đồng bộ); dòng đỏ = chưa khớp.</>}
       </span>}
@@ -507,7 +512,7 @@ export function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, banner
         const stale = minutesSince(at) >= REMIND_MINUTES
         return at
           ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: stale ? 'var(--amber)' : 'var(--text3)' }}><Clock size={12} /> {timeVN(at)}</span>
-          : <span style={{ color: 'var(--text3)' }}>— chưa nhập —</span>
+          : <span style={{ color: 'var(--text3)' }}>{readOnly ? '— chưa có —' : '— chưa nhập —'}</span>
       }
     },
     ...((manualInput && !readOnly) ? [{
@@ -587,7 +592,9 @@ export function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, banner
       onBack={onBack} backLabel={backLabel} fixedLayout={aligned} fullHeight={fullHeight}
       title={title}
       subtitle={<>{subtitle}<div style={{ marginTop: 2 }}>{manualInput
-        ? (onRecord
+        ? (readOnly
+          ? <>Xem số <b>{cfg.unit} đã {cfg.verb}</b> theo từng {itemLabelLC}. Công nhân báo bằng quét mã QR tại máy.</>
+          : onRecord
           ? <>Nhập số <b>{cfg.unit} đã {cfg.verb}</b> theo từng {itemLabelLC} → <b>Lưu đợt</b> rồi <b>Gửi KCS</b>; chỉ SL KCS đạt mới tính tiến độ.</>
           : <>Nhập số <b>{cfg.unit} đã {cfg.verb}</b> theo từng {itemLabelLC} — hệ thống tự lưu mốc thời gian.</>)
         : <>Số lượng <b>đã {cfg.verb}</b> tự cập nhật từ màn <b>Xác nhận sản lượng</b> — màn này chỉ theo dõi đồng bộ.</>}</div></>}
@@ -1131,7 +1138,7 @@ export function TwoTierScreen({ cfg, seed, readOnly = false, stage }: {
   if (selPiGroup) {
     return (
       <PoListBoard
-        rows={selPiGroup.rows} cfg={cfg} isPhoi={false} sequential={!stage}
+        rows={selPiGroup.rows} cfg={cfg} isPhoi={false} readOnly={readOnly} sequential={!stage}
         onEnter={id => setSelPoId(id)}
         onBack={() => setSelPiId(null)} piCode={selPiGroup.piCode}
       />

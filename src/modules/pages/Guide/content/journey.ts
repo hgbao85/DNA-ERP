@@ -74,7 +74,7 @@ export const journeyGroup: GuideGroup = {
       steps: [
         'Bấm icon chuông (cạnh tên bạn ở cuối thanh menu; trên điện thoại nằm ở thanh trên cùng) để mở danh sách thông báo — có 2 tab "Cần xử lý" và "Tất cả".',
         'Bấm vào một thông báo: hệ thống mở đúng phân hệ, đúng tab và làm nổi bật đúng dòng cần xử lý.',
-        'Số đỏ cạnh một mục menu (ví dụ "Nhập kho", "Duyệt SKU", "Xử lý lệnh sản xuất", "Xác nhận nhận sắt", KCS Phôi/Hàn/Sơn) = số việc đang chờ bạn ở mục đó.',
+        'Số đỏ cạnh một mục menu (ví dụ "Nhập kho", "Duyệt SKU", "Xử lý lệnh sản xuất", "Xác nhận nhận sắt", KCS Phôi/Hàn/Sơn) = số việc đang chờ bạn ở mục đó. Riêng "Xác nhận nhận sắt" đếm Sắt La / thanh nhôm chờ xác nhận, không đếm sắt cây (sắt cây nhận bằng mã QR).',
         'Bấm "Xem tất cả" để mở trang "Thông báo của tôi": tìm theo tiêu đề/nội dung, lọc theo loại (Cần xử lý / Kết quả / Cảnh báo / Thông tin / Thông báo chung) và theo đã đọc/chưa đọc.',
         'Bấm "Đọc tất cả" để đánh dấu đã đọc toàn bộ.',
       ],
@@ -305,7 +305,7 @@ export const journeyGroup: GuideGroup = {
       purpose: 'Các trường hợp ngoại lệ lặp lại nhiều lần trong hệ thống — biết trước để không bối rối khi gặp.',
       steps: [
         'Từ chối ở bất kỳ cổng duyệt nào (định mức, lệnh sản xuất, gộp đợt cắt...): hồ sơ quay lại đúng người phụ trách kèm lý do, dữ liệu đã nhập không mất.',
-        'Lỗi chất lượng (KCS) chỉ ghi hai kết quả Đạt / Không đạt (kèm nguyên nhân). Phần không đạt KHÔNG tự sinh lô làm lại — tổ sản xuất tự báo một đợt mới để bù (nút "Bù đủ").',
+        'Lỗi chất lượng (KCS) chỉ ghi hai kết quả Đạt / Không đạt (kèm nguyên nhân). Phần không đạt KHÔNG tự sinh lô làm lại — công nhân báo bù bằng quét mã QR, QLSX kiểm rồi gửi KCS (Vật tư TP thì tài khoản Phôi báo bù ở "Lệnh sản xuất", nút "Bù đủ").',
         'Nhận thiếu vẫn được ghi nhận — cả khi nhận hàng mua về lẫn khi nhận vật tư xuống xưởng, không bắt buộc khớp tuyệt đối.',
         'Gộp đợt cắt sắt (nhiều sản phẩm dùng chung loại sắt) và tính lại phương án cắt chỉ thực hiện được TRƯỚC khi Giám đốc duyệt lệnh sản xuất.',
         'QLSX hoặc Giám đốc từ chối lệnh sản xuất = lệnh bị XOÁ, SKU quay về màn "Tối ưu cắt sắt" để KHSX tính và tạo lệnh lại từ đầu.',

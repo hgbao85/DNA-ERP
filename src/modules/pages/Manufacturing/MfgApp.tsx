@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import FloorStoppedBanner from '../../../components/FloorStoppedBanner'
 import { useCloseNavOnNotification } from '../../../hooks/useCloseNavOnNotification'
-import { QrCode, ClipboardList, Settings, LogOut, Grid, Package, Boxes, Warehouse, ClipboardCheck, Box, CalendarClock, Wrench, Flame, SprayCan, Check, Frame, Layers, Play, PackageCheck, Ruler, Menu, X, AlertTriangle } from 'lucide-react'
+import { QrCode, ClipboardList, Settings, LogOut, Grid, Package, Boxes, Warehouse, ClipboardCheck, Box, CalendarClock, Wrench, Flame, SprayCan, Check, Frame, Layers, Play, PackageCheck, Ruler, Menu, X, AlertTriangle, Eye } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import { useIsCompact, useIsMobile } from '../../../hooks/useMediaQuery'
 import { useUrlState } from '../../../hooks/useUrlState'
@@ -19,6 +19,7 @@ import LenhSanXuatPhoi from '../Phoi/LenhSanXuatPhoi'
 import HuongDanCatPage from '../Phoi/HuongDanCatPage'
 import KhoPhoiPage from '../Phoi/KhoPhoiPage'
 import SoBaoVuotDoanPage from './SoBaoVuotDoanPage'
+import QlsxTeamViewsPage from './QlsxTeamViewsPage'
 import XacNhanNhanSatPage from '../Phoi/XacNhanNhanSatPage'
 import LenhSanXuatHan from '../Han/LenhSanXuatHan'
 import KhungHanPage from '../Han/KhungHanPage'
@@ -44,14 +45,14 @@ type TabId =
   | 'weaving-points' | 'sku-list'
   | 'materials' | 'warehouses' | 'setup'
   | 'kcs-phoi' | 'kcs-han' | 'kcs-son'
-  | 'san-luong-xuong' | 'so-bao-vuot-doan'
+  | 'san-luong-xuong' | 'so-bao-vuot-doan' | 'xem-cac-to'
 
 const TAB_VALUES: TabId[] = [
   'lenh-sx', 'ke-hoach', 'phoi-xac-nhan-nhan-sat', 'phoi-lenh-sx', 'phoi-huong-dan-cat', 'phoi-dinh-muc-manh', 'phoi-kho-phoi',
   'han-khung-han', 'son-manh-cho-dan', 'han-son-xac-nhan-vat-tu',
   'weaving-points', 'sku-list',
   'materials', 'warehouses', 'setup',
-  'kcs-phoi', 'kcs-han', 'kcs-son', 'san-luong-xuong', 'so-bao-vuot-doan',
+  'kcs-phoi', 'kcs-han', 'kcs-son', 'san-luong-xuong', 'so-bao-vuot-doan', 'xem-cac-to',
 ]
 const isTabId = (v: string | null): v is TabId => !!v && (TAB_VALUES as string[]).includes(v)
 
@@ -174,6 +175,8 @@ export default function MfgApp({ onBack }: MfgAppProps) {
     ...(isProdMgr ? [{ id: 'san-luong-xuong' as TabId, label: 'Sản lượng xưởng', icon: <QrCode size={16} /> }] : []),
     // Tồn đoạn theo lệnh (13/11/2026): Hàn / Sơn báo vượt không chặn, QLSX đóng từng dòng có lý do; Giám đốc xem.
     ...((isProdMgr || isDirector) ? [{ id: 'so-bao-vuot-doan' as TabId, label: 'Sổ báo vượt đoạn', icon: <AlertTriangle size={16} /> }] : []),
+    // QLSX xem (chỉ đọc) các màn của tổ: Hướng dẫn cắt, Kho phôi, Khung hàn, Mảnh chờ đan.
+    ...(isProdMgr ? [{ id: 'xem-cac-to' as TabId, label: 'Xem các tổ', icon: <Eye size={16} /> }] : []),
     ...((isPhoi || isHan || isSon || isDirector) ? [{ id: 'phoi-lenh-sx' as TabId, label: 'Lệnh sản xuất', icon: <ClipboardCheck size={16} /> }] : []),
     ...(isPhoi ? [{ id: 'phoi-huong-dan-cat' as TabId, label: 'Hướng dẫn cắt', icon: <Ruler size={16} /> }] : []),
     ...(isPhoi ? [{ id: 'phoi-xac-nhan-nhan-sat' as TabId, label: 'Xác nhận nhận sắt', icon: <Check size={16} /> }] : []),
@@ -336,6 +339,7 @@ export default function MfgApp({ onBack }: MfgAppProps) {
         {tab === 'lenh-sx' && (isDirector || isProdMgr) && <LenhSXPage />}
         {tab === 'san-luong-xuong' && isProdMgr && <QlsxFloorPage />}
         {tab === 'so-bao-vuot-doan' && (isProdMgr || isDirector) && <SoBaoVuotDoanPage canResolve={isProdMgr} />}
+        {tab === 'xem-cac-to' && isProdMgr && <QlsxTeamViewsPage />}
         {tab === 'ke-hoach' && (isProdMgr || isDirector) && <ThongKePagePlan />}
         {tab === 'phoi-xac-nhan-nhan-sat' && (isPhoi || isDirector) && <XacNhanNhanSatPage readOnly={isDirector} />}
         {tab === 'phoi-lenh-sx' && (isPhoi || isHan || isSon || isDirector) && (isHan ? <LenhSanXuatHan readOnly={isDirector} /> : isSon ? <LenhSanXuatSon readOnly={isDirector} /> : <LenhSanXuatPhoi readOnly={isDirector} onOpenCuttingGuide={openHuongDanCat} />)}
