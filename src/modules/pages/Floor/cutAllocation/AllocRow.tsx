@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { BeCutAllocationMachine, BeCutAllocationRow } from '../../../../services/floor-api'
 import { isBundleRow, isRowDone, isValidBarCount } from '../cutAllocationModel'
 import { stack } from '../qlsxUi'
@@ -25,6 +25,9 @@ interface Props {
 export default function AllocRow(p: Props) {
   const { row, actions, editing } = p
   const [bars, setBars] = useState(String(row.barCount))
+  // Bảng được thay bằng bảng BE trả về (tách dòng, chia lại, người khác sửa...) - ô số cây phải theo số mới,
+  // không giữ số cũ từ lần dựng đầu.
+  useEffect(() => { setBars(String(row.barCount)) }, [row.barCount])
   const [splitting, setSplitting] = useState(false)
   // Đổi máy đang chờ xác nhận: id máy mới.
   const [moveTo, setMoveTo] = useState<string | null>(null)

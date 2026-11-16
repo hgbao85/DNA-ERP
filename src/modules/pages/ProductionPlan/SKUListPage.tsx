@@ -234,7 +234,7 @@ export default function SKUListPage({ readOnly = false }: { readOnly?: boolean }
               })}
               {displayed.length === 0 && (
                 <tr>
-                  <td colSpan={deleteMode ? 7 : 6} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}>
+                  <td colSpan={deleteMode ? 6 : 5} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}>
                     {q ? 'Không tìm thấy kết quả' : 'Chưa có SKU nào'}
                   </td>
                 </tr>

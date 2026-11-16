@@ -33,7 +33,11 @@ export function useBoardActions({ workshopId, workshopName, mutate }: Args) {
     setBusy(true); setErr(null)
     try { const b = await fn(); mutate(() => b); setLogTick((n) => n + 1) } catch (e) { setErr(errMsg(e)) } finally { setBusy(false) }
   }
-  const replace = async (fn: () => Promise<BeCutAllocationBoard>) => { const b = await fn(); mutate(() => b) }
+  // Dùng trong hộp xác nhận (xoá / chia lại / chia luôn): lỗi ném lên để hộp tự hiện + giữ mở. Thành công thì
+  // cũng tăng logTick như run() - trước đây quên, "Lịch sử thay đổi" không tải lại sau 3 thao tác này.
+  const replace = async (fn: () => Promise<BeCutAllocationBoard>) => {
+    const b = await fn(); mutate(() => b); setLogTick((n) => n + 1)
+  }
 
   const actions: BoardActions = {
     busy,

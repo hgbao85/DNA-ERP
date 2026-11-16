@@ -1333,15 +1333,23 @@ function StepBundleForm({ productionInvoiceId, materialId, step, readOnly, stepB
       .filter(s => s.qty > 0)
     if (segs.length === 0) { setErr(`Nhập số đoạn đã ${PROCESS_STEP_LABELS[step].toLowerCase()}`); return }
     setBusy(true); setErr('')
+    let recorded = false
     try {
       // Khoá giữ nguyên nếu bấm lại sau khi mất phản hồi: lần trước đã ghi thì BE trả lại đúng đợt đó, không
       // ghi trùng rồi mới gửi KCS (2 lệnh gọi liền nhau, lỗi ở lệnh thứ 2 từng làm bấm lại = báo 2 lần).
       const payload = { materialId, step, productionOrderId: selOrder.productionOrderId, segments: segs }
       await api.recordStepBatch(productionInvoiceId, payload, retryKey.take([productionInvoiceId, payload]))
+      recorded = true
       await api.submitStepBundle(productionInvoiceId, materialId, step, selOrder.productionOrderId)
       retryKey.settle()
       setRowInputs({}); refetchProgress(); onRefetch()
-    } catch (e) { retryKey.settle(e); setErr(errMsg(e, 'Không gửi KCS được')) }
+    } catch (e) {
+      // Đợt đã ghi xong, chỉ bước gửi KCS lỗi (kể cả lỗi 4xx/5xx có phản hồi): GIỮ khoá để bấm lại không
+      // ghi đợt thứ 2 - settle(e) sẽ bỏ khoá vì "có phản hồi = chưa ghi", sai với lệnh gọi thứ 2 này.
+      if (!recorded) retryKey.settle(e)
+      setErr(errMsg(e, 'Không gửi KCS được'))
+      if (recorded) refetchProgress()
+    }
     finally { setBusy(false) }
   }
 
