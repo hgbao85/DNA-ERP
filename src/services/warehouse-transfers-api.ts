@@ -68,6 +68,7 @@ interface BeWarehouseTransfer {
   signedSlipUrls: string[];
   productionInvoiceId: string | null;
   lenhCode: string | null;
+  destinationOutdated?: boolean;
 }
 
 interface BeWarehouseTransferDetail extends BeWarehouseTransfer {
@@ -125,6 +126,7 @@ function toTransfer(
     signedSlipUrls: t.signedSlipUrls ?? [],
     productionInvoiceId: t.productionInvoiceId ?? null,
     lenhCode: t.lenhCode ?? null,
+    destinationOutdated: t.destinationOutdated ?? false,
     items: items.map(toItem),
     pieceItems: pieceItems.map(toPieceItem),
     note: t.note,
@@ -265,6 +267,33 @@ export async function rejectWarehouseTransfer(id: string | number, reason: strin
     rejectionReason: reason,
   });
   return toTransfer(t, []);
+}
+
+/** (a) anh Nhân 16/11: kho GỬI huỷ phiếu chuyển hàng của lệnh chưa nhận - hàng chưa rời kho / xe quay về. */
+export async function cancelWarehouseTransfer(id: string | number, reason: string): Promise<WarehouseTransfer> {
+  const t = await http.post<BeWarehouseTransfer>(`/warehouse-transfers/${id}/cancel`, { reason });
+  return toTransfer(t, []);
+}
+
+/** (b) anh Nhân 16/11: kho GỬI đổi nơi nhận sang kho cùng loại của xưởng hiện tại của lệnh - hàng đang trên đường tới xưởng mới. */
+export async function changeWarehouseTransferDestination(id: string | number): Promise<WarehouseTransfer> {
+  const t = await http.post<BeWarehouseTransfer>(`/warehouse-transfers/${id}/change-destination`, {});
+  return toTransfer(t, []);
+}
+
+export interface PendingWorkshopMove {
+  id: string;
+  code: string;
+  createdAt: string;
+  fromWarehouseName: string;
+  toWarehouseName: string;
+}
+
+/** Cảnh báo lúc đổi xưởng (anh Nhân 16/11): phiếu chuyển hàng của lệnh còn chờ nhận. Cho hộp thoại đổi xưởng. */
+export function getPendingWorkshopMoves(productionInvoiceId: string): Promise<PendingWorkshopMove[]> {
+  return http.get<PendingWorkshopMove[]>('/warehouse-transfers/workshop-moves/pending', {
+    params: { productionInvoiceId },
+  });
 }
 
 // ── Chuyển kho piece-only (mảnh / vật tư thành phẩm — needsHan=true/false, xem

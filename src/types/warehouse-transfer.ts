@@ -57,6 +57,9 @@ export interface WarehouseTransfer {
   productionInvoiceId?: string | null
   /** Số lệnh hiển thị của productionInvoiceId. */
   lenhCode?: string | null
+  /** Phiếu chuyển hàng của lệnh đang chờ nhận mà lệnh đã đổi xưởng tiếp - kho đích không còn thuộc xưởng của lệnh (anh Nhân
+   *  16/11): kho gửi huỷ phiếu hoặc đổi nơi nhận; kho đích vẫn nhận được nếu hàng đã tới. */
+  destinationOutdated?: boolean
   items: WarehouseTransferItem[]
   pieceItems: WarehouseTransferPieceItem[]
   note?: string | null
