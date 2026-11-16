@@ -14,6 +14,7 @@
  * `pf.quotaManagement.materialType` không phải sửa gì thêm.
  */
 import { http, withIdempotencyKey } from './core/http';
+import { getAllPages } from './core/getAllPages';
 import type {
   BaoBiDongGoiItem,
   CreateSkuPayload,
@@ -320,8 +321,7 @@ function toSku(pf: BeSku): Sku {
 }
 
 export async function getSkus(): Promise<Sku[]> {
-  const res = await http.get<BeSku[] | { data: BeSku[] }>('/skus?limit=100');
-  const list = Array.isArray(res) ? res : res.data;
+  const list = await getAllPages<BeSku>('/skus');
   return list.map(toSku);
 }
 
@@ -343,8 +343,7 @@ export async function updateSkuContainerLoad(
 export async function getSkuOptions(): Promise<{
   mfgProducts: { id: string; factoryCode: string; name: string }[];
 }> {
-  const products = await http.get<{ id: string; factoryCode: string; name: string }[] | { data: { id: string; factoryCode: string; name: string }[] }>('/products?limit=100');
-  const productList = Array.isArray(products) ? products : products.data;
+  const productList = await getAllPages<{ id: string; factoryCode: string; name: string }>('/products');
   return { mfgProducts: productList };
 }
 

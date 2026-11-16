@@ -17,6 +17,7 @@
  *  - Báo sản lượng (LenhSanXuatHan/Son, đợt 2): dùng getProductionBatchPlan()/reportProductionBatch().
  */
 import { http, withIdempotencyKey } from './core/http';
+import { getAllPages } from './core/getAllPages';
 import type { ProcessStep } from '../types/sku';
 
 /** PHOI ở đây là "Phôi tự báo cắt xong vật tư thành phẩm" (needsHan=false, vd chân nhôm - cắt
@@ -51,10 +52,7 @@ export interface BeProductionBatch {
 /** KCS xem lô đang chờ/đã duyệt của công đoạn mình — flat qua mọi PO, không cần resolve
  *  productionOrderId (permission không đủ để tự resolve, xem comment đầu file). */
 export async function getProductionBatchesByStage(stage: ProductionBatchStage): Promise<BeProductionBatch[]> {
-  const res = await http.get<BeProductionBatch[] | { data: BeProductionBatch[] }>(
-    `/production-batches?stage=${stage}&limit=100`,
-  );
-  return Array.isArray(res) ? res : res.data;
+  return getAllPages<BeProductionBatch>(`/production-batches?stage=${stage}`);
 }
 
 /** Tổ Phôi xem lại các lô ĐÃ báo (QC_DONE) của CHÍNH order này để tìm lô còn "Bù đủ" (2026-09-07,
@@ -64,10 +62,7 @@ export async function getProductionBatchesForOrder(
   productionOrderId: string,
   stage: ProductionBatchStage,
 ): Promise<BeProductionBatch[]> {
-  const res = await http.get<BeProductionBatch[] | { data: BeProductionBatch[] }>(
-    `/production-orders/${productionOrderId}/production-batches?limit=100`,
-  );
-  const list = Array.isArray(res) ? res : res.data;
+  const list = await getAllPages<BeProductionBatch>(`/production-orders/${productionOrderId}/production-batches`);
   return list.filter((b) => b.stage === stage);
 }
 
@@ -96,10 +91,7 @@ export interface BeProductionBatchQcReview {
 /** Fetch hết rồi lọc client theo productionBatchId != null - cùng idiom getQcReviewsForSteelIssues()
  *  (steel-issues-api.ts), danh sách chưa lớn. */
 export async function getQcReviewsForProductionBatches(): Promise<BeProductionBatchQcReview[]> {
-  const res = await http.get<BeProductionBatchQcReview[] | { data: BeProductionBatchQcReview[] }>(
-    '/qc-reviews?limit=100',
-  );
-  const list = Array.isArray(res) ? res : res.data;
+  const list = await getAllPages<BeProductionBatchQcReview>('/qc-reviews');
   return list.filter((r) => r.productionBatchId != null);
 }
 
@@ -138,10 +130,7 @@ export interface BeProductionOrderSummary {
  * lúc, không tách biệt độc lập theo từng SKU như tưởng ban đầu.
  */
 export async function listProductionOrdersForStage(): Promise<BeProductionOrderSummary[]> {
-  const res = await http.get<BeProductionOrderSummary[] | { data: BeProductionOrderSummary[] }>(
-    '/production-orders?limit=100',
-  );
-  const list = Array.isArray(res) ? res : res.data;
+  const list = await getAllPages<BeProductionOrderSummary>('/production-orders');
   const activePiIds = new Set(
     list.filter((o) => o.floorStage === 'ACTIVE').map((o) => o.productionInvoiceId),
   );
@@ -239,10 +228,7 @@ export async function getPieceStepBundlesForOrder(productionOrderId: string): Pr
 /** KCS xem bundle đang chờ/đã duyệt - flat qua mọi PO, cùng lý do getProductionBatchesByStage().
  *  Bỏ trống `status` để lấy CẢ 2 (dùng cho màn KCS gộp chung với ProductionBatch cùng 1 bảng). */
 export async function getPieceStepBundles(status?: 'AWAITING_QC' | 'QC_PASSED'): Promise<BePieceStepBundle[]> {
-  const res = await http.get<BePieceStepBundle[] | { data: BePieceStepBundle[] }>(
-    `/piece-step-bundles?limit=100${status ? `&status=${status}` : ''}`,
-  );
-  return Array.isArray(res) ? res : res.data;
+  return getAllPages<BePieceStepBundle>('/piece-step-bundles', { status });
 }
 
 /** 1 dòng qc_reviews nhánh công đoạn VTTP (pieceStepBundleId != null) - mirror
@@ -258,10 +244,7 @@ export interface BePieceStepBundleQcReview {
 /** Fetch hết rồi lọc client theo pieceStepBundleId != null - cùng idiom
  *  getQcReviewsForProductionBatches() ở trên, danh sách chưa lớn. */
 export async function getQcReviewsForPieceStepBundles(): Promise<BePieceStepBundleQcReview[]> {
-  const res = await http.get<BePieceStepBundleQcReview[] | { data: BePieceStepBundleQcReview[] }>(
-    '/qc-reviews?limit=100',
-  );
-  const list = Array.isArray(res) ? res : res.data;
+  const list = await getAllPages<BePieceStepBundleQcReview>('/qc-reviews');
   return list.filter((r) => r.pieceStepBundleId != null);
 }
 

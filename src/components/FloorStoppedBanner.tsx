@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { PauseCircle } from 'lucide-react'
-import { http } from '../services/core/http'
+import { getAllPages } from '../services/core/getAllPages'
 import { useRealtimeRefetch } from '../realtime/hooks'
 
 interface OrderRow {
@@ -24,8 +24,8 @@ export default function FloorStoppedBanner() {
 
   const load = useCallback(async () => {
     try {
-      const res = await http.get<OrderRow[] | { data: OrderRow[] }>('/production-orders?limit=100')
-      const list = Array.isArray(res) ? res : res.data
+      // Đủ mọi trang - lệnh đang tạm dừng mà cũ hơn 100 lệnh mới nhất trước đây không hiện banner.
+      const list = await getAllPages<OrderRow>('/production-orders')
       const live = list.filter((o) => o.status === 'RELEASED' || o.status === 'IN_PROGRESS')
       const activePi = new Set(live.filter((o) => o.floorStage === 'ACTIVE').map((o) => o.productionInvoiceId))
       const codes = new Map<string, string>()

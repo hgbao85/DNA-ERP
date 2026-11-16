@@ -45,6 +45,9 @@ export interface AdminReadOnlyListConfig<T extends { id: number | string }> {
   pageSize?: number
   emptyMessage?: string
   fetch: () => Promise<T[]>
+  /** Đổi giá trị nào trong đây thì gọi lại `fetch` - cho màn lấy dữ liệu từ context đã tải ở nơi khác:
+   *  không có thì bảng giữ đúng dữ liệu lúc mở, context tải xong sau cũng không cập nhật. */
+  fetchDeps?: unknown[]
   /** Topic realtime làm mới danh sách này khi có thay đổi (xem realtime.contract.ts). */
   realtimeTopics?: readonly string[]
   /** entityType của thông báo trỏ tới dòng này (vd 'PRODUCTION_INVOICE') - gắn data-focus-id để bấm thông báo thì nháy
@@ -59,7 +62,7 @@ export interface AdminReadOnlyListConfig<T extends { id: number | string }> {
  * không có sửa/xóa — khác AdminEntityPage (engine CRUD).
  */
 export default function AdminReadOnlyList<T extends { id: number | string }>({ config }: { config: AdminReadOnlyListConfig<T> }) {
-  const { data, isLoading, error: loadError, refetch } = useFetch<T[]>(config.fetch)
+  const { data, isLoading, error: loadError, refetch } = useFetch<T[]>(config.fetch, config.fetchDeps)
   useRealtimeRefetch(config.realtimeTopics ?? [], refetch)
   const items = useMemo(() => data ?? [], [data])
 

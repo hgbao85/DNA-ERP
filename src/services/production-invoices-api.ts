@@ -15,6 +15,7 @@
 import { lenhDisplayCode, lenhLsxCodes } from '../utils/lenhCode';
 import type { WorkshopRef } from '../types/workshop';
 import { http } from './core/http';
+import { getAllPages } from './core/getAllPages';
 import type { SolverMachine } from '../types/admin';
 import type { MaterialChoice } from '../types/sku';
 import type { ContainerLoad } from '../types/containerLoad';
@@ -245,8 +246,7 @@ function toPI(pi: BeProductionInvoice) {
 }
 
 export async function getProductionInvoices() {
-  const res = await http.get<BeProductionInvoice[] | { data: BeProductionInvoice[] }>('/production-invoices?limit=100');
-  const list = Array.isArray(res) ? res : res.data;
+  const list = await getAllPages<BeProductionInvoice>('/production-invoices');
   return list.map(toPI);
 }
 

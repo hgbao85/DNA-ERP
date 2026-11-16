@@ -5,6 +5,7 @@
  * 2026-08-11 - xem weaving-issues-api.ts) - không còn hardcode 0 như lúc transfer-check mới nối.
  */
 import { http } from './core/http';
+import { getAllPages } from './core/getAllPages';
 import type { Sku } from '../types/sku';
 import { resolveProductionInvoiceRef } from './production-invoice-item';
 
@@ -80,10 +81,7 @@ export async function recordTransferCheck(
 
 /** Liệt kê PHẲNG mọi lỗi kiểm chuyển kho có ảnh, không theo item/PI - dùng cho màn Admin. */
 export async function getTransferCheckDefects(): Promise<BeTransferCheckDefect[]> {
-  const res = await http.get<{ data: BeTransferCheckDefect[] }>(
-    '/production-invoices/transfer-check/defects?limit=100',
-  );
-  return res.data;
+  return getAllPages<BeTransferCheckDefect>('/production-invoices/transfer-check/defects');
 }
 
 /** Admin-override: sửa/xóa ảnh (`imageUrl: null` = xóa hẳn) - route BE chặn role ADMIN. */

@@ -4,6 +4,7 @@
  * id dạng bigint-as-string, giống MaterialsApi.
  */
 import { http } from './core/http';
+import { getAllPages } from './core/getAllPages';
 
 export interface BeOfficeSupply {
   id: number;
@@ -47,12 +48,10 @@ export interface BeOfficeSupplyLedgerEntry {
  * tầng API, chỉ FE tự hiện nút bật cho Admin - xem OfficeSuppliesPage.tsx).
  */
 export async function getOfficeSupplies(warehouseCode?: string, includeDeleted?: boolean): Promise<BeOfficeSupply[]> {
-  const qs = [
-    warehouseCode ? `&warehouseCode=${encodeURIComponent(warehouseCode)}` : '',
-    includeDeleted ? '&includeDeleted=true' : '',
-  ].join('');
-  const res = await http.get<BeOfficeSupply[] | { data: BeOfficeSupply[] }>(`/office-supplies?limit=100${qs}`);
-  return Array.isArray(res) ? res : res.data;
+  return getAllPages<BeOfficeSupply>('/office-supplies', {
+    warehouseCode: warehouseCode || undefined,
+    includeDeleted: includeDeleted ? true : undefined,
+  });
 }
 
 export async function createOfficeSupply(data: {

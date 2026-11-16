@@ -5,6 +5,7 @@
  * `id` khai `number` ở type để khớp interface `{ id: number }` cũ (xem ghi chú ở materials-api.ts).
  */
 import { http } from './core/http';
+import { getAllPages } from './core/getAllPages';
 
 export interface BeWeavingPoint {
   id: number;
@@ -21,8 +22,7 @@ export interface BeWeavingPoint {
 }
 
 export async function getWeavingPoints(): Promise<BeWeavingPoint[]> {
-  const res = await http.get<BeWeavingPoint[] | { data: BeWeavingPoint[] }>('/weaving-points?limit=100');
-  return Array.isArray(res) ? res : res.data;
+  return getAllPages<BeWeavingPoint>('/weaving-points');
 }
 
 export async function createWeavingPoint(data: Record<string, unknown>): Promise<BeWeavingPoint> {

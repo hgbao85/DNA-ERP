@@ -14,6 +14,7 @@
  * chính xác + so sánh sai kiểu ở mục 07 roadmap). KHÔNG ép Number() ở đâu trong file này.
  */
 import { http } from './core/http';
+import { getAllPages } from './core/getAllPages';
 import { resolveMfgProduct } from './products-api';
 import type { SalesOrder, SalesOrderItem, SalesOrderStatus } from '../types/sales';
 import type { MaterialChoice } from '../types/sku';
@@ -101,8 +102,7 @@ function toSalesOrderItem(it: BeSalesOrderItem): SalesOrderItem {
 }
 
 export async function getSalesOrders(): Promise<SalesOrder[]> {
-  const res = await http.get<BeSalesOrder[] | { data: BeSalesOrder[] }>('/sales-orders?limit=100');
-  const list = Array.isArray(res) ? res : res.data;
+  const list = await getAllPages<BeSalesOrder>('/sales-orders');
   return list.map(toSalesOrder);
 }
 

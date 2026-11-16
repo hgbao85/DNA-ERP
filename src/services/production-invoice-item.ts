@@ -15,6 +15,7 @@
  * 1 SKU tái sử dụng cho nhiều lệnh sản xuất song song).
  */
 import { http } from './core/http';
+import { getAllPages } from './core/getAllPages';
 import type { MaterialChoice, Sku } from '../types/sku';
 
 // ─── Cache chung GET /production-orders?limit=100 ────────────────────────────
@@ -64,9 +65,8 @@ export function listProductionOrdersLite(): Promise<BeProductionOrderRaw[]> {
 function fetchProductionOrdersCached(): Promise<BeProductionOrderRaw[]> {
   const now = Date.now();
   if (productionOrdersCache && productionOrdersCache.expiresAt > now) return productionOrdersCache.promise;
-  const promise = http
-    .get<BeProductionOrderRaw[] | { data: BeProductionOrderRaw[] }>('/production-orders?limit=100')
-    .then((res) => (Array.isArray(res) ? res : res.data))
+  // Tải đủ mọi trang (16/11/2026) - trước đây chỉ 100 lệnh mới nhất, lệnh cũ hơn "không có lệnh SX".
+  const promise = getAllPages<BeProductionOrderRaw>('/production-orders')
     .catch((err) => {
       // KHÔNG giữ lại promise lỗi cho hết TTL - nếu không, 1 lần 429/lỗi mạng thoáng qua sẽ làm
       // MỌI lệnh gọi khác dùng chung cache này trong 10s tiếp theo cũng lỗi theo (dù bản thân BE

@@ -6,6 +6,7 @@
  * piece/SKU nào, chỉ thuộc về cả PI. Xem MaterialYieldRecipeProductionService (BE).
  */
 import { http, withIdempotencyKey } from './core/http';
+import { getAllPages } from './core/getAllPages';
 import type { ProcessStep } from '../types/sku';
 
 // ── Nhu cầu sản xuất theo PI (MaterialYieldRecipesService.getProductionDemand) ───────────────────
@@ -68,11 +69,7 @@ export async function getMaterialYieldRecipeIssuesForInvoice(
 export async function getMaterialYieldRecipeIssuesByStatus(
   status?: 'ISSUED' | 'RECEIVED',
 ): Promise<BeMaterialYieldRecipeIssue[]> {
-  const qs = status ? `status=${status}&limit=100` : 'limit=100';
-  const res = await http.get<
-    BeMaterialYieldRecipeIssue[] | { data: BeMaterialYieldRecipeIssue[] }
-  >(`/material-yield-recipe-issues?${qs}`);
-  return Array.isArray(res) ? res : res.data;
+  return getAllPages<BeMaterialYieldRecipeIssue>('/material-yield-recipe-issues', { status });
 }
 
 export async function receiveMaterialYieldRecipeIssue(
@@ -134,10 +131,7 @@ export async function getMaterialYieldStepBundlesForInvoice(
 export async function getMaterialYieldStepBundles(
   status?: 'AWAITING_QC' | 'QC_PASSED',
 ): Promise<BeMaterialYieldStepBundle[]> {
-  const res = await http.get<BeMaterialYieldStepBundle[] | { data: BeMaterialYieldStepBundle[] }>(
-    `/material-yield-step-bundles?limit=100${status ? `&status=${status}` : ''}`,
-  );
-  return Array.isArray(res) ? res : res.data;
+  return getAllPages<BeMaterialYieldStepBundle>('/material-yield-step-bundles', { status });
 }
 
 /** 1 dòng qc_reviews nhánh công đoạn vật tư không gắn piece (materialYieldStepBundleId != null). */
@@ -153,10 +147,7 @@ export interface BeMaterialYieldStepBundleQcReview {
 export async function getQcReviewsForMaterialYieldStepBundles(): Promise<
   BeMaterialYieldStepBundleQcReview[]
 > {
-  const res = await http.get<
-    BeMaterialYieldStepBundleQcReview[] | { data: BeMaterialYieldStepBundleQcReview[] }
-  >('/qc-reviews?limit=100');
-  const list = Array.isArray(res) ? res : res.data;
+  const list = await getAllPages<BeMaterialYieldStepBundleQcReview>('/qc-reviews');
   return list.filter((r) => r.materialYieldStepBundleId != null);
 }
 

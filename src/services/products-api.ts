@@ -5,6 +5,7 @@
  * Id bigint-as-string.
  */
 import { http } from './core/http';
+import { getAllPages } from './core/getAllPages';
 
 export interface BeMfgProduct {
   id: string;
@@ -14,8 +15,7 @@ export interface BeMfgProduct {
 }
 
 export async function getMfgProducts(): Promise<BeMfgProduct[]> {
-  const res = await http.get<BeMfgProduct[] | { data: BeMfgProduct[] }>('/products?limit=100');
-  return Array.isArray(res) ? res : res.data;
+  return getAllPages<BeMfgProduct>('/products');
 }
 
 export async function createMfgProduct(data: Record<string, unknown>): Promise<BeMfgProduct> {

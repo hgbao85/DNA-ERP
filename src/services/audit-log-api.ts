@@ -9,6 +9,7 @@
  * FE tự tra qua getUsers().
  */
 import { http } from './core/http';
+import { getAllPages } from './core/getAllPages';
 
 export interface BeAuditLogEntry {
   id: string;
@@ -22,14 +23,12 @@ export interface BeAuditLogEntry {
 }
 
 async function fetchAuditLogs(tableName: string, recordId: string): Promise<BeAuditLogEntry[]> {
-  const res = await http.get<BeAuditLogEntry[] | { data: BeAuditLogEntry[] }>(
-    `/audit-logs?tableName=${encodeURIComponent(tableName)}&recordId=${encodeURIComponent(recordId)}&limit=100`,
-  );
-  return Array.isArray(res) ? res : res.data;
+  return getAllPages<BeAuditLogEntry>(`/audit-logs?tableName=${encodeURIComponent(tableName)}&recordId=${encodeURIComponent(recordId)}`);
 }
 
 /** Nhật ký kiểm toán THẬT của 1 bảng (mới nhất trước, tối đa 100 dòng) - dùng cho trang Admin "Sửa SKU đợt Phôi". */
 export async function getAuditLogsByTable(tableName: string): Promise<BeAuditLogEntry[]> {
+  // CỐ Ý chỉ 1 trang (100 dòng mới nhất): nhật ký cả bảng tăng vô hạn, màn chỉ cần lượt sửa gần đây.
   const res = await http.get<BeAuditLogEntry[] | { data: BeAuditLogEntry[] }>(
     `/audit-logs?tableName=${encodeURIComponent(tableName)}&limit=100`,
   );

@@ -37,6 +37,7 @@ export default function PurchaseProposalsPage() {
       key, label: s.label, color: s.color, bg: s.bg, predicate: (p: PurchaseProposal) => p.status === key,
     })),
     fetch: () => Promise.resolve(proposals),
+    fetchDeps: [proposals],
   }
 
   return <AdminReadOnlyList config={config} />
