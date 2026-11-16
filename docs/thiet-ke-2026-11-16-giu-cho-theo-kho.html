@@ -154,7 +154,7 @@
       <div class="stat"><div class="n dead">4</div><div class="l">Lỗi trung bình / chưa xếp (CK3–CK5, mảnh sang Sơn)</div></div>
       <div class="stat"><div class="n">1</div><div class="l">Migration dữ liệu (đổi khoá giữ chỗ)</div></div>
       <div class="stat"><div class="n resolved">0</div><div class="l">File của Sang phải sửa</div></div>
-      <div class="stat"><div class="n">3</div><div class="l">Câu cần chốt</div></div>
+      <div class="stat"><div class="n resolved">3/3</div><div class="l">Câu đã có trả lời (16/11)</div></div>
     </div>
   </header>
 
@@ -164,7 +164,7 @@
       <div class="status-row"><span class="badge active">Vấn đề</span><div class="body">Quỹ giữ chỗ của 1 lệnh hiện gộp theo <b>(lệnh, vật tư, quy cách)</b>, không xét kho. Trước khi chia 9 kho thì không sao vì mỗi vật tư chỉ có 1 kho. Từ khi có đổi xưởng, phần giữ và hàng thật nằm ở 2 kho khác nhau. Hậu quả: hàng nhận ở kho mới bị cộng vào dòng giữ ở kho cũ, tính lại kéo dòng giữ sang kho mới khi hàng chưa sang, xuất rút giữ chỗ ở kho khác kho xuất.</div></div>
       <div class="status-row"><span class="badge clean">Hướng sửa</span><div class="body"><b>Bất biến: dòng giữ chỗ ACTIVE nằm ở kho W thì phần còn giữ của nó là hàng đang có thật ở W.</b> Dòng giữ chỉ đổi kho khi hàng đổi kho (xác nhận phiếu chuyển). Nhận hàng cộng vào dòng ở đúng kho nhận. Xuất chỉ rút dòng ở đúng kho xuất. Tính lại không kéo dòng giữ đi đâu cả, hàng của lệnh đang nằm ở kho xưởng cũ được tính là "đang chuyển tới".</div></div>
       <div class="status-row"><span class="badge resolved">Phạm vi</span><div class="body">Chỉ đụng phần của B: <code class="mono">stock-reservations.service.ts</code>, 3 nguồn mua ngoài sắt, nhận hàng, các luồng xuất, <code class="mono">workshop-move.service.ts</code>, <code class="mono">warehouse-transfers.service.ts</code>. <b>Không phải sửa file nào của Sang</b>: phần chia máy cắt (đợt A/B/C) đã đọc giữ chỗ theo xưởng của từng dòng, sửa xong thì phần "đủ sắt" của Sang tự đúng hơn.</div></div>
-      <div class="status-row"><span class="badge moot">Cần chốt</span><div class="body">3 câu ở mục 06 — 1 câu nghiệp vụ cho anh Nhân, 2 câu kỹ thuật cho Sang. Ước lượng làm: khoảng 2 ngày gồm test và thử sống trên bản sao DB.</div></div>
+      <div class="status-row"><span class="badge resolved">Đã chốt</span><div class="body">Anh Nhân và Sang đã trả lời đủ (mục 06). Câu trả lời của anh Nhân làm B6 lớn hơn dự kiến: thủ kho kho gửi chọn 1 trong 3 cách xử lý phiếu chuyển chưa nhận, kèm cảnh báo lúc đổi xưởng. <b>Người đổi xưởng là KHSX</b>, không phải QLSX như code hiện tại. Ước lượng: khoảng 3 ngày gồm test và thử sống trên bản sao DB.</div></div>
     </div>
   </section>
 
@@ -196,6 +196,7 @@
       <span class="loc mono">stock-reservations.service.ts: reservationKey · reserveOrAdjust · creditPool · releaseOwnHoldsForRecompute</span>
       <p>Hiện mỗi nguồn (vật tư tiêu hao, pat, công thức) và dòng "của cả lệnh" chỉ có <b>1 dòng</b> cho (lệnh, vật tư, quy cách), khoá <code class="mono">{refType}:{refId}:material:{id}[:spec:x]</code>. Muốn có hàng của cùng lệnh ở 2 kho thì phải được có 2 dòng. Khoá mới thêm đuôi <code class="mono">:wh:{warehouseId}</code> cho 4 loại dòng này: CONSUMABLE_MATERIAL_PURCHASE, PIECE_MATERIAL_YIELD_PURCHASE, MATERIAL_YIELD_RECIPE_PURCHASE, PRODUCTION_INVOICE.</p>
       <p>Dòng CUTTING_PROPOSAL (sắt, phần của Sang) <b>không đổi khoá</b>: mỗi lần duyệt đã sinh 1 refId mới, và dòng sắt chỉ đổi kho qua phiếu chuyển.</p>
+      <p><b>Khi nhận phiếu chuyển</b> (<code class="mono">moveReservationsInTx</code>), dòng có đuôi kho phải đổi đuôi theo kho mới: đã có dòng cùng nguồn ở kho mới thì cộng vào dòng đó, chưa có thì chuyển nguyên dòng (đổi cả kho lẫn khoá) hoặc tách phần nhận được sang dòng mới mang khoá kho mới. Nếu không, lần tính lại sau ở kho mới không tìm thấy dòng cũ và giữ chỗ 2 lần.</p>
     </div>
 
     <div class="finding active">
@@ -209,7 +210,8 @@
       <div class="finding-top"><h3 class="finding-title">B3 — Tính lại mua không kéo giữ chỗ đi đâu (sửa CK2)</h3><span class="tags"><span class="badge active">CK2</span></span></div>
       <span class="loc mono">reserveOrAdjust · releaseOwnHoldsForRecompute · 3 nguồn mua ngoài sắt</span>
       <p>Bỏ nhánh "chuyển dòng sang kho mới" trong <code class="mono">reserveOrAdjust</code>. Tính lại chỉ ghi dòng của nguồn <b>ở kho đang tính</b> (khoá có <code class="mono">:wh:</code>).</p>
-      <p><code class="mono">releaseOwnHoldsForRecompute</code> (đã có từ nhóm A) trả thêm <b>phần còn giữ cho chính lệnh ở kho Phôi/Hàn của xưởng khác</b> — đây là hàng sẽ được chuyển sang qua phiếu chuyển của lệnh. 3 nguồn mua tính phần này là "đã có": số mua = nhu cầu × (1 + % hao hụt) − (tồn khả dụng + đã xuất + đang chuyển tới).</p>
+      <p><code class="mono">releaseOwnHoldsForRecompute</code> (đã có từ nhóm A) trả thêm <b>phần còn giữ cho chính lệnh ở kho Phôi/Hàn của xưởng khác</b>, cùng loại với kho đang tính — đây là hàng sẽ được chuyển sang qua phiếu chuyển của lệnh. 3 nguồn mua tính phần này là "đã có": số mua = nhu cầu × (1 + % hao hụt) − (tồn khả dụng + đã xuất + đang chuyển tới).</p>
+      <p>Dòng của nguồn nằm ở kho khác mà <b>không</b> phải kho Phôi/Hàn cùng loại (ví dụ đóng gói đổi kho thành phẩm): không có phiếu chuyển nào mang hàng đó sang, nên co về phần đã tiêu như trước (trả hàng ở kho đó về tồn khả dụng), không tính là "đang chuyển tới".</p>
       <div class="scenario"><b>Kết quả:</b> đổi xưởng xong mà tính lại thì không mua lại hàng đang nằm ở kho xưởng cũ. Phần đó vẫn giữ ở kho cũ cho tới khi thủ kho chuyển, nên lệnh khác ở xưởng cũ cũng không lấy mất.</div>
     </div>
 
@@ -221,16 +223,24 @@
     </div>
 
     <div class="finding dead">
-      <div class="finding-top"><h3 class="finding-title">B5 — Phiếu chuyển hàng của lệnh kiểm tồn (sửa CK4)</h3><span class="tags"><span class="badge dead">CK4</span></span></div>
+      <div class="finding-top"><h3 class="finding-title">B5 — Phiếu chuyển hàng của lệnh kiểm tồn (sửa CK4)</h3><span class="tags"><span class="badge dead">CK4</span><span class="badge resolved">Anh Nhân chốt câu 2</span></span></div>
       <span class="loc mono">warehouse-transfers.service.ts: createWorkshopMove · confirm</span>
       <p>Lập phiếu: số chuyển từng dòng không vượt phần còn giữ cho lệnh ở kho nguồn (như hiện nay) <b>và</b> không vượt tồn thật ở kho nguồn. Xác nhận: khoá <code class="mono">stock_quant</code> kho nguồn FOR UPDATE và chặn nếu tồn thật nhỏ hơn số thực nhận. Không cần thêm giữ chỗ chuyển kho: hàng đã được giữ cho chính lệnh ở kho nguồn.</p>
+      <p><b>Anh Nhân chốt (16/11):</b> trường hợp này không nên xảy ra vì vật tư đã giữ theo lệnh; nếu phần mềm vẫn thấy tồn kho gửi ít hơn số trên phiếu thì <b>chặn xác nhận, báo lỗi để kiểm tra, không cho nhận thiếu</b>. Nhận theo số thực nhận (hàng hư, rơi dọc đường) vẫn giữ nguyên — chỉ chặn khi kho gửi không đủ tồn. Kiểm này áp cho mọi phiếu chuyển vật tư và mảnh.</p>
     </div>
 
     <div class="finding dead">
-      <div class="finding-top"><h3 class="finding-title">B6 — Đổi xưởng lần nữa khi phiếu chuyển còn chờ (sửa CK5)</h3><span class="tags"><span class="badge dead">CK5</span><span class="badge moot">Chờ chốt câu 1</span></span></div>
-      <span class="loc mono">workshop-move.service.ts: afterWorkshopChanged · getPlans · warehouse-transfers.service.ts: confirm</span>
-      <p><b>Đề xuất (chờ anh Nhân chốt, câu 1):</b> phiếu chuyển của lần đổi trước vẫn nhận bình thường vào kho đích ghi trên phiếu (hàng đã rời kho, nhận vào đúng nơi hàng tới). Sau khi nhận, giữ chỗ nằm ở kho đích đó; nếu kho đó không còn là kho của xưởng hiện tại thì <code class="mono">getPlans</code> tự đề xuất 1 phiếu chuyển tiếp sang kho xưởng mới. Không mất hàng, không lệch giữ chỗ.</p>
-      <p>Kèm theo: <code class="mono">getPlans</code> chỉ trừ phiếu đang chờ nếu kho đích của phiếu đúng là kho của xưởng hiện tại; phiếu đang chờ đi sai đích thì hiện cảnh báo cho thủ kho thay vì làm hụt số cần chuyển.</p>
+      <div class="finding-top"><h3 class="finding-title">B6 — Đổi xưởng lần nữa khi phiếu chuyển còn chờ (sửa CK5)</h3><span class="tags"><span class="badge dead">CK5</span><span class="badge resolved">Anh Nhân chốt câu 1</span></span></div>
+      <span class="loc mono">warehouse-transfers.service.ts: cancel (mới) · changeDestination (mới) · confirm · workshop-move.service.ts: getPlans · notify</span>
+      <p><b>Anh Nhân chốt (16/11):</b> phiếu chuyển của lần đổi trước chưa nhận thì <b>thủ kho kho gửi chọn theo thực tế hàng</b>:</p>
+      <ul>
+        <li><b>(a) Hàng chưa rời kho, hoặc xe quay về → huỷ phiếu.</b> Hàng vẫn ở kho gửi, giữ chỗ không đổi. Lệnh sang xưởng thứ 3 thì "Hàng cần chuyển do đổi xưởng" tự hiện lại để lập phiếu mới. Mới: nút <b>Huỷ phiếu</b> cho kho gửi (hiện chỉ kho nhận có "Từ chối"); chỉ cho phiếu chuyển hàng của lệnh đang chờ nhận.</li>
+        <li><b>(b) Hàng đang trên đường, chở thẳng tới xưởng mới → sửa nơi nhận</b> của phiếu sang kho cùng loại của xưởng hiện tại. Mới: nút <b>Đổi nơi nhận</b> cho kho gửi; chỉ khi kho đích của phiếu không còn thuộc xưởng của lệnh. Lệnh về lại đúng xưởng của kho gửi thì không đổi được, phải huỷ (a). Phần sắt vẫn chờ KHSX bấm "Đã kiểm" như lúc lập phiếu. Thông báo chuyển từ kho đích cũ sang kho đích mới.</li>
+        <li><b>(c) Hàng đã nhập kho đích → kho đích nhận như thường</b>, giữ chỗ sang kho đó; nếu kho đó không còn thuộc xưởng của lệnh thì phần mềm <b>nhắc thủ kho kho đó lập phiếu chuyển tiếp</b> (cùng thông báo "cần chuyển hàng do đổi xưởng").</li>
+      </ul>
+      <p>Phiếu chờ nhận đi sai đích được đánh dấu "nơi nhận đã cũ" trong danh sách phiếu chuyển để thủ kho kho gửi thấy và chọn (a) hoặc (b). <code class="mono">getPlans</code> vẫn trừ phần nằm trên phiếu chờ nhận (dù sai đích) để không lập trùng phiếu cho cùng hàng.</p>
+      <p><b>Cảnh báo lúc đổi xưởng:</b> API mới liệt kê phiếu chuyển hàng của lệnh đang chờ nhận; hộp thoại đổi xưởng (file của Sang) hiện cảnh báo khi danh sách khác rỗng — vẫn cho đổi.</p>
+      <div class="scenario"><b>Người đổi xưởng là KHSX</b> (anh Nhân 16/11). Route đổi xưởng hiện chỉ cho QLSX (<code class="mono">@RequireMfgRole(PRODUCTION_MANAGER)</code>, file của Sang) — Sang sửa quyền và chỗ đặt nút.</div>
     </div>
 
     <div class="finding">
@@ -242,7 +252,7 @@
 
   <section>
     <div class="section-head"><span class="section-num">03</span><h2>Đổi xưởng từ đầu tới cuối — sau khi sửa</h2></div>
-    <p class="section-note">Ví dụ: lệnh ở Phú An đã giữ 50 kg dây ở kho Phôi Phú An, đặt mua thêm 30 kg (chưa về). QLSX chuyển lệnh sang Phước An.</p>
+    <p class="section-note">Ví dụ: lệnh ở Phú An đã giữ 50 kg dây ở kho Phôi Phú An, đặt mua thêm 30 kg (chưa về). KHSX chuyển lệnh sang Phước An.</p>
     <ol class="steps">
       <li><b>Đổi xưởng</b> (đã có): dòng mua chưa về đổi kho nhận sang kho Phôi Phước An; thủ kho Phú An được báo cần chuyển 50 kg. Giữ chỗ 50 kg <b>vẫn ở kho Phú An</b>.</li>
       <li><b>Tính lại mua</b> (nếu có): 50 kg ở Phú An tính là "đang chuyển tới", 30 kg đang mua tính là chờ về → không mua thêm (B3).</li>
@@ -278,19 +288,18 @@
   </section>
 
   <section>
-    <div class="section-head"><span class="section-num">06</span><h2>Câu cần chốt</h2></div>
-    <div class="finding">
-      <div class="finding-top"><h3 class="finding-title">Câu 1 (anh Nhân) — Đổi xưởng lần 2 khi phiếu chuyển của lần 1 chưa nhận</h3><span class="badge moot">Nghiệp vụ</span></div>
-      <p>Lệnh chuyển Phú An → Phước An, thủ kho Phú An đã lập phiếu chuyển và hàng đang trên đường; trước khi Phước An nhận, lệnh lại chuyển về Phú An (hoặc sang xưởng thứ 3).</p>
-      <div class="scenario"><b>Đề xuất:</b> Phước An vẫn nhận phiếu bình thường (hàng đã tới đó), rồi hệ thống đề xuất phiếu chuyển tiếp về xưởng hiện tại. <b>Phương án khác:</b> tự huỷ phiếu chưa nhận khi đổi xưởng lần 2 — chỉ đúng nếu hàng chưa thật sự rời kho.</div>
+    <div class="section-head"><span class="section-num">06</span><h2>Câu đã chốt (16/11)</h2></div>
+    <div class="finding clean">
+      <div class="finding-top"><h3 class="finding-title">Câu 1 (anh Nhân) — Đổi xưởng lần 2 khi phiếu chuyển của lần 1 chưa nhận</h3><span class="badge resolved">Đã chốt</span></div>
+      <p>Thủ kho kho gửi chọn theo thực tế hàng: (a) chưa rời kho / xe quay về → huỷ phiếu; (b) đang trên đường tới xưởng mới → sửa nơi nhận; (c) đã nhập kho đích → nhận rồi phần mềm nhắc lập phiếu chuyển tiếp. Còn phiếu chưa nhận thì cảnh báo KHSX lúc bấm đổi xưởng. Xem B6.</p>
     </div>
-    <div class="finding">
-      <div class="finding-top"><h3 class="finding-title">Câu 2 (Sang) — Đồng ý đổi khoá giữ chỗ cho 4 loại dòng ngoài sắt</h3><span class="badge moot">Kỹ thuật</span></div>
-      <p>Không đụng dòng sắt và code của Sang. Hỏi để chắc phần đợt A/B/C chưa đẩy (nếu còn) không đọc <code class="mono">idempotencyKey</code> của giữ chỗ.</p>
+    <div class="finding clean">
+      <div class="finding-top"><h3 class="finding-title">Câu 2 (anh Nhân) — Kho gửi ít tồn hơn số trên phiếu</h3><span class="badge resolved">Đã chốt</span></div>
+      <p>Không nên xảy ra vì vật tư đã giữ theo lệnh. Nếu phần mềm vẫn thấy thiếu: chặn xác nhận, báo lỗi để kiểm tra, không cho nhận thiếu. Xem B5.</p>
     </div>
-    <div class="finding">
-      <div class="finding-top"><h3 class="finding-title">Câu 3 (Sang) — MH3 luồng sắt làm cùng đợt này?</h3><span class="badge moot">Kỹ thuật</span></div>
-      <p><code class="mono">CuttingProposalsService.approve()</code> cần dời khoá merge + khoá ký đơn lên đầu (chi tiết trong changelog nhóm A). Cùng chạm luồng giữ chỗ sắt nên có thể làm cùng lúc; file của Sang nên Sang quyết người làm.</p>
+    <div class="finding clean">
+      <div class="finding-top"><h3 class="finding-title">Sang — đổi khoá, MH3, migration</h3><span class="badge resolved">Đã chốt</span></div>
+      <p>Đồng ý đổi khoá 4 loại dòng: chỉ <code class="mono">stock-reservations.service.ts</code> đọc / ghi khoá giữ chỗ, phần của Sang đọc theo lệnh / vật tư / kho. MH3 luồng sắt Sang tự làm (đã gộp <code class="mono">bc4341d</code>). Migration chạy trên DB dev lúc nào cũng được, báo trước 1 tin.</p>
     </div>
   </section>
 
@@ -300,10 +309,10 @@
       <li><b>Script kiểm dữ liệu chỉ đọc</b> (mục 04), chạy trên DB dev.</li>
       <li><b>B1 + migration đổi khoá</b>, rồi <b>B2, B3, B4</b> trong <code class="mono">stock-reservations.service.ts</code> và các nơi gọi.</li>
       <li><b>B5, B7</b> kiểm tồn ở phiếu chuyển lệnh và phiếu chuyển mảnh.</li>
-      <li><b>B6</b> sau khi anh Nhân trả lời câu 1.</li>
+      <li><b>B6:</b> huỷ phiếu và đổi nơi nhận cho kho gửi, nhắc chuyển tiếp sau khi nhận, đánh dấu phiếu sai đích, API cảnh báo lúc đổi xưởng; FE màn phiếu chuyển của thủ kho.</li>
       <li><b>Test:</b> unit test từng hàm; integration test thật (Postgres test) cho chuỗi ở mục 03; thử sống trên bản sao DB: đổi xưởng → nhận hàng ở kho mới → tính lại → phiếu chuyển nhận thiếu → xuất ở kho mới.</li>
     </ol>
-    <p class="section-note">Ước lượng khoảng 2 ngày. Làm trên nhánh riêng, gộp khi đủ test như nhóm A và CK6.</p>
+    <p class="section-note">Ước lượng khoảng 3 ngày. Làm trên nhánh riêng, gộp khi đủ test như nhóm A và CK6. Việc của Sang: đổi quyền đổi xưởng sang KHSX, hiện cảnh báo phiếu chờ nhận trong hộp thoại đổi xưởng.</p>
   </section>
 
   <footer>

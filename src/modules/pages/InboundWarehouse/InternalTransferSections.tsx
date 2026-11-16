@@ -5,10 +5,10 @@ import { useFetch } from '../../../hooks/useFetch'
 import { useRealtimeRefetch } from '../../../realtime/hooks'
 import { useConfirm } from '../../../hooks/useConfirm'
 import * as api from '../../../services/api'
-import { CheckCircle2, ChevronDown, ChevronUp, Paperclip, Printer, X, XCircle } from 'lucide-react'
+import { ArrowRightLeft, CheckCircle2, ChevronDown, ChevronUp, Paperclip, Printer, X, XCircle } from 'lucide-react'
 import { uploadDocument } from '../../../services/uploads-api'
 import { printTransferSlip } from './printTransferSlip'
-import { createWorkshopMove, getConfirmedTransfers, getWarehouseTransfer, getWorkshopMovePlans, type WorkshopMovePlan } from '../../../services/warehouse-transfers-api'
+import { cancelWarehouseTransfer, changeWarehouseTransferDestination, createWorkshopMove, getConfirmedTransfers, getWarehouseTransfer, getWorkshopMovePlans, type WorkshopMovePlan } from '../../../services/warehouse-transfers-api'
 import type { WarehouseTransfer } from '../../../types/warehouse-transfer'
 import { canReceiveAt } from '../../../types/warehouse-transfer'
 import { safeArr } from '../../../utils/array'
@@ -215,6 +215,11 @@ function IncomingInbox({ pending, onChanged }: { pending: WarehouseTransfer[]; o
                   <span style={{ fontWeight: 700, fontFamily: 'monospace', fontSize: 14 }}>{t.code}</span>
                   <span style={{ fontSize: 13, color: 'var(--text2)' }}>Từ: {t.fromWarehouseName}</span>
                   <span style={{ fontSize: 12, color: 'var(--text3)' }}>{t.items.length + t.pieceItems.length} vật tư</span>
+                  {t.destinationOutdated && (
+                    <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--fg-b45309)' }}>
+                      Lệnh {t.lenhCode} đã đổi xưởng tiếp — hàng đã tới thì vẫn nhận, phần mềm sẽ nhắc lập phiếu chuyển tiếp
+                    </span>
+                  )}
                   <div style={{ flex: 1 }} />
                   <span style={{ fontSize: 12, color: 'var(--text3)' }}>{new Date(t.createdAt).toLocaleDateString('vi-VN')}</span>
                   {isExpanded ? <ChevronUp size={16} color="var(--text3)" /> : <ChevronDown size={16} color="var(--text3)" />}
@@ -334,8 +339,52 @@ function IncomingInbox({ pending, onChanged }: { pending: WarehouseTransfer[]; o
  */
 export function OutgoingTransfersPanel({ warehouseId, title = 'Phiếu đã gửi — chờ kho nhận xác nhận' }: { warehouseId: string | null; title?: string }) {
   const { data, refetch } = useFetch<WarehouseTransfer[]>(() => api.getWarehouseTransfers('PENDING'), [])
-  useRealtimeRefetch(['warehouse-transfers'], refetch)
+  useRealtimeRefetch(['warehouse-transfers', 'production-invoices'], refetch)
   const mine = safeArr(data).filter(t => t.fromWarehouseId === warehouseId)
+  // Anh Nhân 16/11 câu 1: phiếu chuyển hàng của lệnh chưa nhận - kho gửi chọn theo thực tế hàng: (a) chưa rời kho / xe quay về ->
+  // huỷ phiếu; (b) đang trên đường tới xưởng mới -> đổi nơi nhận (chỉ khi lệnh đã đổi xưởng tiếp).
+  const [cancelling, setCancelling] = useState<WarehouseTransfer | null>(null)
+  const [reason, setReason] = useState('')
+  const [busy, setBusy] = useState<string | null>(null)
+  const [cancelError, setCancelError] = useState<string | null>(null)
+  const [msg, setMsg] = useState<Record<string, string>>({})
+  const { ask, confirmModal } = useConfirm()
+
+  const doCancel = async () => {
+    if (!cancelling) return
+    setBusy(cancelling.id); setCancelError(null)
+    try {
+      await cancelWarehouseTransfer(cancelling.id, reason.trim())
+      setCancelling(null); setReason('')
+      refetch()
+    } catch (e) {
+      setCancelError(errMsg(e, 'Không huỷ được phiếu'))
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  const doChangeDestination = (t: WarehouseTransfer) => {
+    ask(
+      {
+        title: `Đổi nơi nhận — ${t.code}`,
+        message: `Lệnh ${t.lenhCode ?? ''} đã đổi xưởng. Hàng của phiếu đang trên đường chở thẳng tới kho cùng loại của xưởng mới? Phiếu sẽ đổi nơi nhận sang kho đó ("${t.toWarehouseName}" không nhận nữa).`,
+        confirmLabel: 'Đổi nơi nhận',
+      },
+      async () => {
+        setBusy(t.id); setMsg(m => ({ ...m, [t.id]: '' }))
+        try {
+          const u = await changeWarehouseTransferDestination(t.id)
+          setMsg(m => ({ ...m, [t.id]: `Đã đổi nơi nhận sang "${u.toWarehouseName}" - in lại phiếu cho đúng kho nhận.` }))
+          refetch()
+        } finally {
+          setBusy(null)
+        }
+      },
+    )
+  }
+
+  const btn = { display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 10px', fontSize: 12, fontWeight: 600, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)', color: 'var(--text2)', cursor: 'pointer', whiteSpace: 'nowrap' } as const
   return (
     <div style={{ marginTop: 20 }}>
       <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 10 }}>{title}</h3>
@@ -355,15 +404,37 @@ export function OutgoingTransfersPanel({ warehouseId, title = 'Phiếu đã gử
             </thead>
             <tbody>
               {mine.map(t => (
-                <tr key={t.id} style={{ borderTop: '1px solid var(--border)' }}>
+                <tr key={t.id} style={{ borderTop: '1px solid var(--border)', verticalAlign: 'top' }}>
                   <td style={{ ...td, fontWeight: 700, fontFamily: 'monospace' }}>{t.code}</td>
-                  <td style={td}>{t.toWarehouseName}</td>
+                  <td style={td}>
+                    {t.toWarehouseName}
+                    {t.destinationOutdated && (
+                      <div style={{ marginTop: 4, fontSize: 12, fontWeight: 600, color: 'var(--fg-b45309)' }}>
+                        Lệnh {t.lenhCode} đã đổi xưởng — kho này không còn là nơi nhận. Hàng chưa đi thì huỷ phiếu, đang trên đường tới xưởng mới thì đổi nơi nhận.
+                      </div>
+                    )}
+                    {msg[t.id] && (
+                      <div style={{ marginTop: 4, fontSize: 12, color: msg[t.id].startsWith('Đã đổi') ? 'var(--fg-2e7d32)' : 'var(--fg-dc2626, #dc2626)' }}>{msg[t.id]}</div>
+                    )}
+                  </td>
                   <td style={{ ...td, color: 'var(--text3)' }}>{[...t.items.map(it => `${it.materialName} (${it.quantity} ${it.unit})`), ...t.pieceItems.map(it => `${it.pieceName} (${it.quantity} mảnh)`)].join(', ')}</td>
                   <td style={{ ...td, color: 'var(--text3)' }}>{new Date(t.createdAt).toLocaleDateString('vi-VN')}</td>
                   <td style={td}>
-                    <button onClick={() => printTransferSlip(t)} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 10px', fontSize: 12, fontWeight: 600, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)', color: 'var(--text2)', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                      <Printer size={13} /> In phiếu
-                    </button>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      <button onClick={() => printTransferSlip(t)} style={btn}>
+                        <Printer size={13} /> In phiếu
+                      </button>
+                      {t.productionInvoiceId && t.destinationOutdated && (
+                        <button onClick={() => doChangeDestination(t)} disabled={busy === t.id} style={{ ...btn, color: 'var(--bg-2563eb)', borderColor: 'var(--bg-2563eb)' }}>
+                          <ArrowRightLeft size={13} /> Đổi nơi nhận
+                        </button>
+                      )}
+                      {t.productionInvoiceId && (
+                        <button onClick={() => { setCancelling(t); setReason(''); setCancelError(null) }} disabled={busy === t.id} style={{ ...btn, color: 'var(--fg-c62828)' }}>
+                          <XCircle size={13} /> Huỷ phiếu
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -371,6 +442,22 @@ export function OutgoingTransfersPanel({ warehouseId, title = 'Phiếu đã gử
           </table>
         </div>
       )}
+      {confirmModal}
+      <ReasonModal
+        open={!!cancelling}
+        title={`Huỷ phiếu chuyển — ${cancelling?.code ?? ''}`}
+        description="Chỉ huỷ khi hàng CHƯA rời kho hoặc xe đã quay về - hàng và phần giữ cho lệnh vẫn ở kho này, tồn kho không đổi. Lệnh đã sang xưởng khác thì phần cần chuyển hiện lại ở mục trên để lập phiếu mới."
+        reason={reason}
+        onReasonChange={setReason}
+        placeholder="VD: Xe quay về, lệnh lại đổi xưởng..."
+        onCancel={() => setCancelling(null)}
+        onConfirm={() => void doCancel()}
+        confirmLabel="Huỷ phiếu"
+        busy={!!cancelling && busy === cancelling.id}
+        confirmDisabled={!reason.trim()}
+        confirmColor="var(--fg-c62828)"
+        error={cancelError}
+      />
     </div>
   )
 }
