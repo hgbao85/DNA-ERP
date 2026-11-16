@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { BeWorkstation } from '../../../services/floor-api'
-import { isCutUnassigned, kindWithMachine, summarizeCutMachines } from './qlsxUi'
+import { countNonCutUnassigned, isCutUnassigned, isWorkshopUnassigned, kindWithMachine, summarizeCutMachines } from './qlsxUi'
 
 const ws = (o: Partial<BeWorkstation>): BeWorkstation => ({
   id: '1', code: 'C', name: 'x', stage: 'PHOI', kind: 'CUT', processStep: null, qrToken: 't', isActive: true,
@@ -31,6 +31,29 @@ describe('isCutUnassigned', () => {
     expect(isCutUnassigned(ws({}))).toBe(true)
     expect(isCutUnassigned(ws({ workshopId: 'w1' }))).toBe(false)
     expect(isCutUnassigned(ws({ kind: 'STEP', processStep: 'UON', cutMachineType: null }))).toBe(false)
+  })
+})
+
+describe('isWorkshopUnassigned', () => {
+  it('mọi loại máy đang hoạt động mà chưa có xưởng', () => {
+    expect(isWorkshopUnassigned(ws({}))).toBe(true)
+    expect(isWorkshopUnassigned(ws({ kind: 'PIECE', cutMachineType: null }))).toBe(true)
+    expect(isWorkshopUnassigned(ws({ kind: 'PIECE', cutMachineType: null, workshopId: 'w1' }))).toBe(false)
+    expect(isWorkshopUnassigned(ws({ kind: 'STEEL_RECEIVE', cutMachineType: null, isActive: false }))).toBe(false)
+  })
+})
+
+describe('countNonCutUnassigned', () => {
+  it('chỉ đếm máy không phải máy cắt, đang hoạt động, chưa gán xưởng', () => {
+    const list = [
+      ws({}),
+      ws({ kind: 'STEP', processStep: 'UON', cutMachineType: null }),
+      ws({ kind: 'PIECE', cutMachineType: null }),
+      ws({ kind: 'PIECE', cutMachineType: null, workshopId: 'w1' }),
+      ws({ kind: 'STEEL_RECEIVE', cutMachineType: null, isActive: false }),
+    ]
+    expect(countNonCutUnassigned(list)).toBe(2)
+    expect(countNonCutUnassigned([])).toBe(0)
   })
 })
 

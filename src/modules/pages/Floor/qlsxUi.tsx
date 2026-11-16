@@ -53,6 +53,14 @@ export function summarizeCutMachines(list: BeWorkstation[], workshopOrder: strin
 export const isCutUnassigned = (w: Pick<BeWorkstation, 'kind' | 'workshopId'>): boolean => w.kind === 'CUT' && !w.workshopId
 export const UNASSIGNED_WORKSHOP_TITLE = 'Chưa gán xưởng: máy này chưa được chia sắt'
 
+/** Mọi loại máy / điểm làm việc đang hoạt động mà chưa gán xưởng: BE tính theo xưởng mặc định nên dễ lệch xưởng thật. */
+export const isWorkshopUnassigned = (w: Pick<BeWorkstation, 'isActive' | 'workshopId'>): boolean => w.isActive && !w.workshopId
+export const UNASSIGNED_DEFAULT_WORKSHOP_TITLE = 'Chưa gán xưởng: máy này đang được tính theo xưởng mặc định'
+
+/** Số máy / điểm làm việc KHÔNG phải máy cắt, đang hoạt động, chưa gán xưởng (máy cắt đã có dòng tóm tắt riêng). */
+export const countNonCutUnassigned = (list: Pick<BeWorkstation, 'kind' | 'isActive' | 'workshopId'>[]): number =>
+  list.filter((w) => w.kind !== 'CUT' && isWorkshopUnassigned(w)).length
+
 export const card: CSSProperties = {
   background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 16,
 }
