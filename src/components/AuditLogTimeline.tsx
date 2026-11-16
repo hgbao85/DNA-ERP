@@ -33,6 +33,7 @@ const ACTION_ICON: Record<AuditAction, LucideIcon> = {
   'sku.qlsx_rejected':           X,
   'sku.boss_approved':           Factory,
   'sku.boss_rejected':           X,
+  'sku.admin_override':          Pencil,
 
   'kcs.issued':   Send,
   'kcs.reported': Inbox,
@@ -149,7 +150,7 @@ function TimelineList({ entries, onEditPhoto, onDeletePhoto }: {
 }
 
 // Panel "Hoạt động" dạng timeline dọc, dùng chung cho mọi entity có audit log — chỉ cần
-// truyền entries lấy từ useAuditLog().getLogsFor(...). Luôn hiển thị đầy đủ, không cần bấm mở.
+// truyền entries lấy từ BE (vd getSkuHistory). Luôn hiển thị đầy đủ, không cần bấm mở.
 // `bare`: bỏ khung/tiêu đề riêng — dùng khi nhúng vào 1 card đã có tiêu đề sẵn (tránh khung lồng khung).
 export default function AuditLogTimeline({ entries, title = 'Hoạt động', bare = false, onEditPhoto, onDeletePhoto }: {
   entries: AuditLogEntry[]

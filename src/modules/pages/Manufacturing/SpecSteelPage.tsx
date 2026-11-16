@@ -11,8 +11,6 @@ import { useConfirm } from '../../../hooks/useConfirm'
 import { useMaterialGroupIds } from '../../../hooks/useMaterialGroupIds'
 import * as api from '../../../services/api'
 import { useAuth } from '../../../context/AuthContext'
-import { useAuditLog } from '../../../context/AuditLogContext'
-import { SKU_ENTITY } from '../../../constants/skuStatus'
 import type { Sku, ManhRow, ManhChildRow, ManhChildGroup, ProcessStep, SkuMaterialOption } from '../../../types/sku'
 import MaterialOptionsPanel from '../../../components/MaterialOptionsPanel'
 import ZoomableImage from '../../../components/ZoomableImage'
@@ -211,7 +209,6 @@ export default function SpecSteelPage({ subTab }: {
   // lại - BE chặn mọi role khác bằng BomRevisionsService/SkusService.resolveNonDraftOrAdminOverride,
   // xem backend 2026-10-15). Dưới đây chỉ là mở lại UI cho đúng role này, BE vẫn tự kiểm độc lập.
   const isAdmin = user?.role === 'ADMIN'
-  const { logAction } = useAuditLog()
   // Điện thoại: bảng vật tư con 10 cột -> thẻ; ô nhập form thêm vật tư co giãn thay vì rộng cố định.
   const isMobile = useIsMobile()
   const fieldW = (w: number): React.CSSProperties => isMobile ? { flex: '1 1 130px', minWidth: 0 } : { width: w }
@@ -507,7 +504,6 @@ export default function SpecSteelPage({ subTab }: {
       // không gửi lên (BE từ chối số lượng <= 0). Giữ nguyên trên form để còn nhập tiếp lần sau.
       const rowsToSend = dropBlankTickedWireRows(resolvedManhs, wireIdSet)
       await api.updateSkuManhQuota(selectedBom.id, rowsToSend.map(toManhRow), user?.name ?? 'Không rõ', wireOptions)
-      logAction(SKU_ENTITY, String(selectedBom.id), 'sku.manh_submitted', `${manhs.length} mảnh · ${totalChildren} dòng vật tư`)
       // Nộp thật thành công - BE đã tự xoá manhDraft (xem SkusService.updateManhQuota).
       setDraftRestoredAt(null)
       setLastSavedAt(null)

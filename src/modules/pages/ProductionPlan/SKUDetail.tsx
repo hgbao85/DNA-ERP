@@ -7,19 +7,20 @@ import GenericStatusBadge from '../../../components/StatusBadge'
 import Modal from '../../../components/Modal'
 import AuditLogTimeline from '../../../components/AuditLogTimeline'
 import RefreshButton from '../../../components/RefreshButton'
-import { reviewSkuManhQuota, reviewSkuDetailQuota } from '../../../services/sku-api'
+import { reviewSkuManhQuota, reviewSkuDetailQuota, getSkuHistory } from '../../../services/sku-api'
 import { useAuth } from '../../../context/AuthContext'
 import ContainerLoadEditor from '../../../components/ContainerLoadEditor'
 import type { ContainerLoad } from '../../../types/containerLoad'
-import { useAuditLog } from '../../../context/AuditLogContext'
+import { AUDIT_ACTIONS, type AuditLogEntry } from '../../../context/AuditLogContext'
+import { useFetch } from '../../../hooks/useFetch'
 import type { ManhChildGroup, ManhRow, MaterialType, Sku } from '../../../types/sku'
-import { STATUS_MAP, SKU_ENTITY } from '../../../constants/skuStatus'
+import { STATUS_MAP } from '../../../constants/skuStatus'
 import { PROCESS_STEP_LABELS } from '../../../constants/processSteps'
 import { useIsCompact } from '../../../hooks/useMediaQuery'
 
 // ─── Status ───────────────────────────────────────────────────────────────────
 
-export { STATUS_MAP, SKU_ENTITY }
+export { STATUS_MAP }
 
 export function StatusBadge({ status }: { status: string }) {
   return <GenericStatusBadge {...(STATUS_MAP[status] ?? STATUS_MAP.IN_PROGRESS)} />
@@ -131,7 +132,16 @@ export function SKUDetail({
   const [savedLoad, setSavedLoad] = useState<{ skuId: string; cl: ContainerLoad } | null>(null)
   const containerLoad = savedLoad?.skuId === pf.id ? savedLoad.cl : (pf.containerLoad ?? null)
   const setContainerLoad = (cl: ContainerLoad) => setSavedLoad({ skuId: pf.id, cl })
-  const { logAction, getLogsFor } = useAuditLog()
+  // Lịch sử duyệt THẬT do BE ghi (GET /skus/:id/history). Tải lại mỗi khi `pf` được nạp lại (sau
+  // duyệt/từ chối/nộp ở đây hoặc nơi khác qua realtime) - mọi bước làm đổi pf đều sinh 1 dòng lịch sử.
+  // Bỏ dòng có `action` FE chưa biết nhãn (BE thêm bước mới trước khi FE kịp cập nhật).
+  const { data: historyData } = useFetch<AuditLogEntry[]>(
+    () => readOnly
+      ? Promise.resolve([])
+      : getSkuHistory(pf.id).then(rows => rows.filter((r): r is AuditLogEntry => r.action in AUDIT_ACTIONS)),
+    [pf, readOnly],
+  )
+  const history = historyData ?? []
   // Màn hẹp: cột nhật ký (300px) chuyển xuống dưới nội dung thay vì ép nội dung còn vài chục px.
   const isCompact = useIsCompact()
   const mt = pf.quotaManagement?.materialType
@@ -175,7 +185,6 @@ export function SKUDetail({
     setManhSecStatus({ status: 'APPROVED', at: new Date() })
     try {
       await reviewSkuManhQuota(pf.id, 'APPROVED')
-      logAction(SKU_ENTITY, String(pf.id), 'sku.parts_section_approved', 'Định mức mảnh')
       setManhApproveModalOpen(false)
       void onRefresh?.() // nhãn trạng thái tự cập nhật (test tay 09/11 điểm 5)
     } catch (e: unknown) {
@@ -197,7 +206,6 @@ export function SKUDetail({
     setManhSecStatus({ status: 'REJECTED', at: new Date(), reason })
     try {
       await reviewSkuManhQuota(pf.id, 'REJECTED', reason)
-      logAction(SKU_ENTITY, String(pf.id), 'sku.parts_section_rejected', reason ? `Định mức mảnh — ${reason}` : 'Định mức mảnh')
       setManhRejectModalOpen(false)
       void onRefresh?.() // (test tay 09/11 điểm 5)
     } catch (e: unknown) {
@@ -262,7 +270,6 @@ export function SKUDetail({
     setSecStatus({ status: 'APPROVED', at: new Date() })
     try {
       await reviewSkuDetailQuota(pf.id, 'APPROVED')
-      logAction(SKU_ENTITY, String(pf.id), 'sku.detail_section_approved', 'Định mức chi tiết')
       setApproveModalOpen(false)
       void onRefresh?.() // (test tay 09/11 điểm 5)
     } catch (e: unknown) {
@@ -284,7 +291,6 @@ export function SKUDetail({
     setSecStatus({ status: 'REJECTED', at: new Date(), reason })
     try {
       await reviewSkuDetailQuota(pf.id, 'REJECTED', reason)
-      logAction(SKU_ENTITY, String(pf.id), 'sku.detail_section_rejected', reason ? `Định mức chi tiết — ${reason}` : 'Định mức chi tiết')
       setRejectModalOpen(false)
       void onRefresh?.() // (test tay 09/11 điểm 5)
     } catch (e: unknown) {
@@ -691,7 +697,7 @@ export function SKUDetail({
 
       {!readOnly && (
         <div style={isCompact ? { width: '100%' } : { width: 300, flexShrink: 0, position: 'sticky', top: 20 }}>
-          <AuditLogTimeline entries={getLogsFor(SKU_ENTITY, String(pf.id))} />
+          <AuditLogTimeline entries={history} />
         </div>
       )}
       </div>

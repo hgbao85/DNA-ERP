@@ -1,8 +1,3 @@
-// Entity dùng cho AuditLogTimeline — mọi thao tác nhập/duyệt/từ chối/gửi lại trên 1 SKU,
-// từ cả 4 account chuyên trách nhập liệu lẫn KHSX/Sếp duyệt. Giá trị 'PlanForm' khớp tên
-// Prisma model ở BE (không đổi cùng lúc với route/endpoint) - xem audit-log.extension.ts.
-export const SKU_ENTITY = 'PlanForm'
-
 /** Trạng thái vòng đời của một SKU trong luồng duyệt định mức. Mảnh và chi tiết giờ là 2 nhánh
  *  độc lập tiến song song (xem Sku.manhForwardedAt/detailForwardedAt ở types/sku.ts) nên chỉ còn
  *  3 khoá pipeline (IN_PROGRESS/WAITING_BOSS_APPROVAL/APPROVED) - KHÔNG xoá khoá REJECTED dù

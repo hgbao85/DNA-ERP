@@ -53,6 +53,12 @@ describe('auditRecordName', () => {
     expect(auditRecordName(entry({ action: 'DELETE', oldValue: { name: 'Cũ' } }))).toBe('Cũ')
   })
 
+  it('dòng lịch sử duyệt SKU hiện tên bước + ghi chú', () => {
+    expect(auditRecordName(entry({
+      action: 'CREATE', tableName: 'SkuHistory', newValue: { event: 'sku.boss_rejected', note: 'Sai sơn' },
+    }))).toBe('Giám đốc từ chối — trả về cho KHSX duyệt lại — Sai sơn')
+  })
+
   it('không có gì để gọi tên thì null', () => {
     expect(auditRecordName(entry({ newValue: { quantity: 3 } }))).toBeNull()
   })
