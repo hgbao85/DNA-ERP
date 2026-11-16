@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DNA-ERP — Lỗi còn tồn sau đợt đọc code (16/11/2026)</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Be+Vietnam+Pro:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root{
+    --bg:#eef1f0; --surface:#fff; --surface-2:#f5f7f6;
+    --border:#d7dcda; --text:#182220; --text-muted:#56635f; --text-faint:#8a948f;
+    --accent:#1f6f78; --accent-soft:#dcecec;
+    --high:#a8382b; --high-soft:#f6e3df;
+    --mid:#96631f; --mid-soft:#f3e6d3;
+    --low:#727d78; --low-soft:#eceeed;
+    --done:#3f6b4f; --done-soft:#e1ede4;
+    --shadow:0 1px 2px rgba(20,30,28,.06),0 6px 20px -12px rgba(20,30,28,.18);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#10171a; --surface:#161f22; --surface-2:#1b2528;
+      --border:#2a3538; --text:#e7ede9; --text-muted:#a3b2ac; --text-faint:#728079;
+      --accent:#63b9bd; --accent-soft:#1e3436;
+      --high:#e07a68; --high-soft:#3a231e; --mid:#d9ab68; --mid-soft:#392e1b;
+      --low:#8ea198; --low-soft:#212b28; --done:#84c096; --done-soft:#1f3526;
+      --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px -14px rgba(0,0,0,.6);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#10171a; --surface:#161f22; --surface-2:#1b2528;
+    --border:#2a3538; --text:#e7ede9; --text-muted:#a3b2ac; --text-faint:#728079;
+    --accent:#63b9bd; --accent-soft:#1e3436;
+    --high:#e07a68; --high-soft:#3a231e; --mid:#d9ab68; --mid-soft:#392e1b;
+    --low:#8ea198; --low-soft:#212b28; --done:#84c096; --done-soft:#1f3526;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px -14px rgba(0,0,0,.6);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:'Be Vietnam Pro',system-ui,sans-serif;font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased}
+  main{max-width:980px;margin:0 auto;padding:40px 16px 80px}
+  h1,h2{font-family:'Archivo',sans-serif;letter-spacing:-.01em;line-height:1.25}
+  h1{font-size:30px;margin:0 0 8px}
+  h2{font-size:21px;margin:44px 0 6px}
+  .sub{color:var(--text-muted);margin:0 0 4px}
+  .lead{color:var(--text-muted);margin:0 0 16px;font-size:15px}
+  code{font-family:'IBM Plex Mono',monospace;font-size:.84em;background:var(--surface-2);border:1px solid var(--border);border-radius:4px;padding:0 4px;overflow-wrap:anywhere}
+  .note{background:var(--accent-soft);border-radius:10px;padding:14px 18px;margin:20px 0;font-size:15px}
+  .note b{color:var(--accent)}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:24px 0}
+  .stat{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 16px;box-shadow:var(--shadow)}
+  .stat .n{font-family:'Archivo',sans-serif;font-size:28px;font-weight:800;line-height:1.1}
+  .stat .l{color:var(--text-muted);font-size:13px}
+  .item{background:var(--surface);border:1px solid var(--border);border-left:4px solid var(--low);border-radius:10px;padding:14px 18px;margin:12px 0;box-shadow:var(--shadow)}
+  .item.high{border-left-color:var(--high)} .item.mid{border-left-color:var(--mid)} .item.done{border-left-color:var(--done)}
+  .item h3{font-size:16px;margin:0 0 4px;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+  .id{font-family:'IBM Plex Mono',monospace;color:var(--text-faint);font-size:13px;font-weight:500}
+  .tag{font-size:12px;font-weight:600;border-radius:999px;padding:1px 9px;white-space:nowrap}
+  .tag.high{background:var(--high-soft);color:var(--high)} .tag.mid{background:var(--mid-soft);color:var(--mid)}
+  .tag.low{background:var(--low-soft);color:var(--low)} .tag.done{background:var(--done-soft);color:var(--done)}
+  .item p{margin:4px 0;font-size:15px}
+  .where{color:var(--text-muted);font-size:14px}
+  .fix{font-size:14px;color:var(--text-muted)}
+  .fix b{color:var(--text)}
+  ul.done-list{padding-left:20px;font-size:15px}
+  ul.done-list li{margin:4px 0}
+  footer{margin-top:48px;color:var(--text-faint);font-size:13px}
+</style>
+</head>
+<body>
+<main>
+  <h1>Lỗi còn tồn sau đợt đọc code</h1>
+  <p class="sub">FE <code>D:\DNA-ERP</code> (demo) + BE <code>D:\DNA-ERP-BE</code> (main) — 16/11/2026</p>
+  <p class="lead">Danh sách để sửa sau. Đã trừ các lỗi đã sửa và push trong ngày (xem cuối trang).</p>
+
+  <div class="note">
+    <b>Chưa tự kiểm.</b> Các mục dưới đây do 9 agent đọc code phát hiện, chưa được đối chiếu lại từng dòng trên code hiện tại.
+    Sau 16/11 đã có thêm commit của người khác, nên <b>trước khi sửa mục nào phải đọc lại code chỗ đó</b> — số dòng có thể đã lệch, có mục có thể đã được sửa.
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="n">5</div><div class="l">Xưởng (Phôi, KCS)</div></div>
+    <div class="stat"><div class="n">6</div><div class="l">Lệnh sản xuất / SKU</div></div>
+    <div class="stat"><div class="n">5</div><div class="l">Kho / Mua hàng</div></div>
+    <div class="stat"><div class="n">5</div><div class="l">Bảo mật / hạ tầng</div></div>
+    <div class="stat"><div class="n">5</div><div class="l">Phương án cắt sắt</div></div>
+  </div>
+
+  <h2>1. Xưởng (Phôi, KCS)</h2>
+  <p class="lead">Nặng nhất — làm sai số liệu sản xuất thật. Đề xuất sửa trước.</p>
+
+  <div class="item high"><h3><span class="id">X1</span>Báo cắt cộng được vào bó đã gửi KCS / đã đạt KCS <span class="tag high">Cao</span></h3>
+    <p><code>recordCutBatch</code> đọc bó đang mở ngoài transaction, không khoá, upsert theo id mà không kiểm lại trạng thái; <code>finishCutBundle</code> update không có điều kiện trạng thái. Gửi KCS hoặc KCS duyệt chen giữa thì số cắt vẫn được cộng vào bó AWAITING_QC/QC_PASSED → hàng chưa kiểm bị tính là đã kiểm. <code>reviewCutBundle</code> cũng đọc số đoạn ngoài transaction.</p>
+    <p class="where">BE <code>steel-issues.service.ts</code> ~873-898, ~1340; <code>qc-reviews.service.ts</code> ~288-295</p>
+    <p class="fix"><b>Hướng sửa:</b> đọc bó trong transaction với <code>FOR UPDATE</code>, kiểm <code>status = CUTTING</code> trước khi cộng; finish dùng <code>updateMany WHERE status</code> + kiểm count.</p></div>
+
+  <div class="item high"><h3><span class="id">X2</span>Số lỗi KCS bị đếm 2 lần qua route cũ <span class="tag high">Cao</span></h3>
+    <p>Route cũ <code>POST steel-issues/:id/qc-review</code> vẫn nhận phiếu xuất sắt có trạng thái AWAITING_QC (trạng thái này chỉ là tổng hợp từ các bó). Tiến độ Phôi cộng mọi <code>qcReviewSegment</code> theo phiếu xuất → KCS cả theo phiếu lẫn theo bó thì lỗi tính 2 lần, phiếu lên QC_PASSED trong khi bó còn chờ.</p>
+    <p class="where">BE <code>qc-reviews.service.ts</code> ~156; <code>steel-issues.service.ts</code> ~1721</p>
+    <p class="fix"><b>Hướng sửa:</b> chặn route cũ khi phiếu đã có bó (hoặc gỡ hẳn nếu FE không còn gọi).</p></div>
+
+  <div class="item high"><h3><span class="id">X3</span>Huỷ báo cắt làm Uốn/Dập vượt số đã cắt <span class="tag high">Cao</span></h3>
+    <p><code>reverseCut</code> và <code>undoLastCutBatch</code> giảm số cắt mà không lấy khoá step-batch, không kiểm lại quy tắc "công đoạn ≤ số cắt". <code>undoLastCutBatch</code> còn dùng dữ liệu đọc trước transaction, không kiểm chủ báo cáo (thợ Phôi này huỷ được báo cáo của thợ khác), và <code>reversalOfId</code> trỏ vào báo cáo mới nhất kể cả khi số lượng không khớp.</p>
+    <p class="where">BE <code>floor-review.service.ts</code> ~444; <code>steel-issues.service.ts</code> ~1251</p></div>
+
+  <div class="item mid"><h3><span class="id">X4</span>QLSX xưởng này thao tác được xưởng khác <span class="tag mid">Trung bình</span></h3>
+    <p>Danh sách duyệt, gửi KCS, huỷ báo cáo, tổng hợp (<code>floor.controller.ts</code> ~411-448), CRUD máy/thợ (<code>floor-admin.service.ts</code> ~270-583), thống kê, và quét QR nhận sắt (<code>floor-scan.service.ts</code> ~179, ~573) đều không lọc theo xưởng. FE <code>QlsxFloorPage.tsx</code> cũng chỉ lọc hàng đợi, không lọc phần duyệt/tổng hợp.</p>
+    <p class="where">BE <code>src/modules/floor/*</code>; FE <code>QlsxFloorPage.tsx</code> ~40, ~90</p></div>
+
+  <div class="item mid"><h3><span class="id">X5</span>Màn Phôi máy tính báo trùng khi bước gửi bó lỗi 4xx/5xx <span class="tag mid">Trung bình</span></h3>
+    <p><code>LenhSanXuatPhoi.tsx</code> gọi <code>recordStepBatch</code> rồi <code>submitStepBundle</code>. Nếu bước 2 lỗi có response, <code>useRetrySafeKey.settle</code> bỏ khoá chống trùng → bấm lại thì bước 1 ghi thêm một lần. Bản sửa trước chỉ che trường hợp mất mạng.</p>
+    <p class="where">FE <code>Phoi/LenhSanXuatPhoi.tsx</code> ~1340; <code>hooks/useRetrySafeKey.ts</code></p></div>
+
+  <h2>2. Lệnh sản xuất / SKU</h2>
+
+  <div class="item high"><h3><span class="id">L1</span>Dòng "Đã duyệt" nhưng không có lệnh sản xuất <span class="tag high">Cao</span></h3>
+    <p><code>resolvePoNumber</code> cấp số PO bằng đếm + 1. Duyệt cùng lúc 2 PI thuộc cùng đơn bán thì trùng <code>poNumber</code> (unique), lỗi bị nuốt → dòng PI APPROVED mà không có ProductionOrder.</p>
+    <p class="where">BE <code>production-orders.service.ts</code> ~241-244; <code>production-invoices.service.ts</code> ~2236-2256</p>
+    <p class="fix"><b>Hướng sửa:</b> cấp số bằng bộ đếm upsert (như <code>allocateSlipCode</code>) hoặc khoá theo đơn bán; không nuốt lỗi. Admin đã có nút "Tạo lại" cho dòng mua ngoài sắt — kiểm xem có cứu được trường hợp này không.</p></div>
+
+  <div class="item mid"><h3><span class="id">L2</span>Gửi QLSX / gửi Sếp hàng loạt ghi đè nhau <span class="tag mid">Trung bình</span></h3>
+    <p><code>sendBatchToQlsx</code> và <code>sendBatchToBoss</code> dùng <code>updateMany</code> không lọc trạng thái, không kiểm count — khác với route từng dòng.</p>
+    <p class="where">BE <code>production-invoices.service.ts</code> ~2030, ~2100</p></div>
+
+  <div class="item mid"><h3><span class="id">L3</span>Từ chối được 1 SKU khỏi PI gộp <span class="tag mid">Trung bình</span></h3>
+    <p><code>rejectItem</code> và <code>rejectItemByQlsx</code> không có chặn <code>isMerged</code> như <code>approveItem</code>. Phương án cắt theo PI vẫn tính cả SKU đã bị từ chối.</p>
+    <p class="where">BE <code>production-invoices.service.ts</code> ~2529, ~2688</p></div>
+
+  <div class="item mid"><h3><span class="id">L4</span>Báo đóng gói / chuyền kiểm vượt trần khi báo cùng lúc <span class="tag mid">Trung bình</span></h3>
+    <p><code>recordPackaging</code> và <code>recordTransferCheck</code> đọc tổng rồi mới insert, không khoá, không transaction.</p>
+    <p class="where">BE <code>production-invoices.service.ts</code> ~3175-3216, ~3405-3420</p></div>
+
+  <div class="item mid"><h3><span class="id">L5</span>Trạng thái SKU đi lùi / từ chối đè lên duyệt <span class="tag mid">Trung bình</span></h3>
+    <p><code>approveParts</code>/<code>approveDetail</code> không kiểm trạng thái: gọi trên SKU đã APPROVED sẽ kéo về "Chờ Sếp duyệt". <code>rejectByBoss</code> ghi không điều kiện nên có thể đè lên <code>approve</code> chạy cùng lúc (SKU về IN_PROGRESS sau khi revision đã kích hoạt). <code>reviewManhQuota</code>/<code>reviewDetailQuota</code> cũng không kiểm trạng thái.</p>
+    <p class="where">BE <code>skus.service.ts</code> (approveParts/approveDetail, rejectByBoss, reviewManh/DetailQuota)</p>
+    <p class="fix"><b>Liên quan:</b> các hàm này vừa được thêm ghi lịch sử duyệt SKU (16/11) — khi sửa thì giữ nguyên chỗ <code>recordHistory</code>.</p></div>
+
+  <div class="item mid"><h3><span class="id">L6</span>Dòng thêm sau vào đơn bán không xuống sản xuất <span class="tag mid">Trung bình</span></h3>
+    <p><code>sales-orders.service.ts addItem</code> không tạo ProductionInvoiceItem. Chặn số lượng ở <code>updateItem</code> luôn khớp nên vô tác dụng.</p>
+    <p class="where">BE <code>sales-orders.service.ts</code> ~397-420, ~439-453</p></div>
+
+  <div class="item low"><h3><span class="id">L7</span>Các mục nhỏ / cần hỏi nghiệp vụ <span class="tag low">Thấp</span></h3>
+    <p>Sửa hạn giao: ghi thẳng và tạo yêu cầu duyệt nằm ở 2 transaction riêng (<code>updateItemsDeadlines</code> ~1119/~1168) → lỗi giữa chừng để lại lưu nửa vời.</p>
+    <p>PI trộn nhiều BOM revision: <code>piece-material-yield-purchase.service.ts</code> ~112-115 lấy định mức theo revision gặp cuối cùng.</p>
+    <p>Admin ghi đè định mức xoá/tạo lại dòng của revision ACTIVE mà lệnh đang chạy trỏ tới — tính năng này cố ý ship 15/10, cần hỏi lại có chấp nhận BOM của lệnh đang chạy đổi theo không.</p>
+    <p>PI chưa có đường chuyển sang CANCELLED (khoảng trống kiến trúc đã biết, không phải lỗi mới).</p></div>
+
+  <h2>3. Kho / Mua hàng</h2>
+
+  <div class="item high"><h3><span class="id">K1</span>Xuất tiêu hao / đóng gói vẫn có thể làm tồn âm <span class="tag high">Cao</span></h3>
+    <p>Đọc <code>stock_quant</code> không lọc <code>stockLengthMm</code>/<code>spec</code>, chỉ lấy dòng đầu, trong khi ghi sổ vào bucket 0/''. Có nhiều bucket thì số tồn đọc ra là ngẫu nhiên. Khớp ghi chú cũ "chưa fix triệt để" (28/08).</p>
+    <p class="where">BE <code>material-issues.service.ts</code> ~250-254; <code>packaging-issues.service.ts</code> ~184-187, ~268-272</p></div>
+
+  <div class="item high"><h3><span class="id">K2</span>Nhận hàng trễ bị chặn; giữ chỗ không theo kho <span class="tag high">Cao</span></h3>
+    <p>Khi pool trống, <code>creditPool</code> tạo dòng giữ chỗ với <code>idempotencyKey</code> cố định; nếu đã có dòng RELEASED cùng khoá (sau <code>releaseByProductionInvoice</code>) thì P2002 ngay trong transaction nhận hàng. <code>reserve</code> còn trả dòng RELEASED như đang hoạt động. Ngoài ra <code>creditPool</code>/<code>loadPool</code> bỏ qua kho và chiều dài.</p>
+    <p class="where">BE <code>stock-reservations.service.ts</code> ~90-93, ~323-362, ~613</p>
+    <p class="fix"><b>Liên quan:</b> phần "giữ chỗ không theo kho" đã có bản thiết kế <code>docs/thiet-ke-2026-11-16-giu-cho-theo-kho.html</code>; phần P2002 khi nhận trễ cần sửa riêng.</p></div>
+
+  <div class="item mid"><h3><span class="id">K3</span>Điều chỉnh tồn không khoá, không kiểm âm <span class="tag mid">Trung bình</span></h3>
+    <p><code>adjust</code> không có <code>expectedCurrentQty</code> thì không khoá, không kiểm âm, không xét giữ chỗ, chuyển được giữa 2 kho bất kỳ (kể cả kho ảo), bỏ qua phiếu chuyển. Nhánh có <code>expectedCurrentQty</code> cũng không xét giữ chỗ. Xác nhận phiếu chuyển kho không kiểm lại tồn nguồn nên bị ảnh hưởng theo.</p>
+    <p class="where">BE <code>stock-ledger.service.ts</code> ~228-287; <code>warehouse-transfers.service.ts</code> ~761-791</p></div>
+
+  <div class="item mid"><h3><span class="id">K4</span>Phiếu đặt hàng NCC đã "Sửa phiếu" vẫn nhận hàng được <span class="tag mid">Trung bình</span></h3>
+    <p>Nhận hàng không kiểm <code>SupplierOrder.status</code>; dòng nhận dở vẫn nhận tiếp sau khi <code>revise</code> đưa phiếu về DRAFT. Thêm: 2 lệnh <code>removeItem</code> cùng lúc có thể để lại phiếu nháp rỗng.</p>
+    <p class="where">BE <code>purchase-receipts.service.ts</code> ~534-566; <code>supplier-orders.service.ts</code> ~214</p></div>
+
+  <div class="item mid"><h3><span class="id">K5</span>Đọc tồn / sổ kho / phiếu XK không lọc theo kho được giao <span class="tag mid">Trung bình</span></h3>
+    <p><code>GET stock</code>, <code>stock-ledger</code>, <code>material-issues</code> không áp scope kho; <code>issue-slips/:id</code> không kiểm scope; danh sách phiếu XK lấy 200 dòng rồi mới lọc scope trong bộ nhớ → thủ kho có thể thiếu phiếu. <code>stock-quant</code> gọi <code>getAvailableQty</code> từng dòng (N+1), không phân trang.</p>
+    <p class="where">BE <code>stock-quant.controller.ts</code> ~17, <code>stock-quant.service.ts</code> ~52, <code>issue-slips.service.ts</code> ~768-777</p></div>
+
+  <div class="item low"><h3><span class="id">K6</span>Các mục nhỏ <span class="tag low">Thấp</span></h3>
+    <p>Đếm số CK bằng <code>startsWith</code>: mã kho là tiền tố của mã kho khác thì đếm sai, có thể trùng số (<code>warehouse-transfers.service.ts</code> ~1080).</p>
+    <p>Xuất đóng gói lấy kho nguồn luôn là <code>Material.warehouseId</code>, không theo xưởng → có thể lỗi "from == to" (đã gặp 07-08/10).</p>
+    <p>FE: Theo dõi / Lịch sử mua hàng hiện cả dòng của người mua khác trong cùng đề xuất; Đơn đặt hàng NCC không lọc theo người mua. Tạo phiếu XK (<code>PhieuXuatPage.tsx</code> ~98) không có khoá chống trùng. Sửa đơn bán patch từng dòng lần lượt, lỗi giữa chừng để lại cập nhật nửa vời.</p></div>
+
+  <h2>4. Bảo mật / hạ tầng</h2>
+  <p class="lead">Phần lớn chỉ đáng lo khi chạy thật; có thể làm sau.</p>
+
+  <div class="item mid"><h3><span class="id">B1</span>Quyền sửa user gán được vai trò ADMIN <span class="tag mid">Trung bình</span></h3>
+    <p>USER:UPDATE gán được mọi <code>roleIds</code> kể cả ADMIN cho người khác (chỉ chặn tự sửa mình). ROLE:UPDATE gán được mọi quyền.</p>
+    <p class="where">BE <code>users.service.ts</code> ~80, ~168</p></div>
+
+  <div class="item mid"><h3><span class="id">B2</span><code>sortBy</code> không kiểm <span class="tag mid">Trung bình</span></h3>
+    <p>Chuỗi tuỳ ý đi thẳng vào <code>orderBy</code> ở ~10 service: trường lạ → 500; trên <code>/users</code> sắp xếp được theo <code>password</code> (dò dần hash).</p>
+    <p class="where">BE <code>common/dto/pagination-query.dto.ts</code></p></div>
+
+  <div class="item mid"><h3><span class="id">B3</span>Giới hạn đăng nhập theo IP trong khi cả nhà máy chung 1 IP <span class="tag mid">Trung bình</span></h3>
+    <p>8 lần đăng nhập/phút/IP, 100 request/phút/IP, đếm trong bộ nhớ. Đầu ca dễ bị khoá hàng loạt. Thêm: ai trong mạng công ty cũng khoá được tài khoản thợ bằng 5 lần sai PIN; đăng nhập trả lỗi khác nhau theo loại tài khoản (dò được tài khoản).</p>
+    <p class="where">BE throttler config; <code>auth.service.ts</code> ~76-83</p></div>
+
+  <div class="item mid"><h3><span class="id">B4</span>Deploy gặp P1002 tắt giao dịch đang chạy <span class="tag mid">Trung bình</span></h3>
+    <p><code>docker/entrypoint.js</code> ~34 terminate mọi backend đang giữ advisory lock, kể cả giao dịch nghiệp vụ / daily-jobs của instance khác còn sống.</p></div>
+
+  <div class="item low"><h3><span class="id">B5</span>Các mục nhỏ <span class="tag low">Thấp</span></h3>
+    <p>Hai lần refresh token cùng lúc đều thành công (<code>auth.service.ts</code> ~206-255). Upload không có decorator quyền, tin mimetype client khai (<code>uploads.controller.ts</code> ~44, ~71). Audit log ghi ngoài transaction của nghiệp vụ (dòng audit còn lại khi rollback, tốn thêm kết nối). Khoá/đổi quyền user mất tới 15 phút mới có hiệu lực (JWT không kiểm lại).</p></div>
+
+  <h2>5. Phương án cắt sắt</h2>
+
+  <div class="item mid"><h3><span class="id">C1</span>Hai lần duyệt cùng PI chọn chiều dài cây khác nhau <span class="tag mid">Trung bình</span></h3>
+    <p>Kiểm xung đột chiều dài cây nằm ngoài transaction <code>approve</code>, không kiểm lại dưới khoá.</p>
+    <p class="where">BE <code>cutting-proposals.service.ts</code> ~2498</p></div>
+
+  <div class="item mid"><h3><span class="id">C2</span>Duyệt phương án đọc tồn bỏ qua quy cách <span class="tag mid">Trung bình</span></h3>
+    <p>Chỉ lấy <code>locked[0]</code> trong khi <code>stock_quant</code> unique theo (kho, vật tư, chiều dài, spec) → thiếu tồn khi có nhiều spec.</p>
+    <p class="where">BE <code>cutting-proposals.service.ts</code> ~2630-2636</p></div>
+
+  <div class="item mid"><h3><span class="id">C3</span>Hàng đợi giải nằm trong bộ nhớ <span class="tag mid">Trung bình</span></h3>
+    <p>Restart BE để lại proposal CALCULATING mồ côi, bước mua hàng sau khi giải không chạy, phải cứu tay. Route chỉ cần quyền đọc (<code>cutting-batch-fix-options</code> 60s, <code>candidates?deepVerify=true</code> 120s) chiếm chung worker, làm lần giải chính thức hết giờ; giờ chờ hàng đợi bị tính vào timeout.</p></div>
+
+  <div class="item mid"><h3><span class="id">C4</span>Đổi xưởng dời cả số dư đoạn không di chuyển thật <span class="tag mid">Trung bình</span></h3>
+    <p><code>transferOrderHoldings</code> trỏ lại mọi <code>SegmentProduction.warehouseId</code> kể cả phần dư/đã tiêu vẫn ở kho cũ → lần tính lại sau ghi sổ sai kho.</p>
+    <p class="where">BE <code>segment-stock.service.ts</code> ~561</p></div>
+
+  <div class="item low"><h3><span class="id">C5</span>Các mục nhỏ <span class="tag low">Thấp</span></h3>
+    <p>Idempotency kiểu đọc-rồi-tạo (P2002 khi trùng đồng thời) ~453-470. <code>CuttingProposalLine.totalWasteMm</code> là <code>Decimal(7,1)</code>, chế độ gấp hao hụt lớn có thể tràn. N+1 ở <code>getBatchSolves</code>, <code>aggregateDemand</code>; <code>countNeedsAction</code> không giới hạn.</p></div>
+
+  <h2>Đã sửa và push ngày 16/11</h2>
+  <div class="item done"><h3>Không cần làm lại <span class="tag done">Xong</span></h3>
+    <ul class="done-list">
+      <li>PI lên "Đang sản xuất" sớm do NULL; proposal SUPERSEDED sống lại khi giải xong; PI tự lên DONE khi mọi lệnh Kết thúc; vai trò đã xoá vẫn cấp quyền.</li>
+      <li>Tab Giám đốc trắng; khoá thẻ booking; StepBundleForm giữ khoá khi lỗi; tự lưu nháp định mức do setState; XacNhanVatTu phần lẻ; colSpan SKUListPage; toggleDeposit bắt lỗi; useBoardActions; AllocRow đồng bộ số cây.</li>
+      <li>~50 chỗ <code>limit=100</code> chỉ đọc trang 1 (helper <code>getAllPages</code>).</li>
+      <li>Nhật ký hoạt động Admin đọc audit log thật; lịch sử duyệt SKU do BE ghi (<code>GET /skus/:id/history</code>); bỏ hẳn nhật ký mock.</li>
+    </ul>
+    <p class="fix">Hệ quả còn lại: gửi thông báo và reset dữ liệu demo không còn được ghi nhật ký.</p>
+  </div>
+
+  <footer>Nguồn: báo cáo của 9 agent đọc code 16/11/2026 + các lỗi đã tự kiểm trong ngày. Số dòng theo code tại thời điểm đọc.</footer>
+</main>
+</body>
+</html>
