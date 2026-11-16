@@ -45,6 +45,7 @@ import type { Workshop, WorkshopRef } from '../../../types/workshop'
 import { useLsxPrefixes } from '../../../hooks/useLsxPrefixes'
 import LsxCodeInput from '../../../components/LsxCodeInput'
 import ChangeWorkshopDialog from '../../../components/ChangeWorkshopDialog'
+import { canChangeWorkshop, WORKSHOP_LOCKED_TEXT } from '../../../components/changeWorkshopRules'
 import { pickCurrentStage, type ParallelStageInput } from './currentStagePick'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -1937,12 +1938,12 @@ function OrderSummaryView({ viewSwitch }: { viewSwitch: React.ReactNode }) {
             <div style={{ minWidth: 0 }}>
               <div style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: isMobile ? 17 : 20, wordBreak: 'break-word', color: 'var(--fg-1d4ed8)', letterSpacing: '0.02em' }}><LenhCodeText code={selectedPi.displayCode} /></div>
               <div style={{ fontSize: 13, color: 'var(--text3)', marginTop: 4, wordBreak: 'break-word' }}>{selectedPi.rows.length} SKU · PO: {selectedPi.poCodes}</div>
-              {/* Phần A – Đợt 2: xưởng cơ khí của cả lệnh + nút Đổi xưởng (QLSX, chỉ khi chưa xuất sắt) */}
+              {/* Phần A – Đợt 2: xưởng cơ khí của cả lệnh + nút Đổi xưởng (KHSX / Admin từ 16/11/2026, chỉ khi chưa xuất sắt; QLSX không đổi) */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 6, fontSize: 13, color: 'var(--text3)' }}>
                 <span>Xưởng: <span style={{ fontWeight: 600, color: 'var(--text)' }}>{selectedPi.workshop?.name ?? 'Chưa chọn'}</span></span>
                 {canManageFloor && !selectedPi.canManage && <span style={{ fontSize: 12, color: 'var(--text3)' }}>Sơn tại xưởng bạn · chỉ xem</span>}
-                {canManageFloor && selectedPi.canManage && (selectedPi.hasMaterialIssue
-                  ? <span style={{ fontSize: 12, color: 'var(--text3)' }}>Đã xuất sắt — không đổi xưởng được</span>
+                {canChangeWorkshop(user) && selectedPi.canManage !== false && (selectedPi.hasMaterialIssue
+                  ? <span style={{ fontSize: 12, color: 'var(--text3)' }}>{WORKSHOP_LOCKED_TEXT}</span>
                   : <button type="button" onClick={() => setChangeWorkshopPi(selectedPi.piId)} style={{ ...btnSecondary, padding: '4px 10px', fontSize: 12 }}>Đổi xưởng</button>)}
               </div>
             </div>

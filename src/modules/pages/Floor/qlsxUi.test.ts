@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { BeWorkstation } from '../../../services/floor-api'
-import { countNonCutUnassigned, isCutUnassigned, isWorkshopUnassigned, kindWithMachine, summarizeCutMachines } from './qlsxUi'
+import { countNonCutUnassigned, isCutUnassigned, isWorkshopUnassigned, kindWithMachine, summarizeCutMachines, workshopsMissingSteelReceive } from './qlsxUi'
 
 const ws = (o: Partial<BeWorkstation>): BeWorkstation => ({
   id: '1', code: 'C', name: 'x', stage: 'PHOI', kind: 'CUT', processStep: null, qrToken: 't', isActive: true,
@@ -61,5 +61,26 @@ describe('kindWithMachine', () => {
   it('máy cắt ghi loại máy, loại khác giữ nhãn gốc', () => {
     expect(kindWithMachine(ws({ cutMachineType: 'tu_dong' }))).toBe('Máy cắt · MC Tự động')
     expect(kindWithMachine(ws({ kind: 'PIECE', cutMachineType: null }))).toBe('Điểm làm việc (Hàn/Sơn)')
+  })
+})
+
+describe('workshopsMissingSteelReceive', () => {
+  const shops = [{ id: 'w1', name: 'Xưởng 1' }, { id: 'w2', name: 'Xưởng 2' }, { id: 'w3', name: 'Xưởng 3' }]
+  it('xưởng đang dùng mà thiếu khu nhận sắt đang dùng thì bị liệt kê', () => {
+    const list = [
+      ws({ kind: 'CUT', workshopId: 'w1' }),
+      ws({ kind: 'STEEL_RECEIVE', cutMachineType: null, workshopId: 'w1' }),
+      ws({ kind: 'PIECE', cutMachineType: null, workshopId: 'w2' }),
+    ]
+    expect(workshopsMissingSteelReceive(list, shops)).toEqual(['Xưởng 2'])
+  })
+  it('khu nhận sắt đã tắt hoặc chưa gán xưởng không tính; xưởng không có máy nào thì bỏ qua', () => {
+    const list = [
+      ws({ kind: 'CUT', workshopId: 'w1' }),
+      ws({ kind: 'STEEL_RECEIVE', cutMachineType: null, workshopId: 'w1', isActive: false }),
+      ws({ kind: 'STEEL_RECEIVE', cutMachineType: null, workshopId: null }),
+    ]
+    expect(workshopsMissingSteelReceive(list, shops)).toEqual(['Xưởng 1'])
+    expect(workshopsMissingSteelReceive([], shops)).toEqual([])
   })
 })

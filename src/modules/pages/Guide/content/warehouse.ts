@@ -240,7 +240,7 @@ export const warehouseGroup: GuideGroup = {
       title: 'Chuyển hàng của lệnh đổi xưởng (kho Phôi / Hàn)',
       roles: ['warehouse'],
       purpose: 'Lệnh đổi sang xưởng khác (ví dụ Phú An → Phước An) mà sắt / vật tư Phôi-Hàn đang giữ cho lệnh còn ở kho xưởng cũ: thủ kho kho cũ lập phiếu chuyển sang kho cùng loại của xưởng mới. Sắt và vật tư khác đi 2 phiếu riêng.',
-      preconditions: ['QLSX đã đổi xưởng của lệnh.', 'Riêng phiếu sắt: KHSX đã kiểm lại phương án cắt cho xưởng mới (bấm "Đã kiểm").'],
+      preconditions: ['KHSX đã đổi xưởng của lệnh.', 'Riêng phiếu sắt: KHSX đã kiểm lại phương án cắt cho xưởng mới (bấm "Đã kiểm").'],
       mock: {
         title: 'Hàng của lệnh đổi xưởng — cần chuyển sang kho xưởng mới',
         columns: ['Vật tư', 'Quy cách', 'Số lượng', 'ĐVT'],
@@ -390,7 +390,7 @@ export const warehouseGroup: GuideGroup = {
         'Nhập "Dài cây (mm)" (mặc định lấy theo phương án đã duyệt) và "Số cây".',
         { text: 'Bấm "Thêm vào phiếu", rồi sang tab "Phiếu xuất" tạo phiếu, in, ký, tải ảnh và xác nhận xuất (xem bài "Phiếu xuất").', critical: true },
       ],
-      result: 'Khi phiếu xuất được xác nhận, tồn kho sắt bị trừ theo đúng cỡ chiều dài cây; Tổ Phôi thấy đợt xuất ở "Xác nhận nhận sắt" để xác nhận rồi bắt đầu cắt. Các lần đã xuất hiện ở bảng lịch sử bên dưới (Thời gian / Vật tư / Dài / Số cây / Trạng thái).',
+      result: 'Khi phiếu xuất được xác nhận, tồn kho sắt bị trừ theo đúng cỡ chiều dài cây; công nhân Phôi nhận sắt cây bằng mã QR "Khu nhận sắt" của xưởng rồi mới cắt; Sắt La và thanh nhôm thì tài khoản Phôi xác nhận ở "Xác nhận nhận sắt". Các lần đã xuất hiện ở bảng lịch sử bên dưới (Thời gian / Vật tư / Dài / Số cây / Trạng thái).',
       warnings: [
         'Khi máy cắt rảnh tự kéo lệnh kế tiếp mà sắt của lệnh còn giữ trong kho, thủ kho kho Phôi của xưởng làm lệnh nhận thông báo "Xuất sắt lệnh … xuống Phôi ngay" (liệt kê loại sắt và số cây chưa xuất). Xuất xong đủ số cần thì thông báo tự đóng ở lượt kiểm kế tiếp (chậm nhất khoảng 10 phút). Lệnh vừa đổi xưởng mà sắt còn ở kho xưởng cũ thì máy chưa kéo: thủ kho kho cũ lập phiếu chuyển trước, kho xưởng mới nhận xong máy mới kéo.',
         'Cột "Cần" lấy từ phương án cắt đã duyệt (số cây thực sự cần), KHÔNG phải suy trực tiếp từ định mức (công thức sản xuất).',
@@ -426,7 +426,7 @@ export const warehouseGroup: GuideGroup = {
         { text: 'Bấm "In phiếu", đưa người nhận ký, chụp phiếu đã ký, bấm "Ảnh phiếu đã ký" chọn ảnh rồi "Xác nhận xuất".', critical: true },
         'In sai hoặc người nhận không nhận: bấm "Huỷ phiếu", ghi lý do. Số phiếu đã huỷ không cấp lại.',
       ],
-      result: 'Khi xác nhận, tồn kho trừ cho TẤT CẢ các dòng cùng lúc; Tổ Phôi thấy sắt ở "Xác nhận nhận sắt", Tổ Hàn/Sơn thấy vật tư ở "Xác nhận nhận vật tư". Phiếu chuyển sang "Phiếu đã xuất gần đây" kèm link ảnh phiếu ký.',
+      result: 'Khi xác nhận, tồn kho trừ cho TẤT CẢ các dòng cùng lúc; công nhân Phôi nhận sắt cây bằng mã QR "Khu nhận sắt" của xưởng (Sắt La và thanh nhôm thì tài khoản Phôi xác nhận ở "Xác nhận nhận sắt"), Tổ Hàn/Sơn thấy vật tư ở "Xác nhận nhận vật tư". Phiếu chuyển sang "Phiếu đã xuất gần đây" kèm link ảnh phiếu ký.',
       warnings: [
         'Mỗi phiếu chỉ cho một kho — chọn dòng của nhiều kho thì phải tách thành nhiều phiếu.',
         'Một dòng không xuất được (thiếu tồn, vượt định mức, lệnh chưa Bắt đầu...) thì cả phiếu không xuất; phiếu vẫn chờ ký để sửa (huỷ, lập lại).',

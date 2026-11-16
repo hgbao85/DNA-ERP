@@ -55,12 +55,17 @@ export function describeError(e: unknown, withNumbers = false): ErrorInfo {
 
 export type ReceiveVerdict =
   | { kind: 'empty' }
+  | { kind: 'zero' }
   | { kind: 'exact'; diff: 0 }
   | { kind: 'short' | 'over'; diff: number }
 
-/** So số cây công nhân đếm với số kho xuất: `empty` chưa nhập; `exact` đủ; `short`/`over` lệch (diff = đếm − xuất). */
+/** Câu hiện khi công nhân gõ 0 cây: nhận phải từ 1 cây trở lên (BE cũng chặn). */
+export const ZERO_RECEIVE_MESSAGE = 'Không nhận được cây nào thì báo thủ kho, đừng xác nhận 0.'
+
+/** So số cây công nhân đếm với số kho xuất: `empty` chưa nhập; `zero` gõ 0 (không cho xác nhận); `exact` đủ; `short`/`over` lệch (diff = đếm − xuất). */
 export function receiveVerdict(countText: string, issued: number): ReceiveVerdict {
   if (countText.trim() === '') return { kind: 'empty' }
+  if (Number(countText) < 1) return { kind: 'zero' }
   const diff = Number(countText) - issued
   if (diff === 0) return { kind: 'exact', diff: 0 }
   return { kind: diff < 0 ? 'short' : 'over', diff }

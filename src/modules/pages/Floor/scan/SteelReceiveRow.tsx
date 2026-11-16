@@ -5,12 +5,13 @@
 import { useState } from 'react'
 import LenhCode from '../../../../components/LenhCode'
 import type { BeSteelToReceive } from '../../../../services/floor-api'
-import { receiveVerdict, type ReceiveVerdict } from '../floorUi'
+import { receiveVerdict, ZERO_RECEIVE_MESSAGE, type ReceiveVerdict } from '../floorUi'
 import { digits, fmtMm } from './scanModel'
 import { Banner } from './ScanParts'
 import { btn, card, chip, column, hint, numInput } from './scanUi'
 
 function VerdictBanner({ verdict, n, issued }: { verdict: ReceiveVerdict; n: number; issued: number }) {
+  if (verdict.kind === 'zero') return null
   if (verdict.kind === 'exact') {
     return <Banner tone="info">Bạn đếm <b>{n} cây</b>, kho xuất {issued} cây: đúng số. Xác nhận đã nhận?</Banner>
   }
@@ -32,7 +33,8 @@ export default function SteelReceiveRow({ issue, onReceive }: {
   const [busy, setBusy] = useState(false)
   const verdict = receiveVerdict(count, issue.barCount)
   const n = Number(count || 0)
-  const empty = verdict.kind === 'empty'
+  const zero = verdict.kind === 'zero'
+  const empty = verdict.kind === 'empty' || zero
   const send = async () => { setBusy(true); const ok = await onReceive(issue, n); setBusy(false); if (!ok) setConfirming(false) }
   return (
     <div style={{ ...card, ...column(12) }}>
@@ -54,6 +56,7 @@ export default function SteelReceiveRow({ issue, onReceive }: {
           Đủ {issue.barCount} cây
         </button>
       </div>
+      {zero && <Banner tone="warn">{ZERO_RECEIVE_MESSAGE}</Banner>}
       {confirming && !empty ? (
         <>
           <VerdictBanner verdict={verdict} n={n} issued={issue.barCount} />
@@ -65,7 +68,7 @@ export default function SteelReceiveRow({ issue, onReceive }: {
       ) : (
         // Mọi lần nhận đều hỏi xác nhận. Lệch so với kho xuất thì nói rõ: số này làm kho + QLSX nhận cảnh báo.
         <button type="button" disabled={empty || busy} style={btn(true, empty || busy)} onClick={() => { if (!empty) setConfirming(true) }}>
-          {busy ? 'Đang lưu…' : empty ? 'Nhập số cây đếm được' : 'Xác nhận đã nhận'}
+          {busy ? 'Đang lưu…' : empty ? (zero ? 'Nhập từ 1 cây trở lên' : 'Nhập số cây đếm được') : 'Xác nhận đã nhận'}
         </button>
       )}
     </div>

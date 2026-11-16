@@ -57,6 +57,19 @@ export const UNASSIGNED_WORKSHOP_TITLE = 'Chưa gán xưởng: máy này chưa �
 export const isWorkshopUnassigned = (w: Pick<BeWorkstation, 'isActive' | 'workshopId'>): boolean => w.isActive && !w.workshopId
 export const UNASSIGNED_DEFAULT_WORKSHOP_TITLE = 'Chưa gán xưởng: máy này đang được tính theo xưởng mặc định'
 
+/**
+ * Tên các xưởng đang dùng (có ít nhất 1 máy / điểm đang hoạt động gán xưởng đó) nhưng chưa có máy "Khu nhận sắt" đang dùng gán đúng xưởng:
+ * sắt xuất cho lệnh của xưởng đó sẽ không ai nhận được. Máy khu nhận sắt chưa gán xưởng không tính cho xưởng nào.
+ */
+export function workshopsMissingSteelReceive(
+  list: Pick<BeWorkstation, 'kind' | 'isActive' | 'workshopId'>[],
+  workshops: { id: string; name: string }[],
+): string[] {
+  const used = new Set(list.filter((w) => w.isActive && w.workshopId).map((w) => w.workshopId))
+  const hasReceive = new Set(list.filter((w) => w.isActive && w.kind === 'STEEL_RECEIVE' && w.workshopId).map((w) => w.workshopId))
+  return workshops.filter((x) => used.has(x.id) && !hasReceive.has(x.id)).map((x) => x.name)
+}
+
 /** Số máy / điểm làm việc KHÔNG phải máy cắt, đang hoạt động, chưa gán xưởng (máy cắt đã có dòng tóm tắt riêng). */
 export const countNonCutUnassigned = (list: Pick<BeWorkstation, 'kind' | 'isActive' | 'workshopId'>[]): number =>
   list.filter((w) => w.kind !== 'CUT' && isWorkshopUnassigned(w)).length

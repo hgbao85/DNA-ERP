@@ -22,7 +22,7 @@ import { errMsg } from '../../../utils/errors'
 import Modal from '../../../components/Modal'
 import LoadingState from '../../../components/LoadingState'
 import LoadErrorState from '../../../components/LoadErrorState'
-import { btn, card, countNonCutUnassigned, input, isCutUnassigned, isWorkshopUnassigned, KIND_LABEL, kindWithMachine, Notice, Pill, STAGE_LABEL, STEP_LABEL, summarizeCutMachines, td, th, UNASSIGNED_DEFAULT_WORKSHOP_TITLE, UNASSIGNED_WORKSHOP_TITLE } from './qlsxUi'
+import { btn, card, countNonCutUnassigned, input, isCutUnassigned, isWorkshopUnassigned, KIND_LABEL, kindWithMachine, Notice, Pill, STAGE_LABEL, STEP_LABEL, summarizeCutMachines, td, th, UNASSIGNED_DEFAULT_WORKSHOP_TITLE, UNASSIGNED_WORKSHOP_TITLE, workshopsMissingSteelReceive } from './qlsxUi'
 import { isLocalOrigin, kindCaption, printTems, qrDataUrl, workstationLink } from './qrPrint'
 
 const STAGES: FloorStage[] = ['PHOI', 'HAN', 'SON']
@@ -190,6 +190,7 @@ function Workstations() {
   const workshops = shops.data ?? []
   const cutSummary = summarizeCutMachines(list, workshops.map((x) => x.name))
   const otherUnassigned = countNonCutUnassigned(list)
+  const missingReceive = isLoading || error ? [] : workshopsMissingSteelReceive(list, workshops)
   // Địa chỉ in lên tem: đã cài thì dùng, chưa cài thì địa chỉ đang mở.
   const savedBase = settings.data?.publicUrl ?? null
   const base = savedBase ?? (typeof window !== 'undefined' ? window.location.origin : '')
@@ -287,11 +288,16 @@ function Workstations() {
           {otherUnassigned} máy / điểm làm việc chưa gán xưởng - đang được tính theo xưởng mặc định. Máy đặt ở xưởng khác phải gán đúng xưởng, nếu không công nhân quét tem sẽ thấy lệnh của xưởng mặc định.
         </Notice>
       )}
+      {missingReceive.map((name) => (
+        <Notice key={name} tone="warn">
+          {name} chưa có mã “Khu nhận sắt” đang dùng - sắt xuất cho lệnh của xưởng này sẽ không ai nhận được. Thêm máy loại khu nhận sắt và gán đúng xưởng.
+        </Notice>
+      ))}
       {adding && <AddWorkstation workshops={workshops} defaultWorkshopId={scopedWorkshopId} onCancel={() => setAdding(false)} onDone={() => { setAdding(false); void refetch() }} />}
       {err && <Notice tone="err">{err}</Notice>}
       {isLoading ? <LoadingState /> : error ? <LoadErrorState error={error} onRetry={() => void refetch()} /> : list.length === 0 ? (
         <div style={{ ...card, textAlign: 'center', color: 'var(--text3)', padding: 28 }}>
-          Chưa có máy nào. Bấm “Thêm máy” - tạo máy laser, điểm Hàn, điểm Sơn và 1 mã “Khu nhận sắt”.
+          Chưa có máy nào. Bấm “Thêm máy” - tạo máy laser, điểm Hàn, điểm Sơn và mỗi xưởng 1 mã “Khu nhận sắt”.
         </div>
       ) : (
         isMobile ? (

@@ -64,7 +64,7 @@ interface BeProductionInvoiceItem {
   rejectReason: string | null;
   /** Phần A – Đợt 2: số LSX nhà máy của dòng (vd "MY-313"); null = lệnh cũ chưa có. BE cũ thiếu field. */
   lsxCode?: string | null;
-  /** Phần A – Đợt 2: xưởng cơ khí QLSX chọn lúc gửi Sếp; null = chưa chọn. */
+  /** Phần A – Đợt 2: xưởng cơ khí KHSX chọn (ở Tối ưu cắt sắt lúc tính; lệnh cũ thì lúc Gửi QLSX). QLSX không đổi được; null = chưa chọn. */
   workshop?: WorkshopRef | null;
   /** Hợp đồng QLSX theo xưởng: id/tên xưởng phẳng - dự phòng khi BE không trả khối `workshop`. */
   workshopId?: string | null;
@@ -381,8 +381,8 @@ export async function updateItemLsx(piId: number | string, itemId: number | stri
 }
 
 /**
- * QLSX đổi xưởng cơ khí cho MỌI SKU của lệnh (`PATCH /production-invoices/:id/workshop`) - chỉ khi mọi SKU đã gửi Sếp/đã duyệt
- * và lệnh chưa xuất sắt/vật tư (409 nếu đã xuất). BE báo Sếp + KHSX. Trả PI đã cập nhật.
+ * KHSX (hoặc Admin) đổi xưởng cơ khí cho MỌI SKU của lệnh (`PATCH /production-invoices/:id/workshop`; QLSX gọi thì 403) - chỉ khi
+ * mọi SKU đang chờ QLSX / chờ Sếp / đã duyệt và lệnh chưa xuất sắt/vật tư (409 nếu đã xuất). BE báo Sếp, KHSX và QLSX. Trả PI đã cập nhật.
  */
 export async function changePiWorkshop(piId: number | string, workshopId: string, reason: string) {
   return toPI(

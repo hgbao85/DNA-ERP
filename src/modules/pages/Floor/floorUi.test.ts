@@ -49,12 +49,15 @@ describe('receiveVerdict - nhận sắt', () => {
     expect(receiveVerdict('', 14)).toEqual({ kind: 'empty' })
     expect(receiveVerdict('  ', 14)).toEqual({ kind: 'empty' })
   })
+  it('gõ 0 = zero: không cho xác nhận', () => {
+    expect(receiveVerdict('0', 14)).toEqual({ kind: 'zero' })
+    expect(receiveVerdict('00', 14)).toEqual({ kind: 'zero' })
+  })
   it('đúng số kho xuất = exact (vẫn hỏi xác nhận trước khi nhận - người dùng 2026-10-15: lưu gì cũng xác nhận)', () => {
     expect(receiveVerdict('14', 14)).toEqual({ kind: 'exact', diff: 0 })
   })
   it('thiếu / thừa = hỏi lại 1 lần, diff = đếm − xuất', () => {
     expect(receiveVerdict('13', 14)).toEqual({ kind: 'short', diff: -1 })
-    expect(receiveVerdict('0', 14)).toEqual({ kind: 'short', diff: -14 })
     expect(receiveVerdict('16', 14)).toEqual({ kind: 'over', diff: 2 })
   })
 })
