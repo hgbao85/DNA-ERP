@@ -1,6 +1,5 @@
 'use client'
 import { Globe2 } from 'lucide-react'
-import { useAuditLog } from '../../../../context/AuditLogContext'
 import { getMfgExportCustomers, createMfgExportCustomer, updateMfgExportCustomer, deleteMfgExportCustomer } from '../../../../services/api'
 import AdminEntityPage, { type AdminEntityConfig } from '../shared/AdminEntityPage'
 
@@ -13,7 +12,6 @@ interface ExportCustomer {
 }
 
 export default function ExportCustomersPage() {
-  const { logAction } = useAuditLog()
 
   const config: AdminEntityConfig<ExportCustomer> = {
     title: 'Khách hàng xuất khẩu',
@@ -39,11 +37,6 @@ export default function ExportCustomersPage() {
       title: 'Xóa khách hàng xuất khẩu',
       message: `Xóa khách hàng xuất khẩu "${c.name}"? Hành động này không thể hoàn tác.`,
     }),
-    onMutate: (action, c) => {
-      if (action === 'create') logAction('export-customer', String(c.id), 'masterdata.created', c.name)
-      else if (action === 'update') logAction('export-customer', String(c.id), 'masterdata.updated', c.name)
-      else logAction('export-customer', String(c.id), 'masterdata.deleted', c.name)
-    },
     api: {
       list: getMfgExportCustomers,
       create: createMfgExportCustomer,

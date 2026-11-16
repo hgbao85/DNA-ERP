@@ -1,12 +1,10 @@
 'use client'
 import { Users } from 'lucide-react'
-import { useAuditLog } from '../../../../context/AuditLogContext'
 import { getSalesCustomers, createSalesCustomer, updateSalesCustomer, deleteSalesCustomer } from '../../../../services/api'
 import type { SalesCustomer } from '../../../../types/sales'
 import AdminEntityPage, { type AdminEntityConfig } from '../shared/AdminEntityPage'
 
 export default function SalesCustomersPage() {
-  const { logAction } = useAuditLog()
 
   const config: AdminEntityConfig<SalesCustomer> = {
     title: 'Khách hàng bán hàng',
@@ -34,11 +32,6 @@ export default function SalesCustomersPage() {
       title: 'Xóa khách hàng',
       message: `Xóa khách hàng "${c.name}"? Hành động này không thể hoàn tác.`,
     }),
-    onMutate: (action, c) => {
-      if (action === 'create') logAction('sales-customer', String(c.id), 'masterdata.created', c.name)
-      else if (action === 'update') logAction('sales-customer', String(c.id), 'masterdata.updated', c.name)
-      else logAction('sales-customer', String(c.id), 'masterdata.deleted', c.name)
-    },
     api: {
       list: getSalesCustomers,
       create: createSalesCustomer,

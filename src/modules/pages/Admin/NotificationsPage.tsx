@@ -11,7 +11,6 @@
  */
 import { useMemo, useState } from 'react'
 import { Bell, Plus, X } from 'lucide-react'
-import { useAuditLog } from '../../../context/AuditLogContext'
 import { useFetch } from '../../../hooks/useFetch'
 import { getSentAnnouncements, createNotification } from '../../../services/api'
 import type { Announcement } from '../../../types/admin'
@@ -46,7 +45,6 @@ const inputStyle: React.CSSProperties = {
 const labelStyle: React.CSSProperties = { display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 5 }
 
 function CreateAnnouncementModal({ open, onClose, onCreated }: { open: boolean; onClose: () => void; onCreated: (n: Announcement) => void }) {
-  const { logAction } = useAuditLog()
   const [title, setTitle] = useState('')
   const [message, setMessage] = useState('')
   const [audience, setAudience] = useState('all')
@@ -62,7 +60,6 @@ function CreateAnnouncementModal({ open, onClose, onCreated }: { open: boolean; 
     setError('')
     try {
       const created = await createNotification({ title: title.trim(), message: message.trim(), audience })
-      logAction('notification', String(created.id), 'notification.created', created.title)
       onCreated({
         id: created.id, title: created.title, message: created.message,
         audience: created.audience ?? null, createdBy: created.createdBy ?? null,

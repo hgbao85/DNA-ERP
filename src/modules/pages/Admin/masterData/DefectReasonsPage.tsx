@@ -1,6 +1,5 @@
 'use client'
 import { AlertTriangle } from 'lucide-react'
-import { useAuditLog } from '../../../../context/AuditLogContext'
 import { getDefectReasons, createDefectReason, updateDefectReason, deleteDefectReason } from '../../../../services/api'
 import AdminEntityPage, { type AdminEntityConfig } from '../shared/AdminEntityPage'
 
@@ -17,7 +16,6 @@ const STAGE_LABEL: Record<string, string> = {
 }
 
 export default function DefectReasonsPage() {
-  const { logAction } = useAuditLog()
 
   const config: AdminEntityConfig<DefectReason> = {
     title: 'Lý do lỗi',
@@ -47,11 +45,6 @@ export default function DefectReasonsPage() {
       title: 'Xóa lý do lỗi',
       message: `Xóa lý do lỗi "${d.label}"? Hành động này không thể hoàn tác.`,
     }),
-    onMutate: (action, d) => {
-      if (action === 'create') logAction('defect-reason', String(d.id), 'masterdata.created', d.label)
-      else if (action === 'update') logAction('defect-reason', String(d.id), 'masterdata.updated', d.label)
-      else logAction('defect-reason', String(d.id), 'masterdata.deleted', d.label)
-    },
     api: {
       list: () => getDefectReasons() as Promise<DefectReason[]>,
       create: (data) => createDefectReason(data) as Promise<DefectReason>,

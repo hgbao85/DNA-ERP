@@ -1,7 +1,6 @@
 'use client'
 import { useEffect, useRef } from 'react'
 import { Layers } from 'lucide-react'
-import { useAuditLog } from '../../../../context/AuditLogContext'
 import { getMaterialGroups, createMaterialGroup, updateMaterialGroup, deleteMaterialGroup } from '../../../../services/api'
 import AdminEntityPage, { type AdminEntityConfig } from '../shared/AdminEntityPage'
 
@@ -55,7 +54,6 @@ function CodePrefixField({ values, setField }: { value: unknown; values: Partial
 }
 
 export default function MaterialGroupsPage() {
-  const { logAction } = useAuditLog()
 
   const config: AdminEntityConfig<MaterialGroup> = {
     title: 'Nhóm vật tư',
@@ -85,11 +83,6 @@ export default function MaterialGroupsPage() {
       title: 'Xóa nhóm vật tư',
       message: `Xóa nhóm vật tư "${g.name}"? Các vật tư đang thuộc nhóm này sẽ không còn nhóm. Hành động này không thể hoàn tác.`,
     }),
-    onMutate: (action, g) => {
-      if (action === 'create') logAction('material-group', String(g.id), 'masterdata.created', g.name)
-      else if (action === 'update') logAction('material-group', String(g.id), 'masterdata.updated', g.name)
-      else logAction('material-group', String(g.id), 'masterdata.deleted', g.name)
-    },
     api: {
       list: getMaterialGroups,
       create: (data) => createMaterialGroup(String(data.name ?? ''), String(data.codePrefix ?? '')),

@@ -1,8 +1,10 @@
 /**
  * Adapter AUDIT LOG THẬT: FE ⇄ BE `GET /audit-logs` (khác `services/api.ts#getAllAuditLogs`,
- * vốn đọc mockStore trong trình duyệt - dùng cho mọi entity KHÁC chưa cutover sang BE thật).
+ * vốn đọc mockStore trong trình duyệt - nay chỉ còn lịch sử duyệt SKU dùng, xem AuditLogContext).
  *
- * Dùng riêng cho PurchaseProposal (Phase 8/9, 2026-08-15, D.c1-no-audit-on-money-path): BE ghi
+ * getAuditLogs(): trang Admin "Nhật ký hoạt động" + "Tổng quan" (16/11/2026), lọc/phân trang ở BE.
+ *
+ * Còn dùng cho PurchaseProposal (Phase 8/9, 2026-08-15, D.c1-no-audit-on-money-path): BE ghi
  * mọi chuyển trạng thái của PurchaseProposal tự động (AUDITED_MODELS) + quyết định chọn NCC/giá
  * ghi tay dưới tableName='PurchaseProposalQuote' (bảng con không auto-audit, xem
  * PurchaseProposalsService.auditQuoteDecision). BE chỉ trả `userId` (uuid) chứ không kèm tên -
@@ -20,6 +22,38 @@ export interface BeAuditLogEntry {
   oldValue: unknown;
   newValue: unknown;
   createdAt: string;
+}
+
+export interface AuditLogQuery {
+  page: number;
+  limit: number;
+  tableName?: string;
+  userId?: string;
+  action?: BeAuditLogEntry['action'];
+  /** ISO 8601, createdAt >= from */
+  from?: string;
+  /** ISO 8601, createdAt <= to */
+  to?: string;
+}
+
+export interface AuditLogPageResult {
+  data: BeAuditLogEntry[];
+  total: number;
+  totalPages: number;
+}
+
+/** 1 trang nhật ký, lọc + phân trang ở BE (mới nhất trước) - trang Admin "Nhật ký hoạt động" + "Tổng quan". */
+export async function getAuditLogs(query: AuditLogQuery): Promise<AuditLogPageResult> {
+  const res = await http.get<BeAuditLogEntry[] | { data: BeAuditLogEntry[]; meta?: { total?: number; totalPages?: number } }>(
+    '/audit-logs',
+    { params: { ...query, sortOrder: 'desc' } },
+  );
+  if (Array.isArray(res)) return { data: res, total: res.length, totalPages: 1 };
+  return {
+    data: res.data ?? [],
+    total: res.meta?.total ?? res.data?.length ?? 0,
+    totalPages: Math.max(1, res.meta?.totalPages ?? 1),
+  };
 }
 
 async function fetchAuditLogs(tableName: string, recordId: string): Promise<BeAuditLogEntry[]> {

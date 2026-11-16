@@ -1,7 +1,6 @@
 'use client'
 import { useState } from 'react'
 import { Truck } from 'lucide-react'
-import { useAuditLog } from '../../../../context/AuditLogContext'
 import { getSuppliers, createSupplier, updateSupplier, deleteSupplier } from '../../../../services/api'
 import AdminEntityPage, { type AdminEntityConfig } from '../shared/AdminEntityPage'
 import SupplierOrderCountersPanel from './SupplierOrderCountersPanel'
@@ -22,7 +21,6 @@ interface Supplier {
  * thêm/sửa NCC, CHỈ Admin xoá (BE chặn DELETE theo vai trò) và chỉ Admin nạp khung số đơn.
  */
 export default function SuppliersPage({ purchasingView = false }: { purchasingView?: boolean } = {}) {
-  const { logAction } = useAuditLog()
   // Thêm/sửa/xoá NCC thì tải lại khung số đơn đặt hàng (2026-11-04) - NCC mới hiện ngay, không cần F5.
   const [countersKey, setCountersKey] = useState(0)
 
@@ -68,11 +66,8 @@ export default function SuppliersPage({ purchasingView = false }: { purchasingVi
       title: 'Xóa nhà cung cấp',
       message: `Xóa nhà cung cấp "${s.name}"? Các liên kết vật tư — nhà cung cấp hiện có sẽ không còn hiển thị NCC này. Hành động này không thể hoàn tác.`,
     }),
-    onMutate: (action, s) => {
+    onMutate: () => {
       setCountersKey(k => k + 1)
-      if (action === 'create') logAction('supplier', String(s.id), 'masterdata.created', s.name)
-      else if (action === 'update') logAction('supplier', String(s.id), 'masterdata.updated', s.name)
-      else logAction('supplier', String(s.id), 'masterdata.deleted', s.name)
     },
     api: {
       list: getSuppliers as () => Promise<Supplier[]>,
