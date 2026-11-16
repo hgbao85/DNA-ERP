@@ -42,9 +42,9 @@
  *  - notifications (notifications-api.ts) — 2026-09-25: GET list trả "thông báo của TÔI" (BE
  *    fan-out sẵn, không còn lọc audience thủ công); thêm unread-count/read-all/archive/sent
  *    (NotificationCenter + trang "Thông báo chung" của Admin dùng). Vẫn KHÔNG có update/delete cho
- *    announcement. KHÔNG áp dụng cho AuditLogPage - đó là 1 khái niệm khác hẳn (nhật ký hoạt động
- *    ngữ nghĩa tự viết tay qua AuditLogContext, so với audit_logs của BE là diff tự động theo field
- *    trên model) nên vẫn giữ mock, xem AuditLogContext.tsx.
+ *    announcement.
+ *  - audit log (audit-log-api.ts) — 16/11/2026: Admin "Nhật ký hoạt động" + "Tổng quan" đọc thẳng
+ *    GET /audit-logs (bảng audit_logs BE tự ghi). Chỉ còn lịch sử duyệt SKU (AuditLogContext) chạy mock.
  *  - transfer-check (transfer-check-api.ts) — mốc TRANSFER_CHECK của production-invoices
  *    (KhoChuyenKiemPage), key theo productionInvoiceItemId, resolve qua production-invoice-item.ts.
  *  - packaging (packaging-api.ts) — mốc đóng gói cuối cùng của production-invoices
@@ -82,8 +82,8 @@
  * (getManhOrders — cùng lý do), notifications.service.ts (updateNotification/deleteNotification —
  * UI đã bỏ nút sửa/xóa từ trước), phoi-sat.service.ts (getDotXuatSat — chỉ được gọi bởi
  * PhoiScreen, orchestrator 3 tầng mock cũ trong sanxuat/core.tsx mà bản thân nó cũng không còn
- * trang nào import, đã xoá cùng đợt). Còn lại đúng 2 màn hình thật vẫn chủ ý chạy mock — audit log
- * (AuditLogContext.tsx, khác hẳn bảng audit_logs tự động của BE) và system stats
+ * trang nào import, đã xoá cùng đợt). Còn lại đúng 2 màn hình thật vẫn chủ ý chạy mock — lịch sử duyệt
+ * SKU (AuditLogContext.tsx; trang Admin "Nhật ký hoạt động" đã đổi sang BE thật 16/11) và system stats
  * (SystemStatusPage.tsx, tự khai báo với người dùng là dữ liệu mock localStorage) — xem báo cáo
  * trên để biết lý do giữ nguyên.
  */

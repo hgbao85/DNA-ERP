@@ -1,11 +1,12 @@
 'use client'
 import { Users, ShieldCheck, Factory, ShoppingCart, ClipboardList, ArrowRight } from 'lucide-react'
+import { useMemo } from 'react'
 import { useFetch } from '../../../hooks/useFetch'
-import { getUsers, getAllAuditLogs, getSalesOrders, getProductionInvoices, getSuppliers } from '../../../services/api'
+import { getUsers, getSalesOrders, getProductionInvoices, getSuppliers } from '../../../services/api'
+import { getAuditLogs, type AuditLogPageResult } from '../../../services/audit-log-api'
 import LoadingState from '../../../components/LoadingState'
 import LoadErrorState from '../../../components/LoadErrorState'
-import AuditLogTimeline from '../../../components/AuditLogTimeline'
-import type { AuditLogEntry } from '../../../context/AuditLogContext'
+import AuditLogList from '../../../components/AuditLogList'
 import type { SystemUser } from '../../../types/admin'
 import { pageTitle, pageSubtitle } from '../../../styles/typography'
 
@@ -25,7 +26,7 @@ function StatTile({ icon, label, value, accent }: { icon: React.ReactNode; label
 
 export default function DashboardPage({ onViewAuditLog }: DashboardPageProps) {
   const { data: users, isLoading: loadingUsers, error: usersError, refetch: refetchUsers } = useFetch<SystemUser[]>(getUsers)
-  const { data: logs, isLoading: loadingLogs, error: logsError, refetch: refetchLogs } = useFetch<AuditLogEntry[]>(() => getAllAuditLogs() as Promise<AuditLogEntry[]>)
+  const { data: logs, isLoading: loadingLogs, error: logsError, refetch: refetchLogs } = useFetch<AuditLogPageResult>(() => getAuditLogs({ page: 1, limit: 5 }))
   const { data: salesPOs } = useFetch(getSalesOrders)
   const { data: pis } = useFetch(getProductionInvoices)
   const { data: suppliers } = useFetch(getSuppliers)
@@ -38,7 +39,8 @@ export default function DashboardPage({ onViewAuditLog }: DashboardPageProps) {
   const plannerCount = userList.filter(u => u.isProductPlanner).length
   const saleCount = userList.filter(u => u.isSale).length
 
-  const recentLogs = [...(logs ?? [])].sort((a, b) => b.at.localeCompare(a.at)).slice(0, 5)
+  const recentLogs = logs?.data ?? []
+  const userNames = useMemo(() => new Map((users ?? []).map(u => [String(u.id), u.name])), [users])
 
   if (loadingUsers || loadingLogs) return <LoadingState />
   if (usersError || logsError) {
@@ -68,8 +70,10 @@ export default function DashboardPage({ onViewAuditLog }: DashboardPageProps) {
               Xem tất cả <ArrowRight size={12} />
             </button>
           </div>
-          <div style={{ border: '1px solid var(--border)', borderRadius: 10, background: 'var(--surface)', padding: 14 }}>
-            <AuditLogTimeline entries={recentLogs} bare />
+          <div style={{ border: '1px solid var(--border)', borderRadius: 10, background: 'var(--surface)', padding: '4px 14px' }}>
+            {recentLogs.length === 0
+              ? <div style={{ fontSize: 13, color: 'var(--text3)', padding: '10px 0' }}>Chưa có hoạt động nào</div>
+              : <AuditLogList entries={recentLogs} userNames={userNames} />}
           </div>
         </div>
 

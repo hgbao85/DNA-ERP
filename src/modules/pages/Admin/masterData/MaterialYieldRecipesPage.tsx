@@ -1,7 +1,6 @@
 'use client'
 import { Workflow } from 'lucide-react'
 import { useFetch } from '../../../../hooks/useFetch'
-import { useAuditLog } from '../../../../context/AuditLogContext'
 import {
   getMaterialYieldRecipes, createMaterialYieldRecipe, updateMaterialYieldRecipe, deleteMaterialYieldRecipe,
   getMaterials, getMaterialGroups,
@@ -39,7 +38,6 @@ interface MaterialYieldRecipe {
  * AdminEntityPage.openEdit() copy nguyên row vào values, không phụ thuộc field nào đang hiện).
  */
 export default function MaterialYieldRecipesPage({ canManageActive = true }: { canManageActive?: boolean } = {}) {
-  const { logAction } = useAuditLog()
   const { data: materialsData } = useFetch(() => getMaterials(), [])
   const { data: groupsData } = useFetch(() => getMaterialGroups(), [])
   const materials = materialsData ?? []
@@ -160,12 +158,6 @@ export default function MaterialYieldRecipesPage({ canManageActive = true }: { c
       message: `Xóa định mức "${materialLabel(m.outputMaterialId, m.outputMaterialName)}" ← "${materialLabel(m.inputMaterialId, m.inputMaterialName)}"? Hành động này không thể hoàn tác.`,
     }),
     guardSave: () => (materialsData == null || groupsData == null ? 'Chưa tải được danh sách Vật tư - thử lại' : undefined),
-    onMutate: (action, m) => {
-      const label = `${m.outputMaterialCode} ← ${m.inputMaterialCode}`
-      if (action === 'create') logAction('material-yield-recipe', String(m.id), 'masterdata.created', label)
-      else if (action === 'update') logAction('material-yield-recipe', String(m.id), 'masterdata.updated', label)
-      else logAction('material-yield-recipe', String(m.id), 'masterdata.deleted', label)
-    },
     api: {
       list: getMaterialYieldRecipes,
       create: (data) => createMaterialYieldRecipe(data),

@@ -1,7 +1,6 @@
 'use client'
 import { Package } from 'lucide-react'
 import { useFetch } from '../../../../hooks/useFetch'
-import { useAuditLog } from '../../../../context/AuditLogContext'
 import { getMaterials, createMaterial, updateMaterial, deleteMaterial, getMaterialGroups, getWarehouses, getUsers, getStockQuants } from '../../../../services/api'
 import { MATERIAL_GROUP_SYSTEM_KEYS } from '../../../../constants/materialGroupSystemKeys'
 import AdminEntityPage, { type AdminEntityConfig } from '../shared/AdminEntityPage'
@@ -87,7 +86,6 @@ interface QuantRow {
 }
 
 export default function MaterialsPage() {
-  const { logAction } = useAuditLog()
   const { data: groups } = useFetch<MaterialGroup[]>(getMaterialGroups)
   const groupList = groups ?? []
   const groupName = (id?: number | null) => groupList.find((g) => g.id === id)?.name ?? '—'
@@ -292,12 +290,6 @@ export default function MaterialsPage() {
     // đều trả false (groupList rỗng) -> CẢ 2 field hao hụt lẫn detailKind bị showIf ẩn hết ->
     // form gửi null cho toàn bộ, xoá sạch ngưỡng Sếp đã đặt ở bất kỳ vật tư nào bị sửa lúc đó.
     guardSave: () => (groups == null ? 'Chưa tải được danh sách Nhóm vật tư - thử lại' : undefined),
-    onMutate: (action, m) => {
-      const label = `${m.code} — ${m.name}`
-      if (action === 'create') logAction('material', String(m.id), 'masterdata.created', label)
-      else if (action === 'update') logAction('material', String(m.id), 'masterdata.updated', label)
-      else logAction('material', String(m.id), 'masterdata.deleted', label)
-    },
     api: {
       list: getMaterials,
       create: (data) => createMaterial(data),
@@ -308,8 +300,7 @@ export default function MaterialsPage() {
       <MaterialsBulkWasteModal
         materials={materialsForBulk ?? []}
         groups={groupList}
-        onDone={({ count, value, scope }) => {
-          logAction('material', 'bulk', 'masterdata.updated', `Sửa hao hụt hàng loạt: ${count} vật tư (${scope}) → ${value == null ? 'xoá % hao hụt' : `${value}%`}`)
+        onDone={() => {
           void refetch()
         }}
       />

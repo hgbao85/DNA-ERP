@@ -2,7 +2,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Building2, CheckCircle2, ClipboardList, QrCode, Scissors, Settings } from 'lucide-react'
 import { useFetch } from '../../../hooks/useFetch'
-import { useAuditLog } from '../../../context/AuditLogContext'
 import { getSystemConfig, updateSystemConfig } from '../../../services/api'
 import { getWorkshops } from '../../../services/workshops-api'
 import type { Workshop } from '../../../types/workshop'
@@ -128,7 +127,6 @@ function CompanyFields({ form, tab }: { form: ConfigForm; tab: TabId }) {
 
 export default function SystemConfigPage() {
   const { data, isLoading, error: loadError, refetch } = useFetch<SystemConfig>(getSystemConfig)
-  const { logAction } = useAuditLog()
   // Chỉnh sửa được giữ dưới dạng "draft" đè lên dữ liệu đã fetch, thay vì đồng bộ qua useEffect+setState (dễ gây render lồng) -
   // draft reset về rỗng sau mỗi lần lưu thành công.
   const [draft, setDraft] = useState<Partial<SystemConfig>>({})
@@ -160,8 +158,7 @@ export default function SystemConfigPage() {
   const values: SystemConfig | null = data ? { ...data, ...draft } : null
 
   /** Lưu xong: mọi bản nháp về rỗng, nạp lại cho các màn khác dùng tiền tố LSX / thông số kế hoạch mới. */
-  const resetAfterSave = (companyName: string) => {
-    logAction('system-config', 'system-config', 'system_config.updated', companyName)
+  const resetAfterSave = () => {
     setSavedAt(new Date())
     setDraft({})
     setMcText({})
@@ -199,7 +196,7 @@ export default function SystemConfigPage() {
     setSaving(true)
     try {
       await updateSystemConfig(next)
-      resetAfterSave(values.companyName)
+      resetAfterSave()
       await refetch()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Không thể lưu cấu hình')

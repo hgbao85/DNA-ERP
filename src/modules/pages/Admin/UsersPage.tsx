@@ -2,7 +2,6 @@
 import { useEffect, useState } from 'react'
 import { Users, KeyRound, Lock, LockOpen, ArrowRightLeft } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
-import { useAuditLog } from '../../../context/AuditLogContext'
 import { useFetch } from '../../../hooks/useFetch'
 import { getUsers, createUser, updateUser, deleteUser, resetUserPassword, setUserActive, getWarehouses, getBuyerMaterials, transferBuyerMaterials, type BuyerMaterials } from '../../../services/api'
 import type { SystemUser } from '../../../types/admin'
@@ -285,7 +284,7 @@ function EmployeeTypeField({ values, setField }: { value: unknown; values: Parti
   )
 }
 
-function ResetPasswordModal({ user, onClose, onDone }: { user: SystemUser | null; onClose: () => void; onDone: (u: SystemUser) => void }) {
+function ResetPasswordModal({ user, onClose }: { user: SystemUser | null; onClose: () => void }) {
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -307,7 +306,6 @@ function ResetPasswordModal({ user, onClose, onDone }: { user: SystemUser | null
     setError(null)
     try {
       await resetUserPassword(user.id, newPassword)
-      onDone(user)
       close()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Không thể đặt lại mật khẩu')
@@ -470,7 +468,6 @@ function TransferMaterialsModal({ user, onClose, onDone }: { user: SystemUser | 
 
 export default function UsersPage() {
   const { user: currentUser } = useAuth()
-  const { logAction } = useAuditLog()
   const [pwUser, setPwUser] = useState<SystemUser | null>(null)
   const [transferUser, setTransferUser] = useState<{ user: SystemUser; refetch: () => void } | null>(null)
 
@@ -606,7 +603,6 @@ export default function UsersPage() {
             onClick={() => {
               const doToggle = async () => {
                 await setUserActive(u.id, !u.isActive)
-                logAction('user', String(u.id), u.isActive ? 'user.locked' : 'user.unlocked', `${u.name} (${u.email})`)
                 refetch()
               }
               if (u.isActive) {
@@ -649,12 +645,6 @@ export default function UsersPage() {
       (!isNew && values.id === currentUser?.id && values.role !== currentUser?.role)
         ? 'Không thể tự đổi vai trò tài khoản đang đăng nhập'
         : undefined,
-    onMutate: (action, u) => {
-      const label = `${u.name} (${u.email})`
-      if (action === 'create') logAction('user', String(u.id), 'user.created', label)
-      else if (action === 'update') logAction('user', String(u.id), 'user.updated', label)
-      else logAction('user', String(u.id), 'user.deleted', label)
-    },
     api: { list: getUsers, create: createUser, update: updateUser, remove: deleteUser },
   }
 
@@ -664,14 +654,12 @@ export default function UsersPage() {
       <ResetPasswordModal
         user={pwUser}
         onClose={() => setPwUser(null)}
-        onDone={(u) => logAction('user', String(u.id), 'user.password_reset', `${u.name} (${u.email})`)}
       />
       <TransferMaterialsModal
         key={transferUser ? String(transferUser.user.id) : 'none'}
         user={transferUser?.user ?? null}
         onClose={() => setTransferUser(null)}
-        onDone={(from, to, count) => {
-          logAction('user', String(from.id), 'user.materials_transferred', `${count} vật tư: ${from.name} → ${to.name}`)
+        onDone={() => {
           transferUser?.refetch()
         }}
       />

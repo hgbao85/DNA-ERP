@@ -4,6 +4,11 @@ import { useAuth } from './AuthContext'
 import { logAuditAction, getAllAuditLogs } from '../services/api'
 import type { AuditLogEntry as PersistedAuditLogEntry } from '../types/admin'
 
+// 16/11/2026: trang Admin "Nhật ký hoạt động" KHÔNG còn đọc context này - đã đổi sang bảng audit_logs
+// thật của BE (services/audit-log-api.ts#getAuditLogs). Context chỉ còn phục vụ lịch sử duyệt SKU
+// (SKUDetail) + kiểu AuditLogEntry cho timeline KCS - vẫn lưu localStorage, mỗi trình duyệt chỉ thấy
+// thao tác của chính nó.
+//
 // Cấu hình mapping action -> nhãn + màu hiển thị. Đây là điểm mở rộng duy nhất:
 // nghiệp vụ mới (không chỉ PurchaseProposal) chỉ cần thêm 1 dòng ở đây rồi gọi logAction(),
 // không phải viết lại cơ chế ghi log hay màn hiển thị "Hoạt động". Màu lấy theo đúng bảng màu
@@ -44,27 +49,6 @@ export const AUDIT_ACTIONS = {
   'kcs.reported': { label: 'Báo sản lượng — chờ KCS', color: 'var(--fg-7c3aed)' },
   'kcs.approved': { label: 'KCS duyệt',               color: 'var(--fg-2e7d32)' },
 
-  // ─── Admin — Người dùng ─────────────────────────────────────────────────────
-  'user.created':      { label: 'Tạo tài khoản',       color: 'var(--fg-2563eb)' },
-  'user.updated':      { label: 'Cập nhật tài khoản',  color: 'var(--fg-d97706)' },
-  'user.role_changed': { label: 'Đổi vai trò/quyền',   color: 'var(--fg-7c3aed)' },
-  'user.password_reset': { label: 'Đặt lại mật khẩu',  color: 'var(--fg-7c3aed)' },
-  'user.locked':       { label: 'Khóa tài khoản',      color: 'var(--fg-c62828)' },
-  'user.unlocked':     { label: 'Mở khóa tài khoản',   color: 'var(--fg-059669)' },
-  'user.materials_transferred': { label: 'Chuyển giao vật tư mua hàng', color: 'var(--fg-d97706)' },
-  'user.deleted':      { label: 'Xóa tài khoản',       color: 'var(--fg-c62828)' },
-
-  // ─── Admin — Danh mục hệ thống (dùng chung cho mọi entity danh mục) ──────────
-  'masterdata.created': { label: 'Tạo bản ghi danh mục',      color: 'var(--fg-2563eb)' },
-  'masterdata.updated': { label: 'Cập nhật danh mục',         color: 'var(--fg-d97706)' },
-  'masterdata.deleted': { label: 'Xóa danh mục',              color: 'var(--fg-c62828)' },
-
-  // ─── Admin — Thông báo & Cấu hình hệ thống ───────────────────────────────────
-  'notification.created': { label: 'Tạo thông báo',        color: 'var(--fg-2563eb)' },
-  'notification.updated': { label: 'Cập nhật thông báo',   color: 'var(--fg-d97706)' },
-  'notification.deleted': { label: 'Xóa thông báo',        color: 'var(--fg-c62828)' },
-  'system_config.updated': { label: 'Cập nhật cấu hình hệ thống', color: 'var(--fg-d97706)' },
-  'system.data_reset':    { label: 'Reset dữ liệu demo',    color: 'var(--fg-c62828)' },
 } as const
 
 export type AuditAction = keyof typeof AUDIT_ACTIONS

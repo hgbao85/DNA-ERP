@@ -2,7 +2,6 @@
 import { Activity, Database, HardDrive, RefreshCcw } from 'lucide-react'
 import { useFetch } from '../../../hooks/useFetch'
 import { useConfirm } from '../../../hooks/useConfirm'
-import { useAuditLog } from '../../../context/AuditLogContext'
 import { getSystemStats, resetSystemData } from '../../../services/api'
 import type { SystemStats } from '../../../lib/mock/services/system.service'
 import LoadingState from '../../../components/LoadingState'
@@ -18,7 +17,6 @@ function formatBytes(bytes: number): string {
 
 export default function SystemStatusPage() {
   const { data, isLoading, error, refetch } = useFetch<SystemStats>(getSystemStats)
-  const { logAction } = useAuditLog()
   const { ask, confirmModal } = useConfirm()
 
   const handleReset = () => {
@@ -30,7 +28,6 @@ export default function SystemStatusPage() {
         confirmLabel: 'Reset dữ liệu',
       },
       async () => {
-        logAction('system', 'system', 'system.data_reset')
         await resetSystemData()
         window.location.reload()
       }

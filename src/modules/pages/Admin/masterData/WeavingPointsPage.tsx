@@ -1,6 +1,5 @@
 'use client'
 import { Scissors } from 'lucide-react'
-import { useAuditLog } from '../../../../context/AuditLogContext'
 import { getWeavingPoints, createWeavingPoint, updateWeavingPoint, deleteWeavingPoint } from '../../../../services/api'
 import AdminEntityPage, { type AdminEntityConfig } from '../shared/AdminEntityPage'
 
@@ -22,7 +21,6 @@ interface WeavingPoint {
 // xem) và QuanLyDiemDanPage.tsx (tab con, ẩn tiêu đề riêng) - trước đây 2 nơi đó dùng 1 bản UI
 // viết tay riêng (đã xoá) cùng gọi API weaving-points, nay hợp nhất về 1 component duy nhất.
 export default function WeavingPointsPage({ readOnly = false, embedded = false }: { readOnly?: boolean; embedded?: boolean } = {}) {
-  const { logAction } = useAuditLog()
 
   const config: AdminEntityConfig<WeavingPoint> = {
     title: 'Điểm đan',
@@ -64,11 +62,6 @@ export default function WeavingPointsPage({ readOnly = false, embedded = false }
       title: 'Xóa điểm đan',
       message: `Xóa điểm đan "${w.code}"? Hành động này không thể hoàn tác.`,
     }),
-    onMutate: (action, w) => {
-      if (action === 'create') logAction('weaving-point', String(w.id), 'masterdata.created', w.code)
-      else if (action === 'update') logAction('weaving-point', String(w.id), 'masterdata.updated', w.code)
-      else logAction('weaving-point', String(w.id), 'masterdata.deleted', w.code)
-    },
     api: {
       list: () => getWeavingPoints() as Promise<WeavingPoint[]>,
       create: (data) => createWeavingPoint(data) as Promise<WeavingPoint>,
