@@ -196,10 +196,12 @@
   <p class="lead">Phần lớn chỉ đáng lo khi chạy thật; có thể làm sau.</p>
 
   <div class="item mid"><h3><span class="id">B1</span>Quyền sửa user gán được vai trò ADMIN <span class="tag mid">Trung bình</span></h3>
+    <p class="fix"><b>Đã sửa — BE <code>9a85c7d</code> (gộp <code>cacf6f1</code>), 17/11:</b> người không phải ADMIN không đụng tài khoản / vai trò ADMIN (kể cả đặt lại mật khẩu), chỉ gán vai trò / thêm quyền mà mình đang có (vai trò, quyền đã có giữ nguyên được). ADMIN không bị hạn chế.</p>
     <p>USER:UPDATE gán được mọi <code>roleIds</code> kể cả ADMIN cho người khác (chỉ chặn tự sửa mình). ROLE:UPDATE gán được mọi quyền.</p>
     <p class="where">BE <code>users.service.ts</code> ~80, ~168</p></div>
 
   <div class="item mid"><h3><span class="id">B2</span><code>sortBy</code> không kiểm <span class="tag mid">Trung bình</span></h3>
+    <p class="fix"><b>Đã sửa — BE <code>9a85c7d</code> (gộp <code>cacf6f1</code>), 17/11:</b> 20 service dùng <code>sortOrderBy()</code> với danh sách trường cho phép từng màn; trường ngoài danh sách (kể cả <code>password</code>) trả 400 thay vì 500.</p>
     <p>Chuỗi tuỳ ý đi thẳng vào <code>orderBy</code> ở ~10 service: trường lạ → 500; trên <code>/users</code> sắp xếp được theo <code>password</code> (dò dần hash).</p>
     <p class="where">BE <code>common/dto/pagination-query.dto.ts</code></p></div>
 
