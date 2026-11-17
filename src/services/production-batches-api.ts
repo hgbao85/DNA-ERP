@@ -260,6 +260,9 @@ export interface BeProductionBatchPlanItem {
   pieceCode: string;
   pieceName: string;
   plannedQty: number;
+  /** BomPiece.qtyPerUnit - số mảnh này cho 1 BỘ SKU (plannedQty = qtyPerUnit × plan.quantity). BE cũ chưa trả → undefined;
+   *  khi đó FE tự suy bằng qtyPerUnitOf() (sanxuat/syncSummary.ts). Thêm 17/11/2026. */
+  qtyPerUnit?: number;
   awaitingQcQty: number;
   passedQty: number;
   /** Đã "Lưu đợt" nhưng CHƯA gửi KCS (lô OPEN) - 2026-10-16. Đã báo = openQty + awaitingQcQty + passedQty. */

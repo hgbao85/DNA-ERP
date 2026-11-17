@@ -27,7 +27,7 @@ import ProgressBar from '../../../components/ProgressBar'
 import LoadErrorState from '../../../components/LoadErrorState'
 import { pageTitle, pageSubtitle } from '../../../styles/typography'
 import type { BePhoiProgressItem } from '../../../services/steel-issues-api'
-import { pieceLine } from '../Floor/progressModel'
+import { mapBatchPlanToLines } from './batchPlanLines'
 import { mapPhoiProgress, PhoiMaterialBoard, type PhoiMaterialView } from '../../../components/sanxuat/PhoiMaterialBoard'
 import type { BeProductionBatchPlan } from '../../../services/production-batches-api'
 import type { BeWeavingIssuePlanItem } from '../../../services/weaving-issues-api'
@@ -243,19 +243,7 @@ function unassignedCutOf(items: BePhoiProgressItem[]): number {
   return items.reduce((t, it) => t + one(it.segments) + (it.steps ?? []).reduce((a, st) => a + one(st.segments), 0), 0)
 }
 
-// "Đã báo" của mảnh = đạt + chờ KCS + chưa gửi (2026-10-19, mục 47 - trước lấy `passedQty` = chỉ số ĐẠT nên Hàn/Sơn có
-// 12 cái đang chờ KCS vẫn hiện 0 + "cần hàn thêm"). Cùng số với thẻ PI của tổ ở "Sản lượng xưởng" (progressModel.pieceLine).
-function mapBatchPlanToLines(plan: BeProductionBatchPlan | null): ProcLine[] {
-  return (plan?.items ?? []).map(item => ({
-    id: Number(item.pieceId),
-    itemName: item.pieceName,
-    spec: item.pieceCode,
-    needQty: item.plannedQty,
-    doneQty: pieceLine(item).done,
-    kcs: { awaiting: item.awaitingQcQty, open: item.openQty ?? 0 },
-    lastInputAt: null,
-  }))
-}
+// mapBatchPlanToLines: chuyển sang batchPlanLines.ts (2026-11-17, để test + thêm perManh).
 
 // Vật tư thành phẩm không gắn mảnh (chân nhôm) - KHÔNG phải mảnh nên hiển thị bảng riêng (xem
 // MaterialYieldTable). Vẫn đưa vào tổng tiến độ Phôi qua phoiVtTpLines, id ÂM để không trùng id mảnh.
