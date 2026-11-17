@@ -20,7 +20,7 @@ import MaterialChoiceTags, { describeMaterialChoices } from '../../../components
 import { PhoiMaterialBoard } from '../../../components/sanxuat/PhoiMaterialBoard'
 import { HAN_CFG, SON_CFG, VAT_TU_TP_CFG, VatTuDetailBoard, type ProcLine } from '../../../components/sanxuat/core'
 import {
-  abnormalities, phoiMaterialsOf, piecesOf, shortMaterials, shortPieces, summarize,
+  abnormalities, phoiMaterialsOf, piecesOf, shortMaterials, shortPieces, summarize, syncComparable, unbalancedOrders,
   type Abnormal, type OrderFilter, type PieceView, type ShortMaterial,
 } from './piDetailModel'
 import { btn, Notice, Pill, STAGE_LABEL, StackedProgress } from './qlsxUi'
@@ -75,7 +75,8 @@ export default function QlsxPiDetail({ stage, productionInvoiceId, piCode, revie
       total: summarize(materials, pieces),
       shortM: shortMaterials(materials),
       shortP: shortPieces(pieces),
-      abnormal: abnormalities(materials, pieces, review, productionInvoiceId, stage),
+      abnormal: abnormalities(materials, pieces, review, productionInvoiceId, stage, undefined, unbalancedOrders(data, orderId)),
+      syncOk: syncComparable(data, orderId),
       steps: stepSummary(materials, pieces),
     }
   }, [data, orderId, review, productionInvoiceId, stage])
@@ -147,7 +148,7 @@ export default function QlsxPiDetail({ stage, productionInvoiceId, piCode, revie
 
               <div role="tabpanel">
                 {tab === 'short' && <ShortList materials={view.shortM} pieces={view.shortP} stage={stage} />}
-                {tab === 'all' && <AllBoards stage={stage} materials={view.materials} pieces={view.pieces} />}
+                {tab === 'all' && <AllBoards stage={stage} materials={view.materials} pieces={view.pieces} syncOk={view.syncOk} />}
                 {tab === 'abnormal' && <AbnormalList items={view.abnormal} onGoToReview={onGoToReview} onShowAll={() => setTab('all')} />}
               </div>
             </>
@@ -238,25 +239,40 @@ function ShortList({ materials, pieces, stage }: { materials: ShortMaterial[]; p
 
 function pieceProcLines(pieces: PieceView[]): ProcLine[] {
   return pieces.map((p, i) => ({
-    id: i + 1, itemName: p.name, spec: p.code, needQty: p.required, doneQty: p.reported,
+    id: i + 1, itemName: p.name, spec: p.code, needQty: p.required, doneQty: p.reported, perManh: p.perUnit,
     kcs: { awaiting: p.awaiting, open: p.open }, lastInputAt: null,
   }))
 }
 
-function AllBoards({ stage, materials, pieces }: { stage: FloorStage; materials: ReturnType<typeof phoiMaterialsOf>; pieces: PieceView[] }) {
+const SYNC_HINT = 'Lệnh có nhiều SKU, mỗi SKU có số bộ riêng: chọn 1 SKU ở ô “Cả lệnh” phía trên để xem số bộ đồng bộ.'
+
+function AllBoards({ stage, materials, pieces, syncOk }: { stage: FloorStage; materials: ReturnType<typeof phoiMaterialsOf>; pieces: PieceView[]; syncOk: boolean }) {
   if (stage !== 'PHOI') {
     const cfg = stage === 'HAN' ? HAN_CFG : SON_CFG
     return (
-      <VatTuDetailBoard lines={pieceProcLines(pieces)} cfg={cfg} readOnly showThucCo={false} fullHeight
-        title={stage === 'HAN' ? 'Chi tiết hàn khung' : 'Chi tiết sơn'} subtitle="Cùng bảng với “Tổng hợp lệnh SX” — chỉ xem" bannerLabel="Đồng bộ" />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {!syncOk && <Notice tone="info">{SYNC_HINT}</Notice>}
+        <VatTuDetailBoard lines={pieceProcLines(pieces)} cfg={cfg} readOnly showThucCo={false} fullHeight showSync={syncOk}
+          title={stage === 'HAN' ? 'Chi tiết hàn khung' : 'Chi tiết sơn'} subtitle="Cùng bảng với “Tổng hợp lệnh SX” — chỉ xem" bannerLabel="Đồng bộ" />
+      </div>
     )
   }
+  // Phôi: vật tư thành phẩm KHÔNG gắn mảnh (khoá 'm…', vd chân nhôm) tách bảng riêng, không đưa vào băng Đồng bộ của mảnh.
+  const pieceRows = pieces.filter((p) => !p.key.startsWith('m'))
+  const materialRows = pieces.filter((p) => p.key.startsWith('m'))
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       {materials.length > 0 && <PhoiMaterialBoard materials={materials} />}
-      {pieces.length > 0 && (
-        <VatTuDetailBoard lines={pieceProcLines(pieces)} cfg={VAT_TU_TP_CFG} readOnly showThucCo={false} showSpec={false} fullHeight
-          title="Mảnh Phôi / vật tư thành phẩm" subtitle="Phôi tự báo theo mảnh — chỉ xem" bannerLabel="Đồng bộ" />
+      {pieceRows.length > 0 && (
+        <>
+          {!syncOk && <Notice tone="info">{SYNC_HINT}</Notice>}
+          <VatTuDetailBoard lines={pieceProcLines(pieceRows)} cfg={VAT_TU_TP_CFG} readOnly showThucCo={false} showSpec={false} fullHeight showSync={syncOk}
+            title="Mảnh Phôi" subtitle="Phôi tự báo theo mảnh — chỉ xem" bannerLabel="Đồng bộ" />
+        </>
+      )}
+      {materialRows.length > 0 && (
+        <VatTuDetailBoard lines={pieceProcLines(materialRows)} cfg={VAT_TU_TP_CFG} readOnly showThucCo={false} showSpec={false} fullHeight showSync={false}
+          title="Vật tư thành phẩm (không gắn mảnh)" subtitle="Cắt xong là hết, không hàn ráp — chỉ xem" bannerLabel="Đồng bộ" />
       )}
       {materials.length === 0 && pieces.length === 0 && <Notice tone="info">Lệnh này chưa có định mức nào cho tổ Phôi.</Notice>}
     </div>

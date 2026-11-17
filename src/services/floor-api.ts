@@ -38,8 +38,13 @@ export interface BeScanSegment {
   segmentSpecId: string
   cutLengthMm: number
   required: number
+  /** Số ĐƯỢC TÍNH (BE 17/11/2026): đã trừ đoạn KCS chấm lỗi - đoạn lỗi phải cắt bù. */
   done: number
-  byOrder: { productionOrderId: string | null; required: number; done: number }[]
+  /** KCS chấm lỗi (BE 17/11/2026). Optional: BE cũ chưa trả. */
+  failed?: number
+  /** Số công nhân đã báo (chưa trừ lỗi) = done + failed (BE 17/11/2026). Optional: BE cũ chưa trả. */
+  reportedQty?: number
+  byOrder: { productionOrderId: string | null; required: number; done: number; failed?: number; reportedQty?: number }[]
 }
 
 export interface BeScanMaterial {
@@ -341,7 +346,12 @@ export interface BeSegmentProgress {
   cutLengthMm: number
   qty: number
   required: number
+  /** Số ĐƯỢC TÍNH của SKU (BE 17/11/2026): đã trừ đoạn KCS chấm lỗi. */
   done: number
+  /** KCS chấm lỗi (BE 17/11/2026). Optional: BE cũ chưa trả. */
+  failed?: number
+  /** Số công nhân đã báo (chưa trừ lỗi) (BE 17/11/2026). Optional: BE cũ chưa trả. */
+  reportedQty?: number
   over: number
 }
 

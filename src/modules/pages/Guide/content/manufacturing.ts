@@ -198,7 +198,7 @@ export const manufacturingGroup: GuideGroup = {
         'Mở "Sản lượng xưởng" (tab mặc định "Sản lượng & gửi KCS"), chọn đúng Tổ (số vàng "N chờ gửi" = số đợt đang chờ bạn kiểm). Màn hẹp (laptop ~1024px) thì khối "Chờ gửi KCS" nằm trên cùng.',
         'Hàng đợi chia theo xưởng (14/11/2026). QLSX của 1 xưởng chỉ thấy hàng đợi xưởng mình; KHSX / Sếp / Admin chọn xưởng ở ô "Xưởng" đầu khối hàng đợi (hệ thống nhớ lựa chọn). Mọi nút (Chuyển lệnh tiếp, Mở lại, Đổi thứ tự, Bỏ, Thêm lệnh) làm trên đúng xưởng đang chọn, mỗi thẻ PI ghi tên xưởng. Tổ Sơn xếp theo NƠI SƠN: lệnh của Phước An sơn ở Phú An nên nằm trong hàng đợi Sơn của Phú An.',
         'Bấm "Thêm lệnh", chọn 1 PI chưa chạy ở tổ này — PI được xếp vào cuối hàng đợi; dùng mũi tên lên/xuống để đổi thứ tự, PI đầu hàng đợi có nhãn "tiếp theo"; "Xem" để xem trước PI đó đã nhận sắt chưa. Tổ chưa chạy PI nào thì bấm "Bắt đầu lệnh đầu hàng đợi".',
-        'Thẻ "PI đang chạy": thanh màu Đạt KCS (xanh lá) / Chờ KCS (cam) / Chưa gửi KCS (xanh dương), % từng công đoạn (Cắt, Uốn, Dập…) và dòng "Còn thiếu N loại sắt (M chưa nhận sắt) · K đợt chờ gửi KCS". Bấm "Xem còn thiếu gì" để mở ngăn bên phải với 3 tab: "Còn thiếu" (loại sắt chưa nhận lên đầu, từng cỡ đoạn × công đoạn còn thiếu), "Tất cả" (bảng đầy đủ như Tổng hợp lệnh SX), "Bất thường" (báo vượt sắt đã nhận, đợt chờ quá 4 giờ, KCS chấm lỗi, Hàn/Sơn lệch bộ).',
+        'Thẻ "PI đang chạy": thanh màu Đạt KCS (xanh lá) / Chờ KCS (cam) / Chưa gửi KCS (xanh dương), % từng công đoạn (Cắt, Uốn, Dập…) và dòng "Còn thiếu N loại sắt (M chưa nhận sắt) · K đợt chờ gửi KCS". Bấm "Xem còn thiếu gì" để mở ngăn bên phải với 3 tab: "Còn thiếu" (loại sắt chưa nhận lên đầu, từng cỡ đoạn × công đoạn còn thiếu), "Tất cả" (bảng đầy đủ như Tổng hợp lệnh SX), "Bất thường" (báo vượt sắt đã nhận, đợt chờ quá 4 giờ, KCS chấm lỗi, Hàn/Sơn lệch bộ - so theo SL/bộ của định mức, mảnh báo dư không làm lệch). Xem cả lệnh có nhiều SKU khác sản phẩm thì bảng không hiện số bộ đồng bộ chung: chọn 1 SKU ở ô "Xem theo SKU" để xem.',
         'Khối "Chờ gửi KCS" liệt kê từng đợt công nhân đã báo kèm số đã báo/cần — bấm vào đầu đợt ("Kiểm & gửi") để mở từng lần báo (ai, máy nào, lúc nào). Kiểm xong bấm "Gửi KCS đợt này", hoặc "Gửi KCS tất cả" khi đã kiểm hết.',
         { text: 'Nếu phát hiện 1 lần báo sai, bấm "Hủy" ở đúng lần báo đó, bắt buộc nhập lý do → "Hủy lần báo" — số bị trừ khỏi đợt, công nhân thấy lại đúng lý do này.', critical: true },
         'Tổ báo đủ số (thẻ nhắc xanh) và đã gửi KCS hết thì bấm "Chuyển lệnh tiếp": PI đang chạy chuyển sang "đã xong", PI đầu hàng đợi (nếu có) bắt đầu chạy.',
@@ -216,6 +216,7 @@ export const manufacturingGroup: GuideGroup = {
         'Sau khi "Gửi KCS" thì KHÔNG hủy được lần báo nào của đợt đó nữa. "Hủy" không xoá: lần báo vẫn được lưu kèm lý do, ai hủy, lúc nào; công nhân thấy dòng đó bị gạch ngang.',
         '"Chuyển lệnh tiếp" lúc tổ CHƯA đủ số sẽ hiện hộp hỏi lại nêu đúng thiếu gì (nút mặc định "Xem còn thiếu gì") — vẫn cho chuyển nếu thật sự muốn; công nhân vẫn báo làm bù được cho PI cũ.',
         'Bấm nhầm "Chuyển lệnh tiếp"? Nếu PI vừa chuyển sang "đã xong" CHƯA có công nhân nào báo lần nào, nút "Chuyển nhầm? Mở lại ..." hiện ra để hoàn tác — PI đang chạy (nếu có) bị đẩy lùi về đầu hàng đợi.',
+        'Số "đã báo" và "vượt" ở đây là số ĐÃ TRỪ đoạn KCS chấm lỗi (từ 17/11/2026): đoạn bị chấm lỗi không còn tính là đã làm nên tổ phải cắt bù; báo bù thêm không bị coi là vượt.',
         'Số % ở thẻ PI và ở tab Phôi/Hàn/Sơn của "Tổng hợp lệnh SX" là cùng một cách tính (mỗi cỡ đoạn/mảnh tối đa bằng số cần, đã trừ lỗi KCS; tổ Phôi gồm Cắt + công đoạn phụ + mảnh Phôi).',
         'Đợt báo bằng gõ tay ở "Lệnh sản xuất" (không qua QR) vẫn hiện ở đây bình thường, ghi "màn cũ" thay vì tên máy.',
         'Hệ thống tự gửi thông báo "Cần xử lý" khi có đợt chờ gửi KCS quá 4 giờ, và khi tổ đã báo đủ số của PI đang chạy.',
@@ -324,6 +325,7 @@ export const manufacturingGroup: GuideGroup = {
         'Máy cắt: phía trên phần báo có khối "Việc của máy" — các dòng việc quản lý đã chia cho máy này theo thứ tự cắt (lệnh, loại sắt, chiều dài cây, số cây, kiểu cắt, Dập / Khoan / Uốn, chi tiết ra, dư mỗi cây). Dòng của lệnh tổ đang chạy có nhãn "Đang chạy". Đầu khối ghi "Còn ≈ C cây" (≈ là số ước từ số đoạn đã báo); mỗi dòng ghi "≈ đã cắt n/m cây", dòng đủ thì mờ và có nhãn "Xong". Máy đã cắt hết việc thì hiện "Máy đã cắt hết việc được chia - báo QLSX chia thêm.". Máy có dòng của nhiều lệnh: bấm "Báo cho lệnh này" ở dòng muốn báo, màn sẽ chọn đúng lệnh đó và cuộn xuống phần báo (cũng chọn được ở mục "Lệnh trong bảng chia"); dòng đang báo đổi nút thành "Đang báo lệnh này · nhập số ở dưới". Máy đã cắt hết việc mà tổ chưa có lệnh chạy thì màn không tự chọn lệnh: muốn báo thêm thì chọn lệnh ở mục "Lệnh trong bảng chia". Cách nhập số đoạn không đổi. Máy chưa có việc thì hiện "Máy chưa được chia việc - hỏi QLSX". Máy cắt hết việc thì hệ thống tự kéo lệnh kế tiếp; tải lại màn để thấy dòng mới.',
         'Màn hiện đúng việc của máy ("Báo cắt", "Báo Uốn"…, "Báo Hàn/Sơn" hoặc "Nhận sắt") và lệnh, sản phẩm đang làm. Nếu có lệnh "làm bù" (KCS chấm lỗi) thì chọn đúng lệnh; nếu lệnh có nhiều sản phẩm thì chọn đúng sản phẩm.',
         'Tổ Phôi (máy cắt/máy công đoạn phụ): chọn loại sắt, nhập số đoạn đã làm cho từng cỡ. Tổ Hàn/Sơn: chạm chọn đúng mảnh rồi nhập số mảnh.',
+        'Từ 17/11/2026 số "Đã cắt" của từng cỡ đoạn đã trừ đoạn KCS chấm lỗi; dòng "còn N" là số phải cắt bù. Bù xong báo như bình thường.',
         'Nút chính ở cuối màn ("Nhập số đoạn" hoặc "Nhập số mảnh") mờ khi chưa đủ thông tin; dòng chữ ngay trên nút ghi còn thiếu gì, ví dụ "Chọn lệnh ở Việc của máy trước", "Gõ số đoạn vào ô ở trên", "Chọn mảnh ở trên trước".',
         { text: 'Bấm nút "Lưu …" — hệ thống hiện bảng tóm tắt số sắp lưu (số nào nhiều hơn số cần được ghi rõ). Đúng thì bấm "Đúng, lưu …", sai thì "Sửa lại".', critical: true },
         'Nhận sắt (quét mã khu nhận sắt): đếm số cây thực nhận, gõ vào ô (hoặc bấm "Đủ N cây") → "Xác nhận đã nhận". Phải nhận ít nhất 1 cây; gõ 0 thì không xác nhận được. Đếm lệch thì hệ thống hỏi lại, kho và quản lý sẽ được báo.',
@@ -400,7 +402,7 @@ export const manufacturingGroup: GuideGroup = {
       warnings: [
         'Không có ô nhập số trên màn này. Muốn báo số cắt hoặc công đoạn phụ thì công nhân quét mã QR ở máy; quản lý kiểm rồi gửi KCS ở "Sản lượng xưởng".',
         'Đợt cũ hiện "Chưa phân SKU" — gán được cho một SKU đúng 1 lần bằng nút "Gán"; gán nhầm thì nhờ Admin sửa ở "Sửa SKU đợt Phôi".',
-        'Đợt bị KCS trả về: công nhân tự báo cắt bù bằng quét mã QR; đợt trả về không tự sinh lô làm lại.',
+        'Đợt bị KCS trả về: công nhân tự báo cắt bù bằng quét mã QR; đợt trả về không tự sinh lô làm lại. Cắt lỗi: cắt lại rồi báo cắt bù. Công đoạn phụ (uốn, dập…) lỗi: báo cắt thêm đoạn mới trước, rồi báo công đoạn bù.',
       ],
       commonErrors: [],
       statuses: [
@@ -501,8 +503,8 @@ export const manufacturingGroup: GuideGroup = {
       warnings: [
         'Màn này chỉ xem: không có ô nhập, không có "Lưu đợt", "Gửi KCS", "Bù đủ".',
         'Khi đã bật quản đoạn theo lệnh, công nhân báo thiếu đoạn hay vượt số lượng lệnh vẫn lưu được nhưng phần mềm ghi vào "Sổ báo vượt đoạn" và báo QLSX.',
-        'Cột "Đã hàn"/"Đã sơn" ở danh sách SKU = số sản phẩm ráp được đủ mọi mảnh (tính theo mảnh thiếu nhất), không phải tổng số mảnh đã báo.',
-        'Banner đỏ "chưa cân đối" xuất hiện khi các mảnh của cùng một SKU chưa hàn/sơn đều số lượng với nhau — cần chú ý để tránh lệch dây chuyền.',
+        'Cột "Đã hàn"/"Đã sơn" ở danh sách SKU = số sản phẩm ráp được đủ mọi mảnh (tính theo mảnh thiếu nhất, mỗi mảnh chia theo SL/bộ của định mức), không phải tổng số mảnh đã báo.',
+        'Banner đỏ "chưa cân đối" xuất hiện khi các mảnh của cùng một SKU chưa hàn/sơn đều số bộ với nhau (so theo SL/bộ của định mức, ví dụ mảnh ×2 báo 590 mới ngang mảnh ×1 báo 295; mảnh báo dư không làm lệch) — cần chú ý để tránh lệch dây chuyền. Mảnh chưa rõ SL/bộ thì cột SL/bộ hiện "—" và chưa so được.',
         'KCS chấm có lỗi thì không tự tạo lô làm lại: công nhân tự báo bù bằng quét mã QR.',
       ],
       commonErrors: [],
@@ -629,7 +631,7 @@ export const manufacturingGroup: GuideGroup = {
       ],
       result: 'Đợt chuyển sang đã duyệt (kể cả khi còn phần không đạt) — hệ thống chỉ có 2 kết quả Đạt/Không đạt, không còn phân loại "sửa được/phế".',
       warnings: [
-        'QUAN TRỌNG: KCS KHÔNG tự tạo lô làm lại cho phần không đạt, ở bất kỳ công đoạn nào (Phôi/Hàn/Sơn/Vật tư TP). Số "Không đạt" chỉ là ghi nhận lịch sử (cộng dồn, không tự giảm) — tổ sản xuất phải tự báo một đợt/lô hoàn toàn mới để bù, báo bù bằng quét mã QR (Phôi, Hàn, Sơn). Nút "Bù đủ" nay chỉ còn ở màn Vật tư TP của tài khoản Phôi, dùng để tự điền sẵn số cần bù.',
+        'QUAN TRỌNG: KCS KHÔNG tự tạo lô làm lại cho phần không đạt, ở bất kỳ công đoạn nào (Phôi/Hàn/Sơn/Vật tư TP). Số "Không đạt" chỉ là ghi nhận lịch sử (cộng dồn, không tự giảm) — tổ sản xuất phải tự báo một đợt/lô hoàn toàn mới để bù, báo bù bằng quét mã QR (Phôi, Hàn, Sơn). Nút "Bù đủ" nay chỉ còn ở màn Vật tư TP của tài khoản Phôi, dùng để tự điền sẵn số cần bù. Cắt lỗi: tổ cắt lại rồi báo cắt bù; công đoạn phụ lỗi: báo cắt thêm đoạn mới trước rồi báo công đoạn bù.',
         'Modal duyệt giữ nguyên dữ liệu đã nhập nếu xác nhận thất bại — không cần nhập lại từ đầu.',
       ],
       commonErrors: [

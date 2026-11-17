@@ -2,8 +2,8 @@
 
 /**
  * CORE dùng chung cho các màn Lệnh sản xuất (Hàn / Sơn) + thống kê Phôi (ThongKePagePlan).
- * - types + helper đồng bộ (logic thuần) — ProcManh/perSku vẫn dùng thật cho Phôi qua
- *   ThongKePagePlan.tsx (mapSteelIssuesToPhoiManhs), không qua orchestrator ở đây.
+ * - types + helper đồng bộ (logic thuần, phần tính nằm ở syncSummary.ts). ProcManh/perSku (nhánh `manhs`) hiện KHÔNG còn
+ *   chỗ nào gán (mapSteelIssuesToPhoiManhs đã bỏ) - giữ lại làm code chết, đừng dựa vào (ghi chú 2026-11-17).
  * - view dựng trên khung generic `LenhSanXuatBoard`: PO list · Vật tư detail
  * - 1 orchestrator: TwoTierScreen (2 tầng, Hàn/Sơn) — tự fetch dữ liệu thật qua
  *   production-batches-api.ts khi có `stage`. PhoiScreen (orchestrator 3 tầng mock cũ) đã xoá
@@ -30,6 +30,7 @@ import { useRealtimeRefetch } from '../../realtime/hooks'
 import LenhCode, { useLenhCodeLookup } from '../LenhCode'
 import { getPieceSyncBoard } from '../../services/piece-sync-board-api'
 import { loadHanThucCo, hanThucCoKey, type HanThucCo } from './hanThucCo'
+import { perManh, manhFromLine, dongBoOf, lechOf, qtyPerUnitOf, syncSummary } from './syncSummary'
 import { loadHanPassedByPiece, tinhKhungSanDeSon, sonThucCoKey } from './sonThucCo'
 
 const ACCENT = 'var(--fg-e65100)'
@@ -45,7 +46,7 @@ export interface ProcLine {
   spec: string
   needQty: number
   doneQty: number
-  perManh?: number      // SL vật tư cần cho 1 mảnh/sản phẩm (định mức)
+  perManh?: number      // Hàn/Sơn/VTTP: số mảnh này cho 1 BỘ SKU (BomPiece.qtyPerUnit). undefined = không biết (không bịa ×1)
   thucCoQty?: number     // SL thực tế đang có sẵn để làm ngay (tồn đầu vào) — Hàn/Sơn
   parts?: ProcPart[]     // Hàn/Sơn: các thanh sắt cấu thành 1 chi tiết (bấm xổ để xem)
   lastInputAt: string | null
@@ -140,22 +141,19 @@ const lineStats = (lines: ProcLine[]) => {
   return { need, done, pct }
 }
 
-export const perManh = (l: ProcLine) => l.perManh && l.perManh > 0 ? l.perManh : 1
+// perManh / manhFromLine (chặn trần theo định mức) / dongBoOf / lechOf / qtyPerUnitOf: xem syncSummary.ts (2026-11-17).
+export { perManh, manhFromLine, dongBoOf, lechOf, qtyPerUnitOf, syncSummary } from './syncSummary'
 export const perSku = (m: ProcManh) => m.perSku && m.perSku > 0 ? m.perSku : 1
-export const manhFromLine = (l: ProcLine) => Math.floor(l.doneQty / perManh(l))
-export const dongBoOf = (lines: ProcLine[]) => lines.length ? Math.min(...lines.map(manhFromLine)) : 0
-export const lechOf = (lines: ProcLine[]) => {
-  if (lines.length < 2) return false
-  const c = lines.map(manhFromLine)
-  return Math.max(...c) !== Math.min(...c)
-}
 const dongBoManh = (m: ProcManh) => dongBoOf(m.lines)
 const gheOfManh = (m: ProcManh) => Math.floor(dongBoManh(m) / perSku(m))
 
 const allLines = (r: ProcRow): ProcLine[] => r.manhs ? r.manhs.flatMap(m => m.lines) : (r.lines ?? [])
 const skuUnits = (r: ProcRow): number[] => r.manhs ? r.manhs.map(gheOfManh) : (r.lines ?? []).map(manhFromLine)
 export const skuDongBo = (r: ProcRow) => { const u = skuUnits(r); return u.length ? Math.min(...u) : 0 }
-export const skuLech = (r: ProcRow) => { const u = skuUnits(r); return u.length >= 2 && Math.max(...u) !== Math.min(...u) }
+export const skuLech = (r: ProcRow) => {
+  if (!r.manhs) return lechOf(r.lines ?? []) // chỉ kết luận lệch khi biết SL/bộ của mọi mảnh
+  const u = skuUnits(r); return u.length >= 2 && Math.max(...u) !== Math.min(...u)
+}
 const poSummary = (r: ProcRow) => {
   const daLam = skuDongBo(r)
   const pct = r.soLuong > 0 ? Math.round((daLam / r.soLuong) * 100) : 0
@@ -359,10 +357,13 @@ function PoListBoard({ rows, cfg, isPhoi, readOnly = false, sequential = true, o
 }
 
 // ── Tầng chi tiết vật tư (dùng chung Phôi/Hàn/Sơn) ─────────────────
-export function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, bannerLabel, dbUnit = 'bộ', backLabel, onBack, onUpdateLine, manualInput, showThucCo, showSpec = true, aligned = false, onRecord, onFinishBatch, choKcsFor, partStock, batchesByLine, reviews, fullHeight }: {
+export function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, bannerLabel, dbUnit = 'bộ', backLabel, onBack, onUpdateLine, manualInput, showThucCo, showSpec = true, aligned = false, onRecord, onFinishBatch, choKcsFor, partStock, batchesByLine, reviews, fullHeight, showSync = true }: {
   lines: ProcLine[]; cfg: StageCfg; readOnly: boolean
   /** Bảng cao theo nội dung (không cuộn trong khung 70vh) - khi nhúng vào trang đã cuộn. Xem LenhSanXuatBoard.fullHeight. */
   fullHeight?: boolean
+  /** false = không tính / không hiện băng "Đồng bộ N bộ" + "cần ... thêm" (vd xem cả lệnh nhiều SKU khác sản phẩm - số bộ
+   *  của sản phẩm này không so được với sản phẩm kia). Mặc định true. */
+  showSync?: boolean
   title: string; subtitle: string; bannerLabel: string
   /** Bỏ trống khi board được nhúng làm 1 tab con (vd chi tiết Khung cơ khí bên KHSX) — không cần điều hướng "quay lại". */
   backLabel?: string; onBack?: () => void
@@ -396,11 +397,7 @@ export function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, banner
   const [draft, setDraft] = useState<Record<number, string>>({})
   const [openParts, setOpenParts] = useState<Set<number>>(new Set())
   const toggleParts = (id: number) => setOpenParts(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n })
-  const db = dongBoOf(lines)
-  const lech = lechOf(lines)
-  const maxBo = lines.length ? Math.max(...lines.map(manhFromLine)) : 0
-  const shortOf = (l: ProcLine) => (maxBo - manhFromLine(l)) * perManh(l)
-  const needCut = lines.filter(l => shortOf(l) > 0).map(l => `${l.itemName} +${fmt(shortOf(l))}`)
+  const { status: syncStatus, db, lech, shortOf, needCut } = syncSummary(lines, { showSync })
   const itemLabelLC = cfg.itemLabel.toLowerCase()
 
   const failedOf = (lineId: number): number => {
@@ -454,7 +451,7 @@ export function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, banner
       }
     },
     ...(showSpec ? [{ key: 'spec', header: 'Quy cách', cell: (l: ProcLine) => <span style={{ color: 'var(--text3)' }}>{l.spec}</span> }] : []),
-    { key: 'perManh', header: 'SL/bộ', align: 'right', width: aligned ? 84 : undefined, cell: l => `×${perManh(l)}` },
+    { key: 'perManh', header: 'SL/bộ', align: 'right', width: aligned ? 84 : undefined, cell: l => l.perManh && l.perManh > 0 ? `×${perManh(l)}` : '—' },
     // 2026-09-09 (đồng bộ từ vựng với Sắt/VTTP theo yêu cầu người dùng): "Định mức"→"Cần",
     // "${cfg.done}" (Đã cắt/Đã hàn/Đã sơn)→"Đã báo" - CHỈ đổi CHỮ hiện trong bảng này, không đụng
     // `cfg.done` (còn dùng ở banner/nơi khác, giữ nguyên ý nghĩa theo verb riêng từng công đoạn).
@@ -575,7 +572,12 @@ export function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, banner
       } as BoardColumn<ProcLine>] : []),
   ]
 
-  const banner = (
+  const banner = syncStatus === 'hidden' ? undefined : syncStatus === 'unknown' ? (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', margin: '14px 0 0', borderRadius: 'var(--radius)', background: 'var(--surface2)', color: 'var(--text2)', fontSize: 13 }}>
+      <AlertTriangle size={16} />
+      <span>{bannerLabel}: chưa đủ dữ liệu định mức (thiếu SL/bộ của mảnh) nên chưa so được số bộ giữa các {itemLabelLC}.</span>
+    </div>
+  ) : (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', margin: '14px 0 0', borderRadius: 'var(--radius)', background: lech ? 'var(--red-bg)' : 'var(--green-bg, var(--bg-e8f5e9))', color: lech ? 'var(--red)' : 'var(--green)', fontSize: 13 }}>
       {lech ? <AlertTriangle size={16} /> : <CheckCircle2 size={16} />}
       <span>
@@ -977,6 +979,7 @@ async function fetchHanSonRows(stage: SanLuongStage): Promise<HanSonFetch> {
       return {
         id: lineId, itemName: item.pieceName, spec: item.pieceCode,
         needQty: item.plannedQty, doneQty: item.passedQty,
+        perManh: qtyPerUnitOf(item, plan.quantity), // 2026-11-17: số mảnh / 1 bộ (trước đây bỏ trống → ×1 sai)
         thucCoQty: stage === 'SON' ? tinhKhungSanDeSon(hanPassedMap.get(sonThucCoKey(o.id, item.pieceId)), item) : tc?.thucCoQty,
         parts: tc?.parts,
         lastInputAt: null, realPieceId: item.pieceId,

@@ -5,7 +5,7 @@
  */
 
 import type { BeFloorProgress, BeFloorReview, BeStageDetail } from '../../../services/floor-api'
-import { lechOf, type ProcLine } from '../../../components/sanxuat/core'
+import { lechOf, qtyPerUnitOf, type ProcLine } from '../../../components/sanxuat/core'
 import { mapPhoiProgress, type PhoiMaterialView } from '../../../components/sanxuat/PhoiMaterialBoard'
 import { bucketLine, isShort, percentOf, pieceLine, remainingQty, sumBuckets, type ProgressBuckets, type ProgressLineInput } from './progressModel'
 import { isStale } from './qlsxUi'
@@ -16,6 +16,9 @@ export interface PieceView extends ProgressBuckets {
   name: string
   code: string
   remaining: number
+  /** Số mảnh / 1 bộ SKU (BE qtyPerUnit hoặc suy từ plannedQty / số bộ). undefined = không biết, hoặc gộp nhiều SKU mà khác
+   *  nhau, hoặc vật tư thành phẩm không gắn mảnh (khoá 'm…') - khi đó KHÔNG kết luận lệch bộ (2026-11-17). */
+  perUnit?: number
 }
 
 /** null = cả PI (mọi SKU). */
@@ -32,23 +35,51 @@ export function phoiMaterialsOf(detail: BeStageDetail, orderId: OrderFilter): Ph
 /** Mảnh của tổ (Hàn/Sơn, hoặc mảnh Phôi + vật tư thành phẩm), mỗi (SKU × mảnh) chặn trần riêng rồi mới gộp theo mảnh. */
 export function piecesOf(detail: BeStageDetail, orderId: OrderFilter): PieceView[] {
   const byKey = new Map<string, PieceView>()
-  const push = (key: string, name: string, code: string, line: ProgressLineInput) => {
+  const push = (key: string, name: string, code: string, line: ProgressLineInput, perUnit?: number) => {
     const b = bucketLine(line)
     const cur = byKey.get(key)
     if (!cur) {
-      byKey.set(key, { key, name, code, ...b, remaining: remainingQty(line) })
+      byKey.set(key, { key, name, code, ...b, remaining: remainingQty(line), perUnit })
       return
     }
+    if (cur.perUnit !== perUnit) cur.perUnit = undefined // gộp 2 SKU mà khác SL/bộ → không so được
     for (const k of ['required', 'reported', 'passed', 'awaiting', 'open', 'failed'] as const) cur[k] += b[k]
     cur.remaining += remainingQty(line)
   }
   for (const [, plan] of planEntries(detail, orderId)) {
-    for (const it of plan.items) push(`p${it.pieceId}`, it.pieceName, it.pieceCode, pieceLine(it))
+    for (const it of plan.items) push(`p${it.pieceId}`, it.pieceName, it.pieceCode, pieceLine(it), qtyPerUnitOf(it, plan.quantity))
     for (const it of plan.materialYieldItems ?? []) {
       push(`m${it.materialId}`, it.materialName, it.materialCode, { required: it.plannedQty, done: it.passedQty + it.awaitingQcQty, failed: 0, open: 0, awaiting: it.awaitingQcQty })
     }
   }
   return [...byKey.values()].filter((p) => p.required > 0)
+}
+
+/**
+ * Có hiện băng "Đồng bộ N bộ" không (2026-11-17): chỉ khi đang xem ĐÚNG 1 SKU. Xem cả lệnh có từ 2 SKU thì mỗi SKU có số bộ
+ * riêng (kể cả cùng sản phẩm, khác màu dây / nệm): gộp mảnh rồi chia SL/bộ có thể ra kết luận ngược với tab "Bất thường"
+ * (tính theo từng SKU) → ẩn băng, nhắc chọn 1 SKU (QA review 17/11).
+ */
+export function syncComparable(detail: BeStageDetail, orderId: OrderFilter): boolean {
+  return planEntries(detail, orderId).length <= 1
+}
+
+/**
+ * Tên các SKU đang LỆCH BỘ (2026-11-17): tính THEO TỪNG SKU (mỗi plan có số bộ riêng), bằng số đã chặn trần
+ * (bucketLine(pieceLine).reported) - cùng số với tab "Tất cả" khi xem 1 SKU. Mảnh thiếu SL/bộ thì không kết luận (lechOf).
+ * Ghi kèm số lệnh (poNumber) vì 2 SKU cùng tên sản phẩm phải phân biệt được.
+ */
+export function unbalancedOrders(detail: BeStageDetail, orderId: OrderFilter): string[] {
+  const out: string[] = []
+  for (const [, plan] of planEntries(detail, orderId)) {
+    const lines: ProcLine[] = plan.items.map((it, i) => ({
+      id: i, itemName: it.pieceName, spec: it.pieceCode, needQty: it.plannedQty,
+      doneQty: bucketLine(pieceLine(it)).reported, perManh: qtyPerUnitOf(it, plan.quantity), lastInputAt: null,
+    }))
+    const label = `${plan.productName} (${plan.poNumber})`
+    if (lechOf(lines) && !out.includes(label)) out.push(label)
+  }
+  return out
 }
 
 /** Tổng số của tổ theo SKU đang chọn - với "cả PI" ra đúng số thẻ PI (BE computeProgress). */
@@ -120,6 +151,8 @@ export function abnormalities(
   productionInvoiceId: string,
   stage: string,
   now = Date.now(),
+  /** Tên SKU lệch bộ - từ unbalancedOrders(); mặc định không có. */
+  unbalanced: string[] = [],
 ): Abnormal[] {
   const out: Abnormal[] = []
   for (const m of materials) {
@@ -132,9 +165,9 @@ export function abnormalities(
   if (stale > 0) out.push({ kind: 'stale', text: `${stale} đợt chờ gửi KCS quá 4 giờ` })
   const failed = materials.reduce((a, m) => a + m.failed, 0) + pieces.reduce((a, p) => a + p.failed, 0)
   if (failed > 0) out.push({ kind: 'qc-failed', text: `KCS chấm lỗi ${failed.toLocaleString('vi-VN')} ${materials.length ? 'đoạn' : 'cái'} - cần làm bù` })
-  if (stage !== 'PHOI' && pieces.length > 1) {
-    const lines: ProcLine[] = pieces.map((p, i) => ({ id: i, itemName: p.name, spec: p.code, needQty: p.required, doneQty: p.reported, lastInputAt: null }))
-    if (lechOf(lines)) out.push({ kind: 'unbalanced', text: 'Số mảnh đã báo chưa đồng bộ thành bộ (mảnh này nhiều, mảnh kia ít)' })
+  // 2026-11-17: lệch bộ tính theo từng SKU với SL/bộ của định mức (trước gộp mọi SKU + coi mọi mảnh ×1 nên báo sai).
+  if (stage !== 'PHOI' && unbalanced.length > 0) {
+    out.push({ kind: 'unbalanced', text: `Số mảnh đã báo chưa đồng bộ thành bộ (mảnh này nhiều, mảnh kia ít): ${unbalanced.join(', ')}` })
   }
   return out
 }
