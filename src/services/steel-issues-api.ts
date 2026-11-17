@@ -461,20 +461,7 @@ export interface BeQcReviewSegment {
   failedQty: number;
 }
 
-/** KCS chấm 1 SteelIssue THEO TỪNG CỠ ĐOẠN - segments rỗng = đạt hết. */
-export async function reviewSteelIssueQc(
-  id: string,
-  data: {
-    segments: { segmentSpecId: string; failedQty: number }[];
-    reason?: string;
-    defectReasonId?: string;
-    photoUrl?: string;
-  },
-): Promise<void> {
-  await http.post(`/steel-issues/${id}/qc-review`, data);
-}
-
-/** KCS chấm 1 ĐỢT CẮT (2026-09-05) - thay reviewSteelIssueQc() ở luồng mới, cùng khuôn tham số. */
+/** KCS chấm 1 ĐỢT CẮT (2026-09-05) - thay route chấm cả lô cũ (FE gỡ hàm gọi 17/11; BE chặn khi lô đã chia đợt). */
 export async function reviewCutBundleQc(
   cutBundleId: string,
   data: {

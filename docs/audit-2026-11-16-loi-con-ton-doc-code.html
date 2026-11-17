@@ -77,7 +77,7 @@
   </div>
 
   <div class="note">
-    <b>Cập nhật 17/11:</b> đã sửa <b>X1</b> (phần lớn), <b>K1, K2, K3, K4</b> — các thẻ có nhãn xanh "Đã sửa". Đã đọc diff, type-check BE sạch, 1255/1255 test các module liên quan qua. Số đếm bên dưới là số mục ban đầu.
+    <b>Cập nhật 17/11:</b> đã sửa <b>X1</b> (phần lớn), <b>X2, X3, X4</b> (phần chính), <b>K1, K2, K3, K4</b>; <b>X5</b> hết là lỗi — các thẻ có nhãn xanh "Đã sửa". Đã đọc diff, type-check BE sạch, 1255/1255 test các module liên quan qua. Số đếm bên dưới là số mục ban đầu.
   </div>
 
   <div class="stats">
@@ -97,20 +97,24 @@
     <p class="where">BE <code>steel-issues.service.ts</code> ~873-898, ~1340; <code>qc-reviews.service.ts</code> ~288-295</p>
     <p class="fix"><b>Hướng sửa:</b> đọc bó trong transaction với <code>FOR UPDATE</code>, kiểm <code>status = CUTTING</code> trước khi cộng; finish dùng <code>updateMany WHERE status</code> + kiểm count.</p></div>
 
-  <div class="item high"><h3><span class="id">X2</span>Số lỗi KCS bị đếm 2 lần qua route cũ <span class="tag high">Cao</span></h3>
+  <div class="item done"><h3><span class="id">X2</span>Số lỗi KCS bị đếm 2 lần qua route cũ <span class="tag high">Cao</span><span class="tag done">Đã sửa 17/11</span></h3>
+    <p class="fix"><b>Đã sửa — BE nhánh <code>sua-xuong-x2-x5-17-11</code>:</b> route chấm cả lô trả 409 khi lô đã có đợt cắt (chỉ còn cho lô cũ chưa chia đợt). FE gỡ hàm <code>reviewSteelIssueQc</code> (không còn ai gọi).</p>
     <p>Route cũ <code>POST steel-issues/:id/qc-review</code> vẫn nhận phiếu xuất sắt có trạng thái AWAITING_QC (trạng thái này chỉ là tổng hợp từ các bó). Tiến độ Phôi cộng mọi <code>qcReviewSegment</code> theo phiếu xuất → KCS cả theo phiếu lẫn theo bó thì lỗi tính 2 lần, phiếu lên QC_PASSED trong khi bó còn chờ.</p>
     <p class="where">BE <code>qc-reviews.service.ts</code> ~156; <code>steel-issues.service.ts</code> ~1721</p>
     <p class="fix"><b>Hướng sửa:</b> chặn route cũ khi phiếu đã có bó (hoặc gỡ hẳn nếu FE không còn gọi).</p></div>
 
-  <div class="item high"><h3><span class="id">X3</span>Huỷ báo cắt làm Uốn/Dập vượt số đã cắt <span class="tag high">Cao</span></h3>
+  <div class="item done"><h3><span class="id">X3</span>Huỷ báo cắt làm Uốn/Dập vượt số đã cắt <span class="tag high">Cao</span><span class="tag done">Đã sửa 17/11</span></h3>
+    <p class="fix"><b>Đã sửa — BE nhánh <code>sua-xuong-x2-x5-17-11</code>:</b> hàm mới <code>assertStepsWithinCutAfterReduceInTx</code> (khoá step-batch mọi công đoạn của SKU, kiểm mỗi công đoạn ≤ số cắt còn lại) chạy trước khi QLSX hủy lần báo cắt (<code>reverseCut</code>) và trong <code>undoLastCutBatch</code>. Phần "hoàn tác không kiểm chủ báo cáo" hết là lỗi: route hoàn tác cũ đã đóng 16/11 (Sang, bỏ màn thống kê tổ đợt 1), service không còn đường gọi.</p>
     <p><code>reverseCut</code> và <code>undoLastCutBatch</code> giảm số cắt mà không lấy khoá step-batch, không kiểm lại quy tắc "công đoạn ≤ số cắt". <code>undoLastCutBatch</code> còn dùng dữ liệu đọc trước transaction, không kiểm chủ báo cáo (thợ Phôi này huỷ được báo cáo của thợ khác), và <code>reversalOfId</code> trỏ vào báo cáo mới nhất kể cả khi số lượng không khớp.</p>
     <p class="where">BE <code>floor-review.service.ts</code> ~444; <code>steel-issues.service.ts</code> ~1251</p></div>
 
-  <div class="item mid"><h3><span class="id">X4</span>QLSX xưởng này thao tác được xưởng khác <span class="tag mid">Trung bình</span></h3>
+  <div class="item done"><h3><span class="id">X4</span>QLSX xưởng này thao tác được xưởng khác <span class="tag mid">Trung bình</span><span class="tag done">Đã sửa 17/11 (phần chính)</span></h3>
+    <p class="fix"><b>Đã sửa — BE nhánh <code>sua-xuong-x2-x5-17-11</code>:</b> danh sách chờ gửi KCS, số đỏ menu "Sản lượng xưởng", gửi KCS (đợt cắt / nhóm công đoạn / lô mảnh) và hủy lần báo lọc/chặn theo xưởng hàng đợi của PI ở tổ đó (cùng quy tắc hàng đợi, Sơn theo xưởng sơn) qua <code>filterByQueueWorkshop</code>; QLSX không gắn xưởng thấy hết như cũ. Quét QR nhận sắt đã chặn khác xưởng từ 16/11. <b>Còn mở:</b> CRUD máy/thợ và thống kê <code>stats</code> chưa lọc theo xưởng.</p>
     <p>Danh sách duyệt, gửi KCS, huỷ báo cáo, tổng hợp (<code>floor.controller.ts</code> ~411-448), CRUD máy/thợ (<code>floor-admin.service.ts</code> ~270-583), thống kê, và quét QR nhận sắt (<code>floor-scan.service.ts</code> ~179, ~573) đều không lọc theo xưởng. FE <code>QlsxFloorPage.tsx</code> cũng chỉ lọc hàng đợi, không lọc phần duyệt/tổng hợp.</p>
     <p class="where">BE <code>src/modules/floor/*</code>; FE <code>QlsxFloorPage.tsx</code> ~40, ~90</p></div>
 
-  <div class="item mid"><h3><span class="id">X5</span>Màn Phôi máy tính báo trùng khi bước gửi bó lỗi 4xx/5xx <span class="tag mid">Trung bình</span></h3>
+  <div class="item done"><h3><span class="id">X5</span>Màn Phôi máy tính báo trùng khi bước gửi bó lỗi 4xx/5xx <span class="tag mid">Trung bình</span><span class="tag done">Hết là lỗi 17/11</span></h3>
+    <p class="fix"><b>Không cần sửa:</b> từ 16/11 (Sang, <code>17333c3</code>) màn "Lệnh sản xuất" của Phôi chỉ còn xem, BE đóng route <code>step-batches</code>/<code>step-bundles</code>. Các chỗ khác dùng <code>useRetrySafeKey</code> chỉ gọi 1 request.</p>
     <p><code>LenhSanXuatPhoi.tsx</code> gọi <code>recordStepBatch</code> rồi <code>submitStepBundle</code>. Nếu bước 2 lỗi có response, <code>useRetrySafeKey.settle</code> bỏ khoá chống trùng → bấm lại thì bước 1 ghi thêm một lần. Bản sửa trước chỉ che trường hợp mất mạng.</p>
     <p class="where">FE <code>Phoi/LenhSanXuatPhoi.tsx</code> ~1340; <code>hooks/useRetrySafeKey.ts</code></p></div>
 
