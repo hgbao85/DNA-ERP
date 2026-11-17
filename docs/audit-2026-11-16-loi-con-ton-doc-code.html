@@ -77,7 +77,7 @@
   </div>
 
   <div class="note">
-    <b>Cập nhật 17/11:</b> đã sửa <b>X1</b> (phần lớn), <b>X2–X4</b>, <b>L1–L6</b>, <b>K1–K6</b>, <b>B1–B2</b>, <b>C1–C4</b>; <b>X5</b> hết là lỗi — các thẻ có nhãn xanh "Đã sửa". Còn mở: <b>X1</b> (phần sót), <b>L7</b>, <b>B3</b>, <b>B4</b>, <b>B5</b>, <b>C5</b>. K1–K6, B1–B2 đã thử sống trên bản sao DB dev; X4, L3–L6 đã thử sống qua API trên DB dev (dữ liệu thử đã dọn); X2, X3, L1, L2, C1–C4 mới có test tự động (chưa thử sống - DB dev không có đợt cắt / lệnh chờ duyệt để thử). Toàn bộ đã gộp và push (BE <code>main</code>, FE <code>demo</code>). Số đếm bên dưới là số mục ban đầu.
+    <b>Cập nhật 17/11:</b> đã sửa <b>X1</b>, <b>X2–X4</b>, <b>L1–L6</b>, <b>K1–K6</b>, <b>B1–B2</b>, <b>C1–C4</b>; <b>X5</b> hết là lỗi — các thẻ có nhãn xanh "Đã sửa". Còn mở: <b>L7</b>, <b>B3</b>, <b>B4</b>, <b>B5</b>, <b>C5</b>. K1–K6, B1–B2 đã thử sống trên bản sao DB dev; X4, L3–L6 đã thử sống qua API trên DB dev (dữ liệu thử đã dọn); X1 (phần sót), X2, X3, L1, L2, C1–C4 mới có test tự động (chưa thử sống - DB dev không có đợt cắt / lệnh chờ duyệt để thử). Toàn bộ đã gộp và push (BE <code>main</code>, FE <code>demo</code>). Số đếm bên dưới là số mục ban đầu.
   </div>
 
   <div class="stats">
@@ -91,8 +91,8 @@
   <h2>1. Xưởng (Phôi, KCS)</h2>
   <p class="lead">Nặng nhất — làm sai số liệu sản xuất thật. Đề xuất sửa trước.</p>
 
-  <div class="item done"><h3><span class="id">X1</span>Báo cắt cộng được vào bó đã gửi KCS / đã đạt KCS <span class="tag high">Cao</span><span class="tag done">Đã sửa 17/11 (phần lớn)</span></h3>
-    <p class="fix"><b>Đã sửa — BE <code>2470ac9</code> (Sang, gộp <code>61c0880</code>):</b> báo cắt chọn + khoá bó trong transaction (<code>lockBusinessKey</code> + <code>FOR UPDATE</code>), gửi KCS đổi trạng thái có điều kiện (409 cho lời gọi thua), hoàn tác khoá bó và kiểm lại trạng thái; 12 test tích hợp tranh chấp. <b>Còn sót:</b> <code>reviewCutBundle</code> đọc số đoạn ngoài transaction — chưa kiểm còn là lỗi thật không.</p>
+  <div class="item done"><h3><span class="id">X1</span>Báo cắt cộng được vào bó đã gửi KCS / đã đạt KCS <span class="tag high">Cao</span><span class="tag done">Đã sửa 17/11</span></h3>
+    <p class="fix"><b>Đã sửa — BE <code>2470ac9</code> (Sang, gộp <code>61c0880</code>):</b> báo cắt chọn + khoá bó trong transaction (<code>lockBusinessKey</code> + <code>FOR UPDATE</code>), gửi KCS đổi trạng thái có điều kiện (409 cho lời gọi thua), hoàn tác khoá bó và kiểm lại trạng thái; 12 test tích hợp tranh chấp. <b>Phần sót đã đối chiếu lại 17/11 (BE <code>498c860</code>, gộp <code>c248b49</code>): ghi chú bên dưới viết trước <code>2470ac9</code> — <code>recordCutBatch</code> (khoá + chỉ đợt CUTTING) và <code>finishCutBundle</code> (đổi trạng thái có điều kiện) đã đúng hướng sửa; <code>reviewCutBundle</code> không còn là lỗi thật (mọi chỗ sửa số đoạn đều đòi CUTTING + FOR UPDATE, đợt chờ KCS không quay về CUTTING), vẫn chuyển đọc số đã cắt vào transaction sau bước giữ dòng đợt làm chốt phòng thủ. Chưa thử sống (bản sao không còn đợt cắt). </b> Ghi chú cũ: <code>reviewCutBundle</code> đọc số đoạn ngoài transaction — chưa kiểm còn là lỗi thật không.</p>
     <p><code>recordCutBatch</code> đọc bó đang mở ngoài transaction, không khoá, upsert theo id mà không kiểm lại trạng thái; <code>finishCutBundle</code> update không có điều kiện trạng thái. Gửi KCS hoặc KCS duyệt chen giữa thì số cắt vẫn được cộng vào bó AWAITING_QC/QC_PASSED → hàng chưa kiểm bị tính là đã kiểm. <code>reviewCutBundle</code> cũng đọc số đoạn ngoài transaction.</p>
     <p class="where">BE <code>steel-issues.service.ts</code> ~873-898, ~1340; <code>qc-reviews.service.ts</code> ~288-295</p>
     <p class="fix"><b>Hướng sửa:</b> đọc bó trong transaction với <code>FOR UPDATE</code>, kiểm <code>status = CUTTING</code> trước khi cộng; finish dùng <code>updateMany WHERE status</code> + kiểm count.</p></div>
