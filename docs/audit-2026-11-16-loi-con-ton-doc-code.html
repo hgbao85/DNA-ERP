@@ -77,7 +77,7 @@
   </div>
 
   <div class="note">
-    <b>Cập nhật 17/11:</b> đã sửa <b>X1</b> (phần lớn), <b>X2, X3, X4</b>, <b>K1, K2, K3, K4</b>; <b>X5</b> hết là lỗi; <b>L1–L6</b> đã sửa (BE nhánh <code>sua-lenh-l1-l6-17-11</code>, toàn bộ test BE qua, chưa thử sống) — các thẻ có nhãn xanh "Đã sửa". Đã đọc diff, type-check BE sạch, 1255/1255 test các module liên quan qua. Số đếm bên dưới là số mục ban đầu.
+    <b>Cập nhật 17/11:</b> đã sửa <b>X1</b> (phần lớn), <b>X2, X3, X4</b>, <b>K1, K2, K3, K4</b>; <b>X5</b> hết là lỗi; <b>L1–L6</b>, <b>C1–C4</b> đã sửa (BE nhánh <code>sua-lenh-l1-l6-17-11</code>, toàn bộ test BE qua, chưa thử sống) — các thẻ có nhãn xanh "Đã sửa". Đã đọc diff, type-check BE sạch, 1255/1255 test các module liên quan qua. Số đếm bên dưới là số mục ban đầu.
   </div>
 
   <div class="stats">
@@ -215,18 +215,22 @@
 
   <h2>5. Phương án cắt sắt</h2>
 
-  <div class="item mid"><h3><span class="id">C1</span>Hai lần duyệt cùng PI chọn chiều dài cây khác nhau <span class="tag mid">Trung bình</span></h3>
+  <div class="item done"><h3><span class="id">C1</span>Hai lần duyệt cùng PI chọn chiều dài cây khác nhau <span class="tag mid">Trung bình</span> <span class="tag done">Đã sửa 17/11</span></h3>
+    <p class="fix"><b>Đã sửa — BE nhánh <code>sua-cat-c1-c4-17-11</code>:</b> Khoá theo PI (<code>purchase-proposal-merge:{PI}</code>) giờ luôn lấy ở đầu transaction duyệt (kể cả phương án không có dòng mua), rồi kiểm LẠI xung đột chiều dài cây dưới khoá đó. 2 SKU cùng PI duyệt cùng lúc: lượt sau thấy lượt trước đã chốt và bị 409.</p>
     <p>Kiểm xung đột chiều dài cây nằm ngoài transaction <code>approve</code>, không kiểm lại dưới khoá.</p>
     <p class="where">BE <code>cutting-proposals.service.ts</code> ~2498</p></div>
 
-  <div class="item mid"><h3><span class="id">C2</span>Duyệt phương án đọc tồn bỏ qua quy cách <span class="tag mid">Trung bình</span></h3>
+  <div class="item done"><h3><span class="id">C2</span>Duyệt phương án đọc tồn bỏ qua quy cách <span class="tag mid">Trung bình</span> <span class="tag done">Đã sửa 17/11</span></h3>
+    <p class="fix"><b>Đã sửa — BE nhánh <code>sua-cat-c1-c4-17-11</code>:</b> Đọc tồn khi duyệt chỉ lấy đúng ô quy cách rỗng (<code>"spec" = ''</code>) - sắt không mang quy cách, xuất sắt / giữ chỗ cũng đi ô này. Trên DB dev chưa có dòng sắt nào mang quy cách nên trước đây chưa gây sai số thật, nay hết khả năng lấy bừa 1 dòng.</p>
     <p>Chỉ lấy <code>locked[0]</code> trong khi <code>stock_quant</code> unique theo (kho, vật tư, chiều dài, spec) → thiếu tồn khi có nhiều spec.</p>
     <p class="where">BE <code>cutting-proposals.service.ts</code> ~2630-2636</p></div>
 
-  <div class="item mid"><h3><span class="id">C3</span>Hàng đợi giải nằm trong bộ nhớ <span class="tag mid">Trung bình</span></h3>
+  <div class="item done"><h3><span class="id">C3</span>Hàng đợi giải nằm trong bộ nhớ <span class="tag mid">Trung bình</span> <span class="tag done">Đã sửa 17/11</span></h3>
+    <p class="fix"><b>Đã sửa — BE nhánh <code>sua-cat-c1-c4-17-11</code>:</b> Hàng đợi bộ giải có mức ưu tiên: lượt chỉ-đọc của màn gom đợt ("cách sửa", "xác minh sâu") xếp SAU lượt giải chính thức - lượt chính thức vào sau vẫn chen lên trước, chỉ còn chờ đúng bài đang chạy. Phần "kẹt Đang tính sau khi restart" đã có sẵn cách xử lý: quá hạn hiện "Nghi treo… Bấm Tính lại" và không chặn tính lại; BE chạy 1 instance nên không thêm việc dọn lúc khởi động (DB dev dùng chung nhiều máy, dọn lúc khởi động sẽ giết lượt đang tính của máy khác).</p>
     <p>Restart BE để lại proposal CALCULATING mồ côi, bước mua hàng sau khi giải không chạy, phải cứu tay. Route chỉ cần quyền đọc (<code>cutting-batch-fix-options</code> 60s, <code>candidates?deepVerify=true</code> 120s) chiếm chung worker, làm lần giải chính thức hết giờ; giờ chờ hàng đợi bị tính vào timeout.</p></div>
 
-  <div class="item mid"><h3><span class="id">C4</span>Đổi xưởng dời cả số dư đoạn không di chuyển thật <span class="tag mid">Trung bình</span></h3>
+  <div class="item done"><h3><span class="id">C4</span>Đổi xưởng dời cả số dư đoạn không di chuyển thật <span class="tag mid">Trung bình</span> <span class="tag done">Đã sửa 17/11</span></h3>
+    <p class="fix"><b>Đã sửa — BE nhánh <code>sua-cat-c1-c4-17-11</code> (user chọn "tách dư ở kho cũ"):</b> bảng mới <code>segment_production_leftovers</code> (migration <code>20261117120000</code>, đã lên DB dev). Đổi xưởng: phần dư của lệnh ghi vào dòng dư ĐÚNG kho cũ, dòng phía cộng sang kho mới với dư 0; đổi về lại kho cũ thì gộp ngược. Tính lại: tổng dư giảm thì trừ ở kho cũ trước (bút toán từ kho cũ), phần dư còn ở kho cũ được trừ khỏi đích dư của kho mới; dư tăng vào kho mới. Khoá mọi ô theo thứ tự cố định. Màn "giữ đoạn của lệnh" hiện phần dư ở đúng ô kho cũ.</p>
     <p><code>transferOrderHoldings</code> trỏ lại mọi <code>SegmentProduction.warehouseId</code> kể cả phần dư/đã tiêu vẫn ở kho cũ → lần tính lại sau ghi sổ sai kho.</p>
     <p class="where">BE <code>segment-stock.service.ts</code> ~561</p></div>
 
