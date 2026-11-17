@@ -76,6 +76,10 @@
     Sau 16/11 đã có thêm commit của người khác, nên <b>trước khi sửa mục nào phải đọc lại code chỗ đó</b> — số dòng có thể đã lệch, có mục có thể đã được sửa.
   </div>
 
+  <div class="note">
+    <b>Cập nhật 17/11:</b> đã sửa <b>X1</b> (phần lớn), <b>K1, K2, K3, K4</b> — các thẻ có nhãn xanh "Đã sửa". Đã đọc diff, type-check BE sạch, 1255/1255 test các module liên quan qua. Số đếm bên dưới là số mục ban đầu.
+  </div>
+
   <div class="stats">
     <div class="stat"><div class="n">5</div><div class="l">Xưởng (Phôi, KCS)</div></div>
     <div class="stat"><div class="n">6</div><div class="l">Lệnh sản xuất / SKU</div></div>
@@ -87,7 +91,8 @@
   <h2>1. Xưởng (Phôi, KCS)</h2>
   <p class="lead">Nặng nhất — làm sai số liệu sản xuất thật. Đề xuất sửa trước.</p>
 
-  <div class="item high"><h3><span class="id">X1</span>Báo cắt cộng được vào bó đã gửi KCS / đã đạt KCS <span class="tag high">Cao</span></h3>
+  <div class="item done"><h3><span class="id">X1</span>Báo cắt cộng được vào bó đã gửi KCS / đã đạt KCS <span class="tag high">Cao</span><span class="tag done">Đã sửa 17/11 (phần lớn)</span></h3>
+    <p class="fix"><b>Đã sửa — BE <code>2470ac9</code> (Sang, gộp <code>61c0880</code>):</b> báo cắt chọn + khoá bó trong transaction (<code>lockBusinessKey</code> + <code>FOR UPDATE</code>), gửi KCS đổi trạng thái có điều kiện (409 cho lời gọi thua), hoàn tác khoá bó và kiểm lại trạng thái; 12 test tích hợp tranh chấp. <b>Còn sót:</b> <code>reviewCutBundle</code> đọc số đoạn ngoài transaction — chưa kiểm còn là lỗi thật không.</p>
     <p><code>recordCutBatch</code> đọc bó đang mở ngoài transaction, không khoá, upsert theo id mà không kiểm lại trạng thái; <code>finishCutBundle</code> update không có điều kiện trạng thái. Gửi KCS hoặc KCS duyệt chen giữa thì số cắt vẫn được cộng vào bó AWAITING_QC/QC_PASSED → hàng chưa kiểm bị tính là đã kiểm. <code>reviewCutBundle</code> cũng đọc số đoạn ngoài transaction.</p>
     <p class="where">BE <code>steel-issues.service.ts</code> ~873-898, ~1340; <code>qc-reviews.service.ts</code> ~288-295</p>
     <p class="fix"><b>Hướng sửa:</b> đọc bó trong transaction với <code>FOR UPDATE</code>, kiểm <code>status = CUTTING</code> trước khi cộng; finish dùng <code>updateMany WHERE status</code> + kiểm count.</p></div>
@@ -145,20 +150,24 @@
 
   <h2>3. Kho / Mua hàng</h2>
 
-  <div class="item high"><h3><span class="id">K1</span>Xuất tiêu hao / đóng gói vẫn có thể làm tồn âm <span class="tag high">Cao</span></h3>
+  <div class="item done"><h3><span class="id">K1</span>Xuất tiêu hao / đóng gói vẫn có thể làm tồn âm <span class="tag high">Cao</span><span class="tag done">Đã sửa 17/11</span></h3>
+    <p class="fix"><b>Đã sửa — BE <code>d217407</code> (gộp <code>e54554c</code>):</b> chỉ đọc ô tồn độ dài 0 / quy cách rỗng — đúng ô ghi sổ và ô <code>getAvailableQty</code> tính.</p>
     <p>Đọc <code>stock_quant</code> không lọc <code>stockLengthMm</code>/<code>spec</code>, chỉ lấy dòng đầu, trong khi ghi sổ vào bucket 0/''. Có nhiều bucket thì số tồn đọc ra là ngẫu nhiên. Khớp ghi chú cũ "chưa fix triệt để" (28/08).</p>
     <p class="where">BE <code>material-issues.service.ts</code> ~250-254; <code>packaging-issues.service.ts</code> ~184-187, ~268-272</p></div>
 
-  <div class="item high"><h3><span class="id">K2</span>Nhận hàng trễ bị chặn; giữ chỗ không theo kho <span class="tag high">Cao</span></h3>
+  <div class="item done"><h3><span class="id">K2</span>Nhận hàng trễ bị chặn; giữ chỗ không theo kho <span class="tag high">Cao</span><span class="tag done">Đã sửa 17/11</span></h3>
+    <p class="fix"><b>Đã sửa — BE <code>f7ccf10</code> (gộp <code>b3c31c0</code>):</b> <code>reserve()</code> gặp dòng cùng khoá đã RELEASED thì mở lại ACTIVE (không thấp hơn phần đã tiêu) thay vì trả về như đang giữ. Phần "giữ chỗ theo kho" thuộc thiết kế giữ chỗ theo kho (gộp BE <code>04d6b38</code> 16/11) — chưa đối chiếu lại với mô tả bên dưới.</p>
     <p>Khi pool trống, <code>creditPool</code> tạo dòng giữ chỗ với <code>idempotencyKey</code> cố định; nếu đã có dòng RELEASED cùng khoá (sau <code>releaseByProductionInvoice</code>) thì P2002 ngay trong transaction nhận hàng. <code>reserve</code> còn trả dòng RELEASED như đang hoạt động. Ngoài ra <code>creditPool</code>/<code>loadPool</code> bỏ qua kho và chiều dài.</p>
     <p class="where">BE <code>stock-reservations.service.ts</code> ~90-93, ~323-362, ~613</p>
     <p class="fix"><b>Liên quan:</b> phần "giữ chỗ không theo kho" đã có bản thiết kế <code>docs/thiet-ke-2026-11-16-giu-cho-theo-kho.html</code>; phần P2002 khi nhận trễ cần sửa riêng.</p></div>
 
-  <div class="item mid"><h3><span class="id">K3</span>Điều chỉnh tồn không khoá, không kiểm âm <span class="tag mid">Trung bình</span></h3>
+  <div class="item done"><h3><span class="id">K3</span>Điều chỉnh tồn không khoá, không kiểm âm <span class="tag mid">Trung bình</span><span class="tag done">Đã sửa 17/11</span></h3>
+    <p class="fix"><b>Đã sửa — BE <code>f7ccf10</code> + <code>350f51c</code> (CK7), FE <code>1dc6896</code>:</b> "Sửa nhanh tồn kho" luôn trong transaction, khoá đúng ô tồn ở kho thật, chặn tồn âm; hạ dưới phần đang giữ vẫn ghi (số đếm thực tế đúng — anh chốt 17/11) kèm <code>reservationWarning</code>, FE hiện hộp cảnh báo. Phải đúng 1 chân kho thật + 1 chân kho ảo, thủ kho chỉ sửa kho mình. <b>Còn mở:</b> xác nhận phiếu chuyển kho vẫn không kiểm lại tồn nguồn (dựa vào giữ chỗ).</p>
     <p><code>adjust</code> không có <code>expectedCurrentQty</code> thì không khoá, không kiểm âm, không xét giữ chỗ, chuyển được giữa 2 kho bất kỳ (kể cả kho ảo), bỏ qua phiếu chuyển. Nhánh có <code>expectedCurrentQty</code> cũng không xét giữ chỗ. Xác nhận phiếu chuyển kho không kiểm lại tồn nguồn nên bị ảnh hưởng theo.</p>
     <p class="where">BE <code>stock-ledger.service.ts</code> ~228-287; <code>warehouse-transfers.service.ts</code> ~761-791</p></div>
 
-  <div class="item mid"><h3><span class="id">K4</span>Phiếu đặt hàng NCC đã "Sửa phiếu" vẫn nhận hàng được <span class="tag mid">Trung bình</span></h3>
+  <div class="item done"><h3><span class="id">K4</span>Phiếu đặt hàng NCC đã "Sửa phiếu" vẫn nhận hàng được <span class="tag mid">Trung bình</span><span class="tag done">Đã sửa 17/11</span></h3>
+    <p class="fix"><b>Đã sửa — BE <code>d217407</code> (gộp <code>e54554c</code>):</b> xem trước / nhận hàng trả 409 khi đơn đang thay phiếu hoặc đã huỷ, tái kiểm trong transaction sau khoá (từ chối nhận vẫn cho). Gỡ dòng khỏi đơn nháp đếm lại số dòng sau khoá — không còn đơn nháp rỗng.</p>
     <p>Nhận hàng không kiểm <code>SupplierOrder.status</code>; dòng nhận dở vẫn nhận tiếp sau khi <code>revise</code> đưa phiếu về DRAFT. Thêm: 2 lệnh <code>removeItem</code> cùng lúc có thể để lại phiếu nháp rỗng.</p>
     <p class="where">BE <code>purchase-receipts.service.ts</code> ~534-566; <code>supplier-orders.service.ts</code> ~214</p></div>
 
