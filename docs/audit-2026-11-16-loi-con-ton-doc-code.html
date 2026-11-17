@@ -77,7 +77,7 @@
   </div>
 
   <div class="note">
-    <b>Cập nhật 17/11:</b> đã sửa <b>X1</b> (phần lớn), <b>X2, X3, X4</b>, <b>K1, K2, K3, K4</b>; <b>X5</b> hết là lỗi — các thẻ có nhãn xanh "Đã sửa". Đã đọc diff, type-check BE sạch, 1255/1255 test các module liên quan qua. Số đếm bên dưới là số mục ban đầu.
+    <b>Cập nhật 17/11:</b> đã sửa <b>X1</b> (phần lớn), <b>X2, X3, X4</b>, <b>K1, K2, K3, K4</b>; <b>X5</b> hết là lỗi; <b>L1–L6</b> đã sửa (BE nhánh <code>sua-lenh-l1-l6-17-11</code>, toàn bộ test BE qua, chưa thử sống) — các thẻ có nhãn xanh "Đã sửa". Đã đọc diff, type-check BE sạch, 1255/1255 test các module liên quan qua. Số đếm bên dưới là số mục ban đầu.
   </div>
 
   <div class="stats">
@@ -120,29 +120,35 @@
 
   <h2>2. Lệnh sản xuất / SKU</h2>
 
-  <div class="item high"><h3><span class="id">L1</span>Dòng "Đã duyệt" nhưng không có lệnh sản xuất <span class="tag high">Cao</span></h3>
+  <div class="item done"><h3><span class="id">L1</span>Dòng "Đã duyệt" nhưng không có lệnh sản xuất <span class="tag high">Cao</span> <span class="tag done">Đã sửa 17/11</span></h3>
+    <p class="fix"><b>Đã sửa — BE nhánh <code>sua-lenh-l1-l6-17-11</code>:</b> Cấp số + tạo lệnh trong 1 transaction dưới khoá theo đơn bán (<code>po-number:{đơn}</code>); số = số lớn nhất đã cấp + 1 (không còn đếm + 1 — lệnh giữa bị xoá cũng không đụng số). Không còn trùng khi 2 PI cùng đơn duyệt cùng lúc. Lỗi vẫn báo Admin như cũ và nút "Tạo lại" vẫn dùng được (cũng đi qua hàm cấp số mới).</p>
     <p><code>resolvePoNumber</code> cấp số PO bằng đếm + 1. Duyệt cùng lúc 2 PI thuộc cùng đơn bán thì trùng <code>poNumber</code> (unique), lỗi bị nuốt → dòng PI APPROVED mà không có ProductionOrder.</p>
     <p class="where">BE <code>production-orders.service.ts</code> ~241-244; <code>production-invoices.service.ts</code> ~2236-2256</p>
     <p class="fix"><b>Hướng sửa:</b> cấp số bằng bộ đếm upsert (như <code>allocateSlipCode</code>) hoặc khoá theo đơn bán; không nuốt lỗi. Admin đã có nút "Tạo lại" cho dòng mua ngoài sắt — kiểm xem có cứu được trường hợp này không.</p></div>
 
-  <div class="item mid"><h3><span class="id">L2</span>Gửi QLSX / gửi Sếp hàng loạt ghi đè nhau <span class="tag mid">Trung bình</span></h3>
+  <div class="item done"><h3><span class="id">L2</span>Gửi QLSX / gửi Sếp hàng loạt ghi đè nhau <span class="tag mid">Trung bình</span> <span class="tag done">Đã sửa 17/11</span></h3>
+    <p class="fix"><b>Đã sửa — BE nhánh <code>sua-lenh-l1-l6-17-11</code>:</b> <code>sendBatchToQlsx</code>: ghi trong transaction, chỉ dòng còn "chưa gửi / bị trả lại" và còn trong PI, so count — lệch thì 409 cả lượt. <code>sendBatchToBoss</code> đã có sẵn điều kiện + count (không cần sửa).</p>
     <p><code>sendBatchToQlsx</code> và <code>sendBatchToBoss</code> dùng <code>updateMany</code> không lọc trạng thái, không kiểm count — khác với route từng dòng.</p>
     <p class="where">BE <code>production-invoices.service.ts</code> ~2030, ~2100</p></div>
 
-  <div class="item mid"><h3><span class="id">L3</span>Từ chối được 1 SKU khỏi PI gộp <span class="tag mid">Trung bình</span></h3>
+  <div class="item done"><h3><span class="id">L3</span>Từ chối được 1 SKU khỏi PI gộp <span class="tag mid">Trung bình</span> <span class="tag done">Đã sửa 17/11</span></h3>
+    <p class="fix"><b>Đã sửa — BE nhánh <code>sua-lenh-l1-l6-17-11</code>:</b> Sếp (<code>rejectItem</code>) và QLSX (<code>rejectItemByQlsx</code>) từ chối lẻ 1 SKU của PI gộp → 409, phải từ chối cả cụm. FE vốn đã gọi route cả cụm cho PI gộp.</p>
     <p><code>rejectItem</code> và <code>rejectItemByQlsx</code> không có chặn <code>isMerged</code> như <code>approveItem</code>. Phương án cắt theo PI vẫn tính cả SKU đã bị từ chối.</p>
     <p class="where">BE <code>production-invoices.service.ts</code> ~2529, ~2688</p></div>
 
-  <div class="item mid"><h3><span class="id">L4</span>Báo đóng gói / chuyền kiểm vượt trần khi báo cùng lúc <span class="tag mid">Trung bình</span></h3>
+  <div class="item done"><h3><span class="id">L4</span>Báo đóng gói / chuyền kiểm vượt trần khi báo cùng lúc <span class="tag mid">Trung bình</span> <span class="tag done">Đã sửa 17/11</span></h3>
+    <p class="fix"><b>Đã sửa — BE nhánh <code>sua-lenh-l1-l6-17-11</code>:</b> Đọc tổng + ghi trong 1 transaction dưới khoá: đóng gói theo SKU, chuyền kiểm theo (SKU, mảnh). Hai lần báo cùng lúc không vượt trần nữa.</p>
     <p><code>recordPackaging</code> và <code>recordTransferCheck</code> đọc tổng rồi mới insert, không khoá, không transaction.</p>
     <p class="where">BE <code>production-invoices.service.ts</code> ~3175-3216, ~3405-3420</p></div>
 
-  <div class="item mid"><h3><span class="id">L5</span>Trạng thái SKU đi lùi / từ chối đè lên duyệt <span class="tag mid">Trung bình</span></h3>
+  <div class="item done"><h3><span class="id">L5</span>Trạng thái SKU đi lùi / từ chối đè lên duyệt <span class="tag mid">Trung bình</span> <span class="tag done">Đã sửa 17/11</span></h3>
+    <p class="fix"><b>Đã sửa — BE nhánh <code>sua-lenh-l1-l6-17-11</code>:</b> Duyệt/từ chối nhánh và xác nhận nhánh chỉ khi SKU còn "đang làm" (409 nếu đã gửi Sếp / đã duyệt). Xác nhận nhánh ghi có điều kiện rồi đọc lại cả 2 mốc — sửa thêm race: xác nhận mảnh và chi tiết cùng lúc trước đây làm SKU kẹt ở "đang làm". Sếp từ chối ghi có điều kiện "đang chờ duyệt" → không đè lên lần duyệt chạy cùng lúc.</p>
     <p><code>approveParts</code>/<code>approveDetail</code> không kiểm trạng thái: gọi trên SKU đã APPROVED sẽ kéo về "Chờ Sếp duyệt". <code>rejectByBoss</code> ghi không điều kiện nên có thể đè lên <code>approve</code> chạy cùng lúc (SKU về IN_PROGRESS sau khi revision đã kích hoạt). <code>reviewManhQuota</code>/<code>reviewDetailQuota</code> cũng không kiểm trạng thái.</p>
     <p class="where">BE <code>skus.service.ts</code> (approveParts/approveDetail, rejectByBoss, reviewManh/DetailQuota)</p>
     <p class="fix"><b>Liên quan:</b> các hàm này vừa được thêm ghi lịch sử duyệt SKU (16/11) — khi sửa thì giữ nguyên chỗ <code>recordHistory</code>.</p></div>
 
-  <div class="item mid"><h3><span class="id">L6</span>Dòng thêm sau vào đơn bán không xuống sản xuất <span class="tag mid">Trung bình</span></h3>
+  <div class="item done"><h3><span class="id">L6</span>Dòng thêm sau vào đơn bán không xuống sản xuất <span class="tag mid">Trung bình</span> <span class="tag done">Đã sửa 17/11</span></h3>
+    <p class="fix"><b>Đã sửa — BE nhánh <code>sua-lenh-l1-l6-17-11</code>:</b> Thêm dòng vào đơn có sẵn tạo luôn dòng sản xuất chưa gom (cùng transaction). Chặn sửa số lượng giờ chỉ áp khi KHSX đã gom vào lệnh; chưa gom thì dòng sản xuất đi theo số mới (đọc lại trong transaction, vừa bị gom thì 409).</p>
     <p><code>sales-orders.service.ts addItem</code> không tạo ProductionInvoiceItem. Chặn số lượng ở <code>updateItem</code> luôn khớp nên vô tác dụng.</p>
     <p class="where">BE <code>sales-orders.service.ts</code> ~397-420, ~439-453</p></div>
 
