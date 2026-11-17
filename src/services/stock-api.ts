@@ -57,6 +57,8 @@ export interface BeStockLedgerEntry {
   productVariantLabel: string | null;
   qty: number;
   refType: string;
+  /** Chỉ có ở phản hồi "Sửa nhanh tồn kho" (K3 17/11): tồn mới thấp hơn phần đang giữ cho lệnh - BE vẫn ghi, kèm câu báo. */
+  reservationWarning?: string | null;
   /** Id bản ghi nguồn (vd warehouse_transfers.id) - đa bảng tuỳ refType, chưa dùng để link. */
   refId: string | null;
   /** Mã chứng từ đọc được (vd "CK-2026-010"). CHỈ phiếu chuyển kho có mã; nguồn khác (xuất sắt,
