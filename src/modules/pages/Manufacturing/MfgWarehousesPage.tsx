@@ -524,7 +524,7 @@ function WarehouseDetail({ wh, items, canWrite, isDeletable, openingBalanceWareh
     setAdjustBusy(true)
     setAdjustError(null)
     try {
-      await adjustStock({
+      const entry = await adjustStock({
         fromWarehouseId: delta > 0 ? openingBalanceWarehouseId : wh.id,
         toWarehouseId:   delta > 0 ? wh.id : openingBalanceWarehouseId,
         materialId: String(it.materialId),
@@ -541,6 +541,10 @@ function WarehouseDetail({ wh, items, canWrite, isDeletable, openingBalanceWareh
       })
       setPendingAdjust(null)
       onQtyAdjusted()
+      // K3 17/11: tồn mới thấp hơn phần đang giữ cho lệnh - BE vẫn ghi (số đếm thực tế là đúng), báo để thủ kho báo người mua / KHSX.
+      if (entry.reservationWarning) {
+        ask({ title: 'Đã sửa tồn - thiếu hàng cho lệnh', message: entry.reservationWarning, confirmLabel: 'Đã hiểu', cancelLabel: 'Đóng' }, () => {})
+      }
     } catch (e) {
       setAdjustError(e instanceof Error ? e.message : 'Không thể sửa tồn kho')
     } finally {
