@@ -8,7 +8,7 @@ import { useFetch } from '../../../hooks/useFetch'
 import { getMaterials, uploadDocument } from '../../../services/api'
 import { useWarehouseName } from '../../../hooks/useWarehouseName'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
-import { visibleProposalsFor, buildBuyerByMaterialId } from '../../../utils/purchasingRouting'
+import { visibleProposalsFor, buildBuyerByMaterialId, splitItemsByOwner } from '../../../utils/purchasingRouting'
 import { ItemCard, ProposalCards } from './mobileCards'
 import EmptyState from '../../../components/EmptyState'
 import { pageTitle, pageSubtitle } from '../../../styles/typography'
@@ -182,7 +182,10 @@ export default function TheoDoiMuaHangPage() {
   // purchasing, kể cả khi phần của đồng nghiệp khác trong cùng đề xuất vẫn còn dở báo giá.
   const proposals = materialsLoading
     ? []
-    : visibleProposalsFor(user, allProposals, buyerByMaterialId).filter(p => p.items.some(item => item.status === 'purchasing'))
+    : visibleProposalsFor(user, allProposals, buyerByMaterialId)
+        // K6 16/11: chỉ giữ dòng của chính người mua này - trước đây mở 1 đề xuất gộp thấy cả dòng của người mua khác.
+        .map(p => ({ ...p, items: splitItemsByOwner(user, p.items, buyerByMaterialId).mine }))
+        .filter(p => p.items.some(item => item.status === 'purchasing'))
 
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const selected = proposals.find(p => p.id === selectedId) ?? null

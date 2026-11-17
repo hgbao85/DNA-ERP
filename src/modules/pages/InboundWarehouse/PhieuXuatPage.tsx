@@ -92,7 +92,11 @@ export default function PhieuXuatPage({ listOnly = false }: { listOnly?: boolean
     setSharedMaterialId(''); setSharedQty(''); setSharedNote('')
   }
 
+  // K6 16/11: khoá đồng bộ chống bấm 2 lần - `creating` là state, lần bấm thứ 2 tới trước khi nút kịp disable vẫn tạo phiếu thứ 2.
+  const creatingRef = useRef(false)
   const create = async () => {
+    if (creatingRef.current) return
+    creatingRef.current = true
     setCreating(true); setCreateErr('')
     try {
       await createIssueSlip({
@@ -108,6 +112,7 @@ export default function PhieuXuatPage({ listOnly = false }: { listOnly?: boolean
     } catch (e) {
       setCreateErr(errMsg(e, 'Không tạo được phiếu xuất'))
     } finally {
+      creatingRef.current = false
       setCreating(false)
     }
   }

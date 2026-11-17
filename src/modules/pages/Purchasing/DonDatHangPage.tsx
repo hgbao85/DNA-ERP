@@ -7,7 +7,7 @@ import { useIsMobile } from '../../../hooks/useMediaQuery'
 import { useRealtimeRefetch } from '../../../realtime/hooks'
 import { getMaterials, uploadDocument } from '../../../services/api'
 import { getSupplierOrders, type SupplierOrder, type SupplierOrderItem } from '../../../services/supplier-orders-api'
-import { buildBuyerByMaterialId, splitItemsByOwner, visibleProposalsFor } from '../../../utils/purchasingRouting'
+import { buildBuyerByMaterialId, isItemMine, splitItemsByOwner, visibleProposalsFor } from '../../../utils/purchasingRouting'
 import EmptyState from '../../../components/EmptyState'
 import { pageTitle, pageSubtitle } from '../../../styles/typography'
 import {
@@ -87,7 +87,16 @@ export default function DonDatHangPage() {
   const q = filter.trim().toLowerCase()
   const shown = q ? looseRows.filter(r => r.item.name.toLowerCase().includes(q) || r.piCode.toLowerCase().includes(q)) : looseRows
   const checkedRows = looseRows.filter(r => checked.has(r.item.itemId!))
-  const activeOrders = (orders ?? []).filter(o => o.status !== 'CANCELLED')
+  // K6 16/11: chỉ đơn có dòng vật tư mình phụ trách (người mua không gộp chéo, nên 1 đơn thuộc đúng 1 người) - trước đây thấy
+  // và thao tác được đơn của người mua khác. Dòng đơn chỉ có mã vật tư nên tra id qua danh mục; mã lạ coi như chưa gán ai (hiện).
+  const materialIdByCode = new Map((materials ?? []).map(m => [m.code, m.id]))
+  const activeOrders = materialsLoading
+    ? []
+    : (orders ?? []).filter(o => o.status !== 'CANCELLED'
+        && (o.items.length === 0
+          // Đơn không còn dòng nào: chỉ người lập (và Giám đốc) thấy.
+          ? user?.role === 'BOSS' || o.createdById === String(user?.id)
+          : o.items.some(it => isItemMine(user, materialIdByCode.get(it.materialCode), buyerByMaterialId))))
   const labelOf = (o: SupplierOrder) => `${o.supplierName} – Số ${o.code}`
   const proposalIdsOf = (o: SupplierOrder) => [...new Set(o.items.map(it => it.proposalId))]
 

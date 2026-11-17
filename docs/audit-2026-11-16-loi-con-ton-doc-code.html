@@ -182,10 +182,12 @@
     <p class="where">BE <code>purchase-receipts.service.ts</code> ~534-566; <code>supplier-orders.service.ts</code> ~214</p></div>
 
   <div class="item mid"><h3><span class="id">K5</span>Đọc tồn / sổ kho / phiếu XK không lọc theo kho được giao <span class="tag mid">Trung bình</span></h3>
+    <p class="fix"><b>Đã sửa — BE <code>7890d24</code> (gộp <code>785bfae</code>), 17/11:</b> tồn / sổ kho lọc theo họ kho của thủ kho; phiếu XK lọc đúng kho trong câu truy vấn, xem phiếu kho khác 403; tồn không còn N+1 (chưa phân trang). <code>material-issues</code> giữ nguyên — người đọc là tổ Hàn/Sơn, đợt xuất không có cột kho.</p>
     <p><code>GET stock</code>, <code>stock-ledger</code>, <code>material-issues</code> không áp scope kho; <code>issue-slips/:id</code> không kiểm scope; danh sách phiếu XK lấy 200 dòng rồi mới lọc scope trong bộ nhớ → thủ kho có thể thiếu phiếu. <code>stock-quant</code> gọi <code>getAvailableQty</code> từng dòng (N+1), không phân trang.</p>
     <p class="where">BE <code>stock-quant.controller.ts</code> ~17, <code>stock-quant.service.ts</code> ~52, <code>issue-slips.service.ts</code> ~768-777</p></div>
 
   <div class="item low"><h3><span class="id">K6</span>Các mục nhỏ <span class="tag low">Thấp</span></h3>
+    <p class="fix"><b>Đã sửa — BE <code>7890d24</code> (gộp <code>785bfae</code>), 17/11:</b> số CK lấy số lớn nhất đúng dạng +1; xuất đóng gói lấy kho thành phẩm của lệnh (nguồn = đích ghi sang kho ảo Sản xuất); sửa đơn bán đi 1 request, BE ghi 1 transaction; Mua hàng lọc dòng/đơn theo người mua; Phiếu xuất khoá bấm 2 lần (BE chưa có Idempotency-Key lúc tạo — cần migration).</p>
     <p>Đếm số CK bằng <code>startsWith</code>: mã kho là tiền tố của mã kho khác thì đếm sai, có thể trùng số (<code>warehouse-transfers.service.ts</code> ~1080).</p>
     <p>Xuất đóng gói lấy kho nguồn luôn là <code>Material.warehouseId</code>, không theo xưởng → có thể lỗi "from == to" (đã gặp 07-08/10).</p>
     <p>FE: Theo dõi / Lịch sử mua hàng hiện cả dòng của người mua khác trong cùng đề xuất; Đơn đặt hàng NCC không lọc theo người mua. Tạo phiếu XK (<code>PhieuXuatPage.tsx</code> ~98) không có khoá chống trùng. Sửa đơn bán patch từng dòng lần lượt, lỗi giữa chừng để lại cập nhật nửa vời.</p></div>
