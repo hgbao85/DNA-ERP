@@ -77,7 +77,7 @@
   </div>
 
   <div class="note">
-    <b>Cập nhật 17/11:</b> đã sửa <b>X1</b> (phần lớn), <b>X2, X3, X4</b> (phần chính), <b>K1, K2, K3, K4</b>; <b>X5</b> hết là lỗi — các thẻ có nhãn xanh "Đã sửa". Đã đọc diff, type-check BE sạch, 1255/1255 test các module liên quan qua. Số đếm bên dưới là số mục ban đầu.
+    <b>Cập nhật 17/11:</b> đã sửa <b>X1</b> (phần lớn), <b>X2, X3, X4</b>, <b>K1, K2, K3, K4</b>; <b>X5</b> hết là lỗi — các thẻ có nhãn xanh "Đã sửa". Đã đọc diff, type-check BE sạch, 1255/1255 test các module liên quan qua. Số đếm bên dưới là số mục ban đầu.
   </div>
 
   <div class="stats">
@@ -108,8 +108,8 @@
     <p><code>reverseCut</code> và <code>undoLastCutBatch</code> giảm số cắt mà không lấy khoá step-batch, không kiểm lại quy tắc "công đoạn ≤ số cắt". <code>undoLastCutBatch</code> còn dùng dữ liệu đọc trước transaction, không kiểm chủ báo cáo (thợ Phôi này huỷ được báo cáo của thợ khác), và <code>reversalOfId</code> trỏ vào báo cáo mới nhất kể cả khi số lượng không khớp.</p>
     <p class="where">BE <code>floor-review.service.ts</code> ~444; <code>steel-issues.service.ts</code> ~1251</p></div>
 
-  <div class="item done"><h3><span class="id">X4</span>QLSX xưởng này thao tác được xưởng khác <span class="tag mid">Trung bình</span><span class="tag done">Đã sửa 17/11 (phần chính)</span></h3>
-    <p class="fix"><b>Đã sửa — BE nhánh <code>sua-xuong-x2-x5-17-11</code>:</b> danh sách chờ gửi KCS, số đỏ menu "Sản lượng xưởng", gửi KCS (đợt cắt / nhóm công đoạn / lô mảnh) và hủy lần báo lọc/chặn theo xưởng hàng đợi của PI ở tổ đó (cùng quy tắc hàng đợi, Sơn theo xưởng sơn) qua <code>filterByQueueWorkshop</code>; QLSX không gắn xưởng thấy hết như cũ. Quét QR nhận sắt đã chặn khác xưởng từ 16/11. <b>Còn mở:</b> CRUD máy/thợ và thống kê <code>stats</code> chưa lọc theo xưởng.</p>
+  <div class="item done"><h3><span class="id">X4</span>QLSX xưởng này thao tác được xưởng khác <span class="tag mid">Trung bình</span><span class="tag done">Đã sửa 17/11</span></h3>
+    <p class="fix"><b>Đã sửa — BE nhánh <code>sua-xuong-x2-x5-17-11</code>:</b> danh sách chờ gửi KCS, số đỏ menu "Sản lượng xưởng", gửi KCS (đợt cắt / nhóm công đoạn / lô mảnh) và hủy lần báo lọc/chặn theo xưởng hàng đợi của PI ở tổ đó (cùng quy tắc hàng đợi, Sơn theo xưởng sơn) qua <code>filterByQueueWorkshop</code>; QLSX không gắn xưởng thấy hết như cũ. Quét QR nhận sắt đã chặn khác xưởng từ 16/11. Phần còn lại (BE nhánh <code>sua-x4-may-tho-17-11</code>): máy và công nhân — QLSX gắn xưởng chỉ thấy/sửa/đổi mã QR/đặt lại PIN/mở khoá của xưởng mình + loại chưa khai xưởng; tạo mới tự gán xưởng mình, chọn xưởng khác hoặc bỏ xưởng của máy → 403. Thống kê <code>stats</code> (đã duyệt + đang chờ) lọc theo xưởng hàng đợi của PI ở từng tổ; Giám đốc/Admin/QLSX không gắn xưởng thấy hết; "Sản lượng của tôi" của công nhân không đổi. Đã thử sống qua API.</p>
     <p>Danh sách duyệt, gửi KCS, huỷ báo cáo, tổng hợp (<code>floor.controller.ts</code> ~411-448), CRUD máy/thợ (<code>floor-admin.service.ts</code> ~270-583), thống kê, và quét QR nhận sắt (<code>floor-scan.service.ts</code> ~179, ~573) đều không lọc theo xưởng. FE <code>QlsxFloorPage.tsx</code> cũng chỉ lọc hàng đợi, không lọc phần duyệt/tổng hợp.</p>
     <p class="where">BE <code>src/modules/floor/*</code>; FE <code>QlsxFloorPage.tsx</code> ~40, ~90</p></div>
 
