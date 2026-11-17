@@ -77,7 +77,7 @@
   </div>
 
   <div class="note">
-    <b>Cập nhật 17/11:</b> đã sửa <b>X1</b> (phần lớn), <b>X2–X4</b>, <b>L1–L6</b>, <b>K1–K6</b>, <b>B1–B2</b>, <b>C1–C4</b>; <b>X5</b> hết là lỗi — các thẻ có nhãn xanh "Đã sửa". Còn mở: <b>X1</b> (phần sót), <b>L7</b>, <b>B3</b>, <b>B4</b>, <b>B5</b>, <b>C5</b>. K1–K6, B1–B2 đã thử sống trên bản sao DB dev; X4, L3–L6 đã thử sống qua API trên DB dev (dữ liệu thử đã dọn); X2, X3, L1, L2, C1–C4 mới có test tự động (chưa thử sống - DB dev không có đợt cắt / lệnh chờ duyệt để thử). Toàn bộ đã gộp và push (BE <code>main</code>, FE <code>demo</code>). Số đếm bên dưới là số mục ban đầu.
+    <b>Cập nhật 17/11:</b> đã sửa <b>X1</b> (phần lớn), <b>X2–X4</b>, <b>L1–L6</b>, <b>K1–K6</b>, <b>B1–B4</b> (B3 phần chính), <b>C1–C4</b>; <b>X5</b> hết là lỗi — các thẻ có nhãn xanh "Đã sửa". Còn mở: <b>X1</b> (phần sót), <b>L7</b>, <b>B5</b>, <b>C5</b>. K1–K6, B1–B2 đã thử sống trên bản sao DB dev; B3 (đăng nhập) và B4 (câu tìm khoá migrate) đã thử trên DB dev; X4, L3–L6 đã thử sống qua API trên DB dev (dữ liệu thử đã dọn); X2, X3, L1, L2, C1–C4 mới có test tự động (chưa thử sống - DB dev không có đợt cắt / lệnh chờ duyệt để thử). Toàn bộ đã gộp và push (BE <code>main</code>, FE <code>demo</code>). Số đếm bên dưới là số mục ban đầu.
   </div>
 
   <div class="stats">
@@ -205,11 +205,13 @@
     <p>Chuỗi tuỳ ý đi thẳng vào <code>orderBy</code> ở ~10 service: trường lạ → 500; trên <code>/users</code> sắp xếp được theo <code>password</code> (dò dần hash).</p>
     <p class="where">BE <code>common/dto/pagination-query.dto.ts</code></p></div>
 
-  <div class="item mid"><h3><span class="id">B3</span>Giới hạn đăng nhập theo IP trong khi cả nhà máy chung 1 IP <span class="tag mid">Trung bình</span></h3>
+  <div class="item done"><h3><span class="id">B3</span>Giới hạn đăng nhập theo IP trong khi cả nhà máy chung 1 IP <span class="tag mid">Trung bình</span><span class="tag done">Đã sửa 17/11 (phần chính)</span></h3>
+    <p class="fix"><b>Đã sửa — BE nhánh <code>sua-b3-b4-17-11</code>, 17/11:</b> bộ đếm chia 2: <code>default</code> đếm theo NGƯỜI (request đã đăng nhập theo id trong access token đã kiểm chữ ký; đăng nhập / đặt PIN / hỏi PIN theo IP + tên đăng nhập; làm mới token theo chính refresh token), <code>perIp</code> là trần chung theo IP (mặc định 3000/phút, biến <code>THROTTLE_IP_LIMIT</code>; đăng nhập 120/phút để chặn dò mật khẩu rải nhiều tài khoản). Thử sống: 12 tài khoản khác nhau cùng IP đăng nhập không ai bị 429; 1 tài khoản bị 429 từ lần thứ 9. <b>Giữ nguyên có chủ đích:</b> khoá tạm tài khoản thợ sau 5 lần sai PIN (15 phút, QLSX mở khoá được) - cùng 1 IP thì không phân biệt được người phá với chính công nhân, bỏ khoá thì PIN 6 số dò được; câu báo "còn N lần" cho thợ giữ để công nhân biết.</p>
     <p>8 lần đăng nhập/phút/IP, 100 request/phút/IP, đếm trong bộ nhớ. Đầu ca dễ bị khoá hàng loạt. Thêm: ai trong mạng công ty cũng khoá được tài khoản thợ bằng 5 lần sai PIN; đăng nhập trả lỗi khác nhau theo loại tài khoản (dò được tài khoản).</p>
     <p class="where">BE throttler config; <code>auth.service.ts</code> ~76-83</p></div>
 
-  <div class="item mid"><h3><span class="id">B4</span>Deploy gặp P1002 tắt giao dịch đang chạy <span class="tag mid">Trung bình</span></h3>
+  <div class="item done"><h3><span class="id">B4</span>Deploy gặp P1002 tắt giao dịch đang chạy <span class="tag mid">Trung bình</span><span class="tag done">Đã sửa 17/11</span></h3>
+    <p class="fix"><b>Đã sửa — BE nhánh <code>sua-b3-b4-17-11</code>, 17/11:</b> <code>entrypoint.js</code> chỉ ngắt phiên đang giữ đúng khoá của Prisma Migrate (<code>pg_advisory_lock(72707369)</code>, đọc trong schema engine) và đã đứng yên ≥ 30 giây; phiên đang chạy migrate (active / vừa chạy) không bị ngắt; khoá giao dịch của app (<code>pg_advisory_xact_lock</code>) không bao giờ bị đụng. Thử trên DB dev: câu tìm khoá chỉ bắt đúng phiên giữ khoá migrate, không bắt phiên đang giữ khoá kiểu app.</p>
     <p><code>docker/entrypoint.js</code> ~34 terminate mọi backend đang giữ advisory lock, kể cả giao dịch nghiệp vụ / daily-jobs của instance khác còn sống.</p></div>
 
   <div class="item low"><h3><span class="id">B5</span>Các mục nhỏ <span class="tag low">Thấp</span></h3>
