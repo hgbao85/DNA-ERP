@@ -142,27 +142,25 @@ export async function createSalesOrder(data: Record<string, unknown>): Promise<S
 export async function updateSalesOrder(id: number | string, data: Record<string, unknown>): Promise<SalesOrder | undefined> {
   const { items, ...orderFields } = data as { items?: Array<Record<string, unknown>> } & Record<string, unknown>;
 
-  if (Object.keys(orderFields).length > 0) {
+  // K6 16/11: thông tin đơn + mọi dòng đi chung 1 request, BE ghi trong 1 transaction - trước đây patch từng dòng lần lượt,
+  // 1 dòng lỗi thì các dòng trước đã lưu, đơn sửa nửa vời.
+  const lineEdits = (items ?? [])
+    .filter((it) => it.id)
+    .map((it) => ({
+      id: String(it.id),
+      skuName: it.skuName,
+      totalQty: it.totalQty,
+      status: it.status,
+      deliveryDate: it.deliveryDate || undefined,
+    }));
+  if (Object.keys(orderFields).length > 0 || lineEdits.length > 0) {
     await http.patch(`/sales-orders/${id}`, {
       attachmentName: orderFields.attachmentName,
       attachmentUrl: orderFields.attachmentUrl,
       note: orderFields.note,
       depositConfirmed: orderFields.depositConfirmed,
+      ...(lineEdits.length > 0 ? { items: lineEdits } : {}),
     });
-  }
-
-  if (items) {
-    for (const it of items) {
-      if (it.id) {
-        await http.patch(`/sales-orders/${id}/items/${it.id}`, {
-          skuName: it.skuName,
-          totalQty: it.totalQty,
-          shippedQty: it.shippedQty,
-          status: it.status,
-          deliveryDate: it.deliveryDate || undefined,
-        });
-      }
-    }
   }
 
   const updated = await http.get<BeSalesOrder>(`/sales-orders/${id}`);

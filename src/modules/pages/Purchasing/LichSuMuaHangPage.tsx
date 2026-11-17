@@ -8,7 +8,7 @@ import { useFetch } from '../../../hooks/useFetch'
 import { getMaterials } from '../../../services/api'
 import { useWarehouseName } from '../../../hooks/useWarehouseName'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
-import { visibleProposalsFor, buildBuyerByMaterialId } from '../../../utils/purchasingRouting'
+import { visibleProposalsFor, buildBuyerByMaterialId, splitItemsByOwner } from '../../../utils/purchasingRouting'
 import { ApprovalFileCell } from './TheoDoiMuaHangPage'
 import { ItemCard, ProposalCards } from './mobileCards'
 import EmptyState from '../../../components/EmptyState'
@@ -79,7 +79,10 @@ export default function LichSuMuaHangPage() {
   // Lọc theo ITEM (2026-08-25) - xem comment tương ứng ở TheoDoiMuaHangPage.
   const proposals = materialsLoading
     ? []
-    : visibleProposalsFor(user, allProposals, buyerByMaterialId).filter(p => p.items.some(wasActuallyPurchased))
+    : visibleProposalsFor(user, allProposals, buyerByMaterialId)
+        // K6 16/11: chỉ giữ dòng của chính người mua này (xem TheoDoiMuaHangPage).
+        .map(p => ({ ...p, items: splitItemsByOwner(user, p.items, buyerByMaterialId).mine }))
+        .filter(p => p.items.some(wasActuallyPurchased))
 
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const selected = proposals.find(p => p.id === selectedId) ?? null
