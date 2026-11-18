@@ -3,7 +3,7 @@
  * Nghiệp vụ chia nằm ở BE (`/floor/cut-allocation`); ở đây chỉ trình bày bảng BE trả về.
  */
 import type {
-  BeCutAllocationBoard, BeCutAllocationLogByOrder, BeCutAllocationLogEntry, BeCutAllocationMachine, BeCutAllocationRow,
+  BeCutAllocationBoard, BeCutAllocationLog, BeCutAllocationLogByOrder, BeCutAllocationLogEntry, BeCutAllocationMachine, BeCutAllocationRow,
   BeCutAllocationSegment, CutAllocationReason, CutMachineStatus, CutSegmentStep,
 } from '../../../services/floor-api'
 import { fmtBundles, MACHINE_LABEL } from '../../../utils/cutMachine'
@@ -525,7 +525,8 @@ export function heldElsewhereText(bars: number | null | undefined): string {
 export const WAITING_NOTE = 'Chưa đủ sắt nên hệ thống chưa tự chia. Nếu sắt đã có, bấm “Chia luôn”.'
 export const REDO_MESSAGE =
   'Chia lại các dòng hệ thống đã chia?\nCác dòng bạn đã sửa tay được giữ nguyên; ' +
-  'phần còn lại chia lại từ đầu và thứ tự cắt trên máy xếp lại theo ưu tiên.'
+  'phần còn lại chia lại từ đầu và thứ tự cắt trên máy xếp lại theo ưu tiên.\n' +
+  'Dòng hệ thống đã chia của lệnh chưa Bắt đầu hoặc đang Tạm dừng sẽ bị bỏ và về ‘Chưa chia’ - Bắt đầu lại lệnh rồi bấm ‘Chia phần còn lại’.'
 
 export function addAnywayMessage(label: string): string {
   return `Hệ thống chưa thấy đủ sắt cho loại này. Vẫn chia?\n${label}\n` +
@@ -559,4 +560,54 @@ export function loadBarText(
   m: Pick<BeCutAllocationMachine, 'barsDoneEst' | 'barsLeftEst' | 'totalBars'>, maxBars: number,
 ): string {
   return `${barsProgressText(m)}; tải ${loadPercent(m.totalBars, maxBars)}% so với máy nhiều việc nhất`
+}
+
+// ─── Mã lệnh thay mã PI (18/11/2026) ─────────────────────────────────────────
+// BE trả piCode = mã PI nội bộ. Màn QLSX phải ghi số LSX (vd GP-194) ở mọi chỗ: dịch 1 lần ở đầu cây (Board / ChangeHistory)
+// rồi mọi thành phần con đọc piCode đã đổi - không sửa từng chỗ.
+
+/** Hàm dịch mã PI -> mã lệnh (useLenhCodeLookup): lệnh chưa có số LSX thì trả nguyên mã PI. */
+export type LenhOf = (code: string | null | undefined) => string
+
+const PI_TOKEN = /PI-\d{4}-\d+/g
+
+/** Mọi mã PI có trong bảng chia (dòng, Chưa chia, Chờ sắt và câu cảnh báo) - để xin tra mã lệnh một lượt. */
+export function boardPiCodes(board: Pick<BeCutAllocationBoard, 'rows' | 'unallocated' | 'waiting'> & { warnings?: string[] } | null | undefined): string[] {
+  if (!board) return []
+  const out = new Set<string>()
+  for (const x of [...board.rows, ...board.unallocated, ...board.waiting]) out.add(x.piCode)
+  for (const w of board.warnings ?? []) for (const m of w.match(PI_TOKEN) ?? []) out.add(m)
+  return [...out]
+}
+
+/** Bảng mới có piCode (rows / unallocated / waiting) và mã PI trong câu cảnh báo đổi sang mã lệnh. Không sửa bảng gốc, giữ nguyên id. */
+export function withLenhCodes(board: BeCutAllocationBoard, lenhOf: LenhOf): BeCutAllocationBoard {
+  const swap = <T extends { piCode: string }>(x: T): T => ({ ...x, piCode: lenhOf(x.piCode) })
+  return {
+    ...board,
+    rows: board.rows.map(swap),
+    unallocated: board.unallocated.map(swap),
+    waiting: board.waiting.map(swap),
+    warnings: board.warnings.map((w) => w.replace(PI_TOKEN, (m) => lenhOf(m))),
+  }
+}
+
+/** Mã PI trong nhật ký chia máy (entries + byOrder). */
+export function logPiCodes(log: BeCutAllocationLog | null | undefined): string[] {
+  if (!log) return []
+  return [...new Set([...log.entries, ...log.byOrder].map((x) => x.piCode))]
+}
+
+/** Nhật ký mới có piCode (entries / byOrder) đổi sang mã lệnh. Không sửa bản gốc. */
+export function logWithLenhCodes(log: BeCutAllocationLog, lenhOf: LenhOf): BeCutAllocationLog {
+  const swap = <T extends { piCode: string }>(x: T): T => ({ ...x, piCode: lenhOf(x.piCode) })
+  return { ...log, entries: log.entries.map(swap), byOrder: log.byOrder.map(swap) }
+}
+
+/** Nhãn "chưa Bắt đầu" ở khối Chưa chia / Chờ sắt. BE cũ chưa trả `started` thì coi là đã Bắt đầu. */
+export const NOT_STARTED_LABEL = 'chưa Bắt đầu'
+export const NOT_STARTED_ADD_HINT = 'Bắt đầu lệnh trước'
+export const NOT_STARTED_ADD_TITLE = 'Bấm Bắt đầu lệnh ở Tổng hợp lệnh SX trước'
+export function isNotStarted(x: { started?: boolean }): boolean {
+  return x.started === false
 }

@@ -254,7 +254,18 @@ export default function MaterialsPage() {
         placeholder: 'Số lượng đã có sẵn ở Kho vừa chọn (nếu có)',
         // Chỉ ghi nhận lúc TẠO MỚI (v.id == null) — sửa vật tư không chỉnh tồn kho qua field
         // này (BE update() không đọc openingQty). Cần chọn Kho trước.
-        showIf: (v) => v.id == null && !!v.warehouseId,
+        // Sắt phần mềm: tồn tính theo chiều dài cây, ô này sẽ ghi vào ô chiều dài 0 - ẩn, thay bằng câu nhắc bên dưới
+        // (field ẩn thì AdminEntityPage gửi null, BE bỏ qua openingQty).
+        showIf: (v) => v.id == null && !!v.warehouseId && !isSoftwareSteel(v),
+      },
+      {
+        name: 'openingQtySteelHint', label: 'Tồn kho ban đầu', type: 'custom', excludeFromPayload: true,
+        showIf: (v) => v.id == null && !!v.warehouseId && isSoftwareSteel(v),
+        Render: () => (
+          <div style={{ fontSize: 13, color: 'var(--text3)' }}>
+            Nhập tồn sắt ở Quản lý kho &gt; Sửa tồn, chọn chiều dài cây.
+          </div>
+        ),
       },
       {
         name: 'buyerId', label: 'Nhân viên mua hàng', type: 'select',

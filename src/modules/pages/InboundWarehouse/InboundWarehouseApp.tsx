@@ -76,7 +76,7 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
     // Đổi tên 2026-09-15 (song song với "Chuyển kho ngoài đơn hàng" bên dưới) - người dùng thực tế
     // hay lẫn 2 tab này vì cùng là "xuất" - "theo đơn hàng" nêu rõ tab này gắn với PO/PI cụ thể
     // (giới hạn theo định mức, cập nhật tiến độ đơn), khác "Chuyển kho tự do" không gắn đơn nào.
-    { id: 'xuat-kho',   label: 'Xuất theo đơn hàng',  icon: <ArrowUpFromLine size={16} /> },
+    { id: 'xuat-kho',   label: 'Xuất theo đơn hàng',  icon: <ArrowUpFromLine size={16} />, badge: workQueue.warehouseToPaintPending },
     // Chuyển kho tự do (2026-09-15) - vật tư/số lượng/kho nguồn-đích bất kỳ, không còn ràng buộc
     // chuỗi Phôi sơn hàn → Vật tư TP → Thành phẩm như "Phân phối nội bộ" (xuat-sat, riêng cho sắt).
     // Đổi nhãn cùng ngày - "ngoài đơn hàng" đối lập trực tiếp với "Xuất theo đơn hàng" ở trên, để

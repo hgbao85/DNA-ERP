@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { fmtNum } from '../../../utils/numberFormat'
-import type { BeCutAllocationLogEntry, BeCutAllocationMachine, BeCutAllocationRow } from '../../../services/floor-api'
+import type { BeCutAllocationBoard, BeCutAllocationLog, BeCutAllocationLogEntry, BeCutAllocationMachine, BeCutAllocationRow } from '../../../services/floor-api'
 import {
   buildCutSheetsDocument, buildMachineSheetHtml, cutPatternText, escapeHtml, explainLines, fmtDayMonth, groupAdjacentRows,
   groupRowsByMachine, isValidBarCount, loadBarSegments, loadPercent, machineAcceptsRow, maxMachineBars, moveRowIds, pieceNamesOf,
@@ -9,7 +9,8 @@ import {
   machineStatusBadge, openRowsFirst, rowBarsText, barsLeftText, IDLE_NOTICE, reasonLabel, reasonPayload, rowStepLabels, sortMachineRows,
   wastePerBarText, addAnywayMessage, APPROX_NOTE, deleteMessage, editToggleLabel, heldElsewhereText, loadBarText, logDetailText,
   logWhenWhoText, machineOptionLabel, machineProgressTitle, moveHint, rowAcceptsMachine, rowNotes, staleText, rowClassLabel, sheetTitle,
-  stepBadges, stepsCellText, surplusText, workshopHasLaser, workshopLabel,
+  stepBadges, stepsCellText, surplusText, workshopHasLaser, workshopLabel, boardPiCodes, isNotStarted, logPiCodes, logWithLenhCodes,
+  withLenhCodes, REDO_MESSAGE,
 } from './cutAllocationModel'
 
 const machine = (id: string, over: Partial<BeCutAllocationMachine> = {}): BeCutAllocationMachine => ({
@@ -368,5 +369,82 @@ describe('cutAllocationModel', () => {
     const base = { createdAt: 'sai', createdByName: null, action: 'MOVE' as const }
     expect(logWhenWhoText(base)).toBe('')
     expect(logWhenWhoText({ ...base, createdByName: 'Lan' })).toBe(' · Lan')
+  })
+})
+
+describe('mã lệnh thay mã PI (18/11/2026)', () => {
+  const lenhOf = (c: string | null | undefined) => (c === 'PI-2026-1' ? 'GP-194' : (c ?? ''))
+  const board = (): BeCutAllocationBoard => ({
+    workshop: { id: '1', code: 'PA', name: 'Phú An', laserAllowed: true },
+    machines: [machine('1')],
+    rows: [row('10', '1', 1, { piCode: 'PI-2026-1' }), row('11', '1', 2, { piCode: 'PI-2026-2' })],
+    unallocated: [{ productionInvoiceId: '1', piCode: 'PI-2026-1', materialId: '5', materialLabel: 'Sắt hộp', bars: 3, started: false }],
+    waiting: [{ productionInvoiceId: '1', piCode: 'PI-2026-1', materialId: '5', materialLabel: 'Sắt hộp', requiredBars: 5, availableBars: 1, shortBars: 4, started: true }],
+    staleCount: 0,
+    warnings: ['Chưa chia 1 lệnh chưa Bắt đầu: PI-2026-1 - bấm Bắt đầu'],
+  })
+
+  it('withLenhCodes đổi piCode ở rows / unallocated / waiting; lệnh không có số LSX giữ mã PI; không đổi id và trường khác', () => {
+    const b = board()
+    const out = withLenhCodes(b, lenhOf)
+    expect(out.rows.map((r) => r.piCode)).toEqual(['GP-194', 'PI-2026-2'])
+    expect(out.unallocated[0].piCode).toBe('GP-194')
+    expect(out.waiting[0].piCode).toBe('GP-194')
+    expect(out.rows[0].id).toBe('10')
+    expect(out.rows[0].productionInvoiceId).toBe('1')
+    expect(out.unallocated[0]).toMatchObject({ bars: 3, started: false, productionInvoiceId: '1' })
+    expect(out.waiting[0]).toMatchObject({ shortBars: 4, started: true })
+    expect(out.warnings[0]).toBe('Chưa chia 1 lệnh chưa Bắt đầu: GP-194 - bấm Bắt đầu')
+    expect(out.staleCount).toBe(0)
+  })
+
+  it('withLenhCodes không sửa object gốc', () => {
+    const b = board()
+    const snap = JSON.stringify(b)
+    withLenhCodes(b, lenhOf)
+    expect(JSON.stringify(b)).toBe(snap)
+    expect(b.rows[0].piCode).toBe('PI-2026-1')
+  })
+
+  it('boardPiCodes gom mã PI của dòng, Chưa chia, Chờ sắt và câu cảnh báo, không trùng', () => {
+    expect(boardPiCodes(board()).sort()).toEqual(['PI-2026-1', 'PI-2026-2'])
+    expect(boardPiCodes(null)).toEqual([])
+  })
+
+  const log = (): BeCutAllocationLog => ({
+    entries: [{ id: '1', createdAt: '2026-11-18T01:00:00Z', action: 'ADD', reason: null, note: null, isBundle: false, barCount: 2, previousBarCount: null,
+      productionInvoiceId: '1', piCode: 'PI-2026-1', materialLabel: 'Sắt', fromMachine: null, toMachine: null, createdByName: null } as BeCutAllocationLogEntry],
+    byOrder: [{ productionInvoiceId: '1', piCode: 'PI-2026-1', moves: 1, splits: 0, machineBrokenMoves: 0 }],
+  })
+
+  it('logWithLenhCodes đổi entries và byOrder, không sửa bản gốc', () => {
+    const l = log()
+    const out = logWithLenhCodes(l, lenhOf)
+    expect(out.entries[0].piCode).toBe('GP-194')
+    expect(out.byOrder[0].piCode).toBe('GP-194')
+    expect(out.entries[0].id).toBe('1')
+    expect(l.entries[0].piCode).toBe('PI-2026-1')
+    expect(logPiCodes(l)).toEqual(['PI-2026-1'])
+  })
+
+  it('buildMachineSheetHtml với bảng đã đổi in mã lệnh ở cột "Lệnh", không còn mã PI', () => {
+    const shown = withLenhCodes(board(), lenhOf)
+    const html = buildMachineSheetHtml(groupRowsByMachine(shown)[0], 'Phú An', '18/11/2026', false)
+    expect(html).toContain('<td>GP-194</td>')
+    expect(html).not.toContain('PI-2026-1<')
+  })
+
+  it('isNotStarted: chỉ khi BE báo started === false (thiếu trường = coi là đã Bắt đầu)', () => {
+    expect(isNotStarted({ started: false })).toBe(true)
+    expect(isNotStarted({ started: true })).toBe(false)
+    expect(isNotStarted({})).toBe(false)
+  })
+})
+
+describe('REDO_MESSAGE', () => {
+  it('nói dòng hệ thống đã chia của lệnh chưa Bắt đầu / đang Tạm dừng bị bỏ về Chưa chia', () => {
+    expect(REDO_MESSAGE).toContain('chưa Bắt đầu hoặc đang Tạm dừng')
+    expect(REDO_MESSAGE).toContain('Chưa chia')
+    expect(REDO_MESSAGE).toContain('Chia phần còn lại')
   })
 })

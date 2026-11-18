@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { focusAttrAny, focusKey } from '../../../utils/notificationLink'
+import { useEffect, useMemo, useState } from 'react'
+import { focusAttr, focusAttrAny, focusKey } from '../../../utils/notificationLink'
 import { format } from 'date-fns'
 import { AlertTriangle, ArrowLeft, CheckCircle2, ChevronLeft, ChevronRight, ClipboardCheck, Factory, PackageCheck, Pause, Play, Search, ShoppingCart, Square, Wrench, type LucideIcon } from 'lucide-react'
 import { useConfirm } from '../../../hooks/useConfirm'
@@ -46,7 +46,7 @@ import { useLsxPrefixes } from '../../../hooks/useLsxPrefixes'
 import LsxCodeInput from '../../../components/LsxCodeInput'
 import ChangeWorkshopDialog from '../../../components/ChangeWorkshopDialog'
 import { canChangeWorkshop, WORKSHOP_LOCKED_TEXT } from '../../../components/changeWorkshopRules'
-import { pickCurrentStage, type ParallelStageInput } from './currentStagePick'
+import { isAwaitingFinish, pickCurrentStage, type ParallelStageInput } from './currentStagePick'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -603,7 +603,7 @@ function isOrderOverdue(deadline: string | undefined, isDone: boolean): boolean 
 const th: React.CSSProperties = { padding: '10px 14px', fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.05em', background: 'var(--surface2)', textAlign: 'left', whiteSpace: 'nowrap' }
 const td: React.CSSProperties = { padding: '11px 14px', fontSize: 13, borderTop: '1px solid var(--border)', verticalAlign: 'middle' }
 
-type FilterStatus = 'all' | OrderStatus
+type FilterStatus = 'all' | OrderStatus | 'WAIT_END'
 const PAGE_SIZE = 20
 
 // ─── Stage detail sub-components ──────────────────────────────────────────────
@@ -987,6 +987,20 @@ function currentStageLabel(order: Pick<MfgOrder, 'status' | 'mfgStage'>, details
   }
   const stage = MFG_STAGES.find(s => s.key === pick.stage)!
   return { label: stage.label, icon: stage.icon, pct: pick.pct }
+}
+
+// SKU "Đóng gói xong · chờ Kết thúc" mà QLSX cần bấm Kết thúc (cùng luật với nhãn ở trên; xem isAwaitingFinish).
+function isOrderAwaitingFinish(order: Pick<MfgOrder, 'status' | 'mfgStage' | 'floorStage'>, details: StageDetails): boolean {
+  return isAwaitingFinish(order.floorStage, pickCurrentStage({
+    status: order.status,
+    mfgStage: order.mfgStage,
+    purchasingPct: getPurchasingPercent(details.purchasing.materials),
+    parallel: MFG_STAGES.filter(s => PARALLEL_STAGE_KEYS.has(s.key)).map(s => ({
+      key: s.key as ParallelStageInput['key'],
+      pct: getStagePercent(s.key, details),
+      na: isStageNA(s.key, details),
+    })),
+  }))
 }
 
 // ─── Stage detail card ────────────────────────────────────────────────────────
@@ -1642,6 +1656,8 @@ function OrderSummaryView({ viewSwitch }: { viewSwitch: React.ReactNode }) {
   const [filter, setFilter]         = useState<FilterStatus>('all')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [selectedPiId, setSelectedPiId] = useState<string | null>(null)
+  // Tin "đã đóng gói đủ - bấm Kết thúc" trỏ ?pi=<id lệnh>&focus=PRODUCTION_INVOICE_ITEM:<id SKU>: mở thẳng bảng SKU của lệnh.
+  const [piParam, setPiParam] = useUrlState('pi')
   const [search, setSearch]         = useState('')
   const [page, setPage]             = useState(1)
 
@@ -1764,6 +1780,7 @@ function OrderSummaryView({ viewSwitch }: { viewSwitch: React.ReactNode }) {
       {rows.map(({ order: o, details }) => (
         <MobileRowCard
           key={o.id}
+          focusKeys={[focusKey('PRODUCTION_INVOICE_ITEM', o.id)]}
           onClick={() => setSelectedId(o.id)}
           title={o.productName || o.sku}
           subtitle={o.sku}
@@ -1803,6 +1820,7 @@ function OrderSummaryView({ viewSwitch }: { viewSwitch: React.ReactNode }) {
             return (
               <tr
                 key={o.id}
+                {...focusAttr('PRODUCTION_INVOICE_ITEM', o.id)}
                 onClick={() => setSelectedId(o.id)}
                 role="button"
                 tabIndex={0}
@@ -1853,10 +1871,22 @@ function OrderSummaryView({ viewSwitch }: { viewSwitch: React.ReactNode }) {
     () => (activeWorkshopFilter ? allPiRows.filter(p => p.workshop?.id === activeWorkshopFilter) : allPiRows),
     [allPiRows, activeWorkshopFilter],
   )
+  // Mở lệnh theo ?pi= tìm trong TẤT CẢ lệnh (allPiRows), không theo ô lọc xưởng: QLSX chung đang lọc xưởng khác
+  // vẫn mở được lệnh từ tin. Lệnh chưa có trong danh sách (đang tải) thì chờ lần sau; xong thì bỏ tham số pi.
+  useEffect(() => {
+    if (!piParam) return
+    if (allPiRows.some(p => p.piId === piParam)) {
+      setSelectedId(null)
+      setSelectedPiId(piParam)
+      setPiParam(null)
+    }
+  }, [piParam, allPiRows, setPiParam])
+  const rowAwaitingFinish = (r: { order: MfgOrder; details: StageDetails }) =>
+    isOrderAwaitingFinish(r.order, r.details) && (!canManageFloor || r.order.canManage)
 
   const q = search.trim().toLowerCase()
   const filtered = piRows
-    .filter(p => filter === 'all' || p.order.status === filter)
+    .filter(p => filter === 'all' || (filter === 'WAIT_END' ? p.rows.some(rowAwaitingFinish) : p.order.status === filter))
     .filter(p => !q || matchesLenhSearch({ code: p.piCode, displayCode: p.displayCode, items: p.rows.map(r => ({ lsxCode: r.order.lsxCode })) }, q) || [...p.rows.flatMap(({ order }) => [order.code, order.sku, order.productName, order.customer])].some(v => v.toLowerCase().includes(q)))
 
   const counts = {
@@ -1864,6 +1894,7 @@ function OrderSummaryView({ viewSwitch }: { viewSwitch: React.ReactNode }) {
     PRODUCING: piRows.filter(p => p.order.status === 'PRODUCING').length,
     DONE:      piRows.filter(p => p.order.status === 'DONE').length,
     OVERDUE:   piRows.filter(p => p.overdue).length,
+    WAIT_END:  piRows.filter(p => p.rows.some(rowAwaitingFinish)).length,
   }
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
@@ -1884,7 +1915,7 @@ function OrderSummaryView({ viewSwitch }: { viewSwitch: React.ReactNode }) {
   }
 
   // Lớp 2: các SKU của 1 PI - mỗi dòng có tiến độ + nút Bắt đầu/Kết thúc (QLSX) riêng của SKU.
-  const selectedPi = selectedPiId != null ? piRows.find(p => p.piId === selectedPiId) ?? null : null
+  const selectedPi = selectedPiId != null ? allPiRows.find(p => p.piId === selectedPiId) ?? null : null
   if (selectedPi) {
     const piDone = selectedPi.order.status === 'DONE'
     const piMeta = STATUS_META[selectedPi.order.status]
@@ -1996,13 +2027,13 @@ function OrderSummaryView({ viewSwitch }: { viewSwitch: React.ReactNode }) {
       {/* Filter + Search */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          {([['all', 'Tất cả'], ['PRODUCING', 'Đang sản xuất'], ['DONE', 'Hoàn thành']] as [FilterStatus, string][]).map(([key, label]) => (
+          {([['all', 'Tất cả'], ['PRODUCING', 'Đang sản xuất'], ['DONE', 'Hoàn thành'], ['WAIT_END', 'Chờ kết thúc']] as [FilterStatus, string][]).map(([key, label]) => (
             <button key={key} onClick={() => { setFilter(key); setPage(1) }}
               style={{ padding: '5px 14px', fontSize: 12, fontWeight: 600, borderRadius: 20, border: 'none', cursor: 'pointer',
                 background: filter === key ? 'var(--bg-1d4ed8)' : 'var(--surface2)',
                 color: filter === key ? '#fff' : 'var(--text)',
               }}>
-              {label} <span style={{ opacity: 0.75 }}>({key === 'all' ? counts.all : counts[key as OrderStatus]})</span>
+              {label} <span style={key === 'WAIT_END' && counts.WAIT_END > 0 ? { color: filter === key ? '#fff' : 'var(--fg-dc2626)', fontWeight: 800 } : { opacity: 0.75 }}>({counts[key]})</span>
             </button>
           ))}
         </div>

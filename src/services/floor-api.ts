@@ -488,6 +488,8 @@ export interface BeCutAllocationUnallocated {
   materialId: string
   materialLabel: string
   bars: number
+  /** true = lệnh có ≥ 1 SKU đang chạy ở xưởng này. BE cũ chưa trả thì coi là true (undefined !== false). */
+  started?: boolean
 }
 
 export interface BeCutAllocationWaiting {
@@ -500,6 +502,8 @@ export interface BeCutAllocationWaiting {
   shortBars: number
   /** Số cây đang giữ cho lệnh ở kho xưởng khác (lệnh vừa đổi xưởng, chờ chuyển kho). */
   heldElsewhereBars?: number
+  /** Như `BeCutAllocationUnallocated.started`. */
+  started?: boolean
 }
 
 export interface BeCutAllocationBoard {
@@ -611,8 +615,15 @@ export const floorAdmin = {
     http.post<BeQueueEntry[]>('/floor/queue', { stage, productionInvoiceId }),
   reorder: (stage: FloorStage, entryIds: string[], workshopId?: string | null) =>
     http.post<BeQueueEntry[]>(`/floor/queue/${stage}/reorder`, { entryIds, workshopId: workshopId || undefined }),
-  advance: (stage: FloorStage, workshopId?: string | null) =>
-    http.post<BeQueueEntry[]>(`/floor/queue/${stage}/advance`, { workshopId: workshopId || undefined }),
+  /**
+   * expectedRunningPiId: id lệnh màn đang thấy là "đang chạy" (null = màn thấy tổ chưa chạy lệnh nào). Máy chủ thấy khác
+   * thì trả 409 "tải lại màn". undefined = không kiểm (chạy như cũ).
+   */
+  advance: (stage: FloorStage, workshopId?: string | null, expectedRunningPiId?: string | null) =>
+    http.post<BeQueueEntry[]>(`/floor/queue/${stage}/advance`, {
+      workshopId: workshopId || undefined,
+      ...(expectedRunningPiId !== undefined ? { expectedRunningPiId } : {}),
+    }),
   /** Hoàn tác "Chuyển PI tiếp" nhầm - mở lại PI vừa đóng, trả PI đang chạy (chưa ai báo) về đầu hàng đợi. */
   reopen: (stage: FloorStage, workshopId?: string | null) =>
     http.post<BeQueueEntry[]>(`/floor/queue/${stage}/reopen`, { workshopId: workshopId || undefined }),

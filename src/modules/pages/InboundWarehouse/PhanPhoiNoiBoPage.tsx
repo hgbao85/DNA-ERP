@@ -96,9 +96,9 @@ function PhanPhoiNoiBo() {
       {sub === 'sat' && <XuatSatPage embedded />}
       {sub === 'vat-tu-tp' && <XuatVatTuThanhPhamPage />}
       {sub === 'han' && <XuatVatTuTieuHaoPage stage="HAN"
-        desc="Vật tư tiêu hao cấp cho Tổ Hàn theo lệnh sản xuất (khí CO₂, dây hàn, đá cắt…). Bấm “Thêm vào phiếu” → tạo phiếu xuất ở tab Phiếu xuất → ký, tải ảnh, xác nhận xuất → tổ Hàn xác nhận nhận." />}
+        desc="Vật tư tiêu hao cấp cho Tổ Hàn theo lệnh sản xuất (khí CO₂, dây hàn, đá cắt…). Bấm “Thêm vào phiếu” → tạo phiếu xuất ở tab Phiếu xuất → ký, tải ảnh, xác nhận xuất là xong (tổ Hàn không phải xác nhận nhận)." />}
       {sub === 'son' && <XuatVatTuTieuHaoPage stage="SON"
-        desc="Vật tư tiêu hao cấp cho Tổ Sơn theo lệnh sản xuất (bột sơn, dung môi, băng keo che…). Bấm “Thêm vào phiếu” → tạo phiếu xuất ở tab Phiếu xuất → ký, tải ảnh, xác nhận xuất → tổ Sơn xác nhận nhận." />}
+        desc="Vật tư tiêu hao cấp cho Tổ Sơn theo lệnh sản xuất (bột sơn, dung môi, băng keo che…). Bấm “Thêm vào phiếu” → tạo phiếu xuất ở tab Phiếu xuất → ký, tải ảnh, xác nhận xuất là xong (tổ Sơn không phải xác nhận nhận)." />}
       {sub === 'dan' && <KhoXuatDanPage />}
       {sub === 'phieu' && <PhieuXuatPage />}
     </div>

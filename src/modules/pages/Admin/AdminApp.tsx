@@ -1,7 +1,7 @@
 'use client'
 import { useCloseNavOnNotification } from '../../../hooks/useCloseNavOnNotification'
 import { useEffect, useState, useCallback } from 'react'
-import { LayoutDashboard, Users, History, Database, Bell, Settings, Briefcase, Activity, LogOut, Warehouse, Image as ImageIcon, PenLine, Wrench, Ruler, Menu, X, BookOpen } from 'lucide-react'
+import { LayoutDashboard, Users, History, Database, Bell, Settings, Briefcase, Activity, LogOut, Warehouse, Image as ImageIcon, PenLine, Wrench, Ruler, Menu, X, BookOpen, Scissors } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import { useIsCompact, useIsMobile } from '../../../hooks/useMediaQuery'
 import { useUrlState } from '../../../hooks/useUrlState'
@@ -16,6 +16,7 @@ import NotificationsPage from './NotificationsPage'
 import SystemConfigPage from './SystemConfigPage'
 import SystemStatusPage from './SystemStatusPage'
 import MfgWarehousesPage from '../Manufacturing/MfgWarehousesPage'
+import KhoPhoiPage from '../Phoi/KhoPhoiPage'
 import OfficeSuppliesAdminPage from './OfficeSuppliesAdminPage'
 import PhoiSkuAdminPage from './PhoiSkuAdminPage'
 import SkuQuotaAdminPage from './SkuQuotaAdminPage'
@@ -25,15 +26,16 @@ import ThemeToggle from '../../../components/ThemeToggle'
 const ACCENT    = 'var(--fg-3949ab)'
 const ACCENT_BG = 'var(--bg-e8eaf6)'
 
-type AdminPage = 'dashboard' | 'users' | 'warehouses' | 'office-supplies' | 'phoi-sku' | 'sku-quota' | 'audit-log' | 'master-data' | 'business-data' | 'attachments' | 'notifications' | 'system-config' | 'system-status' | 'guide'
+type AdminPage = 'dashboard' | 'users' | 'warehouses' | 'ton-doan-phoi' | 'office-supplies' | 'phoi-sku' | 'sku-quota' | 'audit-log' | 'master-data' | 'business-data' | 'attachments' | 'notifications' | 'system-config' | 'system-status' | 'guide'
 
-const ADMIN_PAGE_VALUES: AdminPage[] = ['dashboard', 'users', 'warehouses', 'office-supplies', 'phoi-sku', 'sku-quota', 'audit-log', 'master-data', 'business-data', 'attachments', 'notifications', 'system-config', 'system-status', 'guide']
+const ADMIN_PAGE_VALUES: AdminPage[] = ['dashboard', 'users', 'warehouses', 'ton-doan-phoi', 'office-supplies', 'phoi-sku', 'sku-quota', 'audit-log', 'master-data', 'business-data', 'attachments', 'notifications', 'system-config', 'system-status', 'guide']
 const isAdminPage = (v: string | null): v is AdminPage => !!v && (ADMIN_PAGE_VALUES as string[]).includes(v)
 
 const NAV_ITEMS: { id: AdminPage; label: string; icon: React.ReactNode; enabled: boolean }[] = [
   { id: 'dashboard',      label: 'Tổng quan',               icon: <LayoutDashboard size={16} />, enabled: true },
   { id: 'users',          label: 'Người dùng & Phân quyền', icon: <Users size={16} />,           enabled: true },
   { id: 'warehouses',     label: 'Quản lý kho',           icon: <Warehouse size={16} />,       enabled: true },
+  { id: 'ton-doan-phoi', label: 'Tồn đoạn kho Phôi',     icon: <Scissors size={16} />,        enabled: true },
   { id: 'office-supplies', label: 'Văn phòng phẩm',        icon: <PenLine size={16} />,         enabled: true },
   { id: 'phoi-sku',       label: 'Sửa SKU đợt Phôi',         icon: <Wrench size={16} />,          enabled: true },
   { id: 'sku-quota',      label: 'Sửa định mức SKU',         icon: <Ruler size={16} />,           enabled: true },
@@ -142,6 +144,7 @@ export default function AdminApp() {
       {page === 'dashboard'      && <DashboardPage onViewAuditLog={() => setPage('audit-log')} />}
       {page === 'users'          && <UsersPage />}
       {page === 'warehouses'     && <MfgWarehousesPage />}
+      {page === 'ton-doan-phoi'  && <KhoPhoiPage canStocktake allPhoiWarehouses />}
       {page === 'office-supplies' && <OfficeSuppliesAdminPage />}
       {page === 'phoi-sku'       && <PhoiSkuAdminPage />}
       {page === 'sku-quota'      && <SkuQuotaAdminPage />}

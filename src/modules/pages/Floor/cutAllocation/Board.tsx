@@ -1,10 +1,11 @@
-import { useCallback } from 'react'
+import { useCallback, useMemo } from 'react'
 import { floorAdmin, type BeCutAllocationBoard } from '../../../../services/floor-api'
 import { useFetch } from '../../../../hooks/useFetch'
 import { useRealtimeRefetch } from '../../../../realtime/hooks'
 import LoadingState from '../../../../components/LoadingState'
 import LoadErrorState from '../../../../components/LoadErrorState'
-import { groupRowsByMachine, maxMachineBars, workshopHasLaser, workshopLabel as fmtWorkshopName } from '../cutAllocationModel'
+import { useLenhCodeLookup } from '../../../../components/LenhCode'
+import { boardPiCodes, groupRowsByMachine, maxMachineBars, withLenhCodes, workshopHasLaser, workshopLabel as fmtWorkshopName } from '../cutAllocationModel'
 import { emptyBox, Notice, stack } from '../qlsxUi'
 import BoardToolbar from './BoardToolbar'
 import ChangeHistory from './ChangeHistory'
@@ -68,11 +69,15 @@ export default function Board({ workshopId, workshopLabel }: { workshopId: strin
     () => floorAdmin.getCutAllocation(workshopId), [workshopId],
   )
   const workshopName = data?.workshop.name || workshopLabel
+  // Ghi số LSX (GP-xxx) thay mã PI ở mọi chỗ của tab: dịch 1 lần ở đây, các thành phần con (thẻ máy, Chưa chia, Chờ sắt, hộp xoá /
+  // chia luôn, phiếu in) chỉ đọc bảng đã dịch. Lệnh chưa có số LSX thì giữ mã PI.
+  const lenhOf = useLenhCodeLookup(boardPiCodes(data))
+  const shown = useMemo(() => (data ? withLenhCodes(data, lenhOf) : null), [data, lenhOf])
   const act = useBoardActions({ workshopId, workshopName, mutate })
   const reload = useCallback(() => { void refetch() }, [refetch])
   useRealtimeRefetch(TOPICS, reload, { debounceMs: REALTIME_DEBOUNCE_MS })
 
   if (isLoading) return <LoadingState />
-  if (error || !data) return <LoadErrorState error={error ?? 'Không có dữ liệu'} onRetry={reload} />
-  return <BoardView data={data} workshopId={workshopId} workshopName={workshopName} act={act} />
+  if (error || !data || !shown) return <LoadErrorState error={error ?? 'Không có dữ liệu'} onRetry={reload} />
+  return <BoardView data={shown} workshopId={workshopId} workshopName={workshopName} act={act} />
 }

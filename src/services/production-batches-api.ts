@@ -265,6 +265,8 @@ export interface BeProductionBatchPlanItem {
   qtyPerUnit?: number;
   awaitingQcQty: number;
   passedQty: number;
+  /** KCS chấm lỗi cộng dồn (bất biến) của các đợt đã chấm; passedQty đã trừ lỗi. BE cũ chưa trả thì coi 0. Thêm 18/11/2026. */
+  failedQty?: number;
   /** Đã "Lưu đợt" nhưng CHƯA gửi KCS (lô OPEN) - 2026-10-16. Đã báo = openQty + awaitingQcQty + passedQty. */
   openQty?: number;
   /** Chỉ có giá trị cho stage=PHOI khi mảnh có định mức PieceMaterialYield (vd chân nhôm) - tồn

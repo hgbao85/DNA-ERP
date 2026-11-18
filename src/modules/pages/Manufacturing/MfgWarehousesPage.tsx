@@ -9,6 +9,10 @@ import {
   getMaterials, createMaterial, getMaterialGroups, getStockQuants, adjustStock,
 } from '../../../services/api'
 import { Plus, Trash2, X, ArrowLeft, Warehouse, Search, Copy } from 'lucide-react'
+import {
+  quyenTrenKho, tachDongTheoO, laSatCay, lyDoKhoaSuaTon, type TrangThaiNhomVatTu, cachGhiChieuDai, docChieuDaiCay, CAU_CHIEU_DAI_SAI,
+  type CachGhiChieuDai, type QuantRow, type StockItem,
+} from './mfgWarehousesModel'
 import AdjustReasonModal from '../../../components/AdjustReasonModal'
 import WarehouseLedgerHistory from '../../../components/WarehouseLedgerHistory'
 import LoadingState from '../../../components/LoadingState'
@@ -19,6 +23,7 @@ import { inWarehouseCatalog } from '../../../utils/warehouseKinds'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
 import { useRealtimeRefetch } from '../../../realtime/hooks'
 export { isThanhPhamScope } from '../../../utils/warehouseFamily'
+export type { StockItem } from './mfgWarehousesModel'
 
 // ── Types (view-model tối giản, khớp field thật cần dùng - xem warehouses-api.ts/
 //    materials-api.ts/stock-api.ts cho hợp đồng đầy đủ) ─────────────────────────
@@ -41,12 +46,15 @@ interface MaterialRow {
   materialGroupId: number | null
   /** Sơn/Phụ kiện/Bao bì - BE bắt buộc với nhóm "Vật tư khác", PHẢI mang theo khi sao chép. */
   detailKind: 'PAINT' | 'ACCESSORY' | 'CUSHION' | 'PACKAGING' | null
+  /** Nhóm con của Sắt (BE đã trả); null = Phần mềm. Cùng materialGroupId + GroupRow.systemKey để biết có phải sắt cây không. */
+  steelSubGroup?: string | null
   warehouseId: string | null
   warehouseCode: string | null
 }
 interface GroupRow {
   id: number
   name: string
+  systemKey?: string | null
 }
 interface UserRow {
   id: number
@@ -60,41 +68,6 @@ interface UserRow {
   isSale?: boolean
   isActive: boolean
 }
-interface QuantRow {
-  materialId: string | null
-  warehouseId: string
-  /** Chiều dài cây (mm) với sắt bán theo chiều dài, 0 cho loại khác - cùng mã sắt khác chiều dài
-   *  là 2 lô tồn RIÊNG (unique index warehouseId+materialId+stockLengthMm). */
-  stockLengthMm: number
-  /** Quy cách (nệm), '' = không quy cách - cùng vật tư khác quy cách là các dòng tồn RIÊNG. */
-  spec?: string
-  qty: number
-  /** Vấn đề #13 audit 26/08 - tồn còn dùng được (đã trừ phần giữ chỗ cắt sắt/chuyển kho), BE tính
-   *  sẵn qua getAvailableQty() dùng chung với màn Xuất sắt - xem stock-api.ts. */
-  availableQty: number
-}
-export interface StockItem {
-  materialId: number
-  code: string
-  name: string
-  unit: string
-  spec: string | null
-  groupName: string
-  /** null = vật tư này chưa có dòng stock_quant nào ở kho đang xem (chưa phát sinh giao dịch) -
-   *  hiện "—" ở cột Chiều dài. 0 = có phát sinh nhưng chưa gán chiều dài cụ thể (vật tư không bán
-   *  theo chiều dài, hoặc dữ liệu cũ trước khi có tính năng này) - CŨNG hiện "—" vì 0 không phải 1
-   *  chiều dài vật lý thật. >0 = chiều dài cây thật (mm). 1 vật tư Sắt có thể sinh NHIỀU StockItem
-   *  (1 dòng/bucket) khi tồn ở nhiều chiều dài khác nhau cùng lúc - xem itemsOf(). */
-  stockLengthMm: number | null
-  /** Quy cách của bucket tồn này (nệm), '' / bỏ trống = không quy cách. Cùng vật tư khác quy cách sinh các StockItem
-   *  RIÊNG (như bucket chiều dài) - khác `spec` (quy cách ghi ở danh mục vật tư). */
-  bucketSpec?: string
-  qty: number
-  /** Xem QuantRow.availableQty - mặc định === qty nếu vật tư này không có dòng stock_quant nào
-   *  (chưa từng phát sinh giao dịch, tồn = 0 = khả dụng). */
-  availableQty: number
-}
-
 // ── Config nhóm (label/mô tả header + gate nút "Tạo kho thành phẩm mới") ───────
 
 interface WhGroup { key: string; label: string; desc: string }
@@ -105,9 +78,6 @@ const WAREHOUSE_GROUPS: WhGroup[] = [
   { key: 'vat-tu-tp',    label: 'Kho vật tư thành phẩm', desc: 'Vật tư, phụ kiện, dây đan dùng cho thành phẩm' },
   { key: 'thanh-pham',   label: 'Kho thành phẩm',         desc: 'Thành phẩm và bao bì đóng gói hoàn chỉnh' },
 ]
-
-// Đợt 7: 4 kho chia từ kho chung Phôi-Sơn-Hàn cũng là kho cố định (BE PROTECTED_WAREHOUSE_CODES) - không cho xoá.
-const BASE_CODES = new Set(['phoi-son-han', 'vat-tu-tp', 'thanh-pham', 'phoi-son-han-han-pa', 'phoi-son-han-son-pa', 'phoi-son-han-phoi-pha', 'phoi-son-han-han-pha'])
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 
@@ -121,12 +91,12 @@ export default function MfgWarehousesPage({ groupKey }: { groupKey?: string | nu
   // toàn bộ nhánh sửa trước đây thực chất không ai dùng được. BE không chặn Admin (STOCK:UPDATE +
   // MATERIAL:CREATE có sẵn trong permissions của role ADMIN, warehouseScope=null bỏ qua kiểm tra
   // phạm vi kho ở StockLedgerService.assertScopeTouchesWarehouses()).
-  const canWrite = user?.role === 'ADMIN'
   const isAdmin  = user?.role === 'ADMIN'
 
   const { data: warehouses, isLoading: whLoading, error: whError, refetch: refetchWarehouses } = useFetch<WhRow[]>(getWarehouses)
   const { data: materials, refetch: refetchMaterials } = useFetch<MaterialRow[]>(getMaterials)
-  const { data: groups } = useFetch<GroupRow[]>(getMaterialGroups)
+  const { data: groups, isLoading: groupsLoading, error: groupsError, refetch: refetchGroups } = useFetch<GroupRow[]>(getMaterialGroups)
+  const groupsStatus: TrangThaiNhomVatTu = groups ? 'ok' : groupsError ? 'loi' : groupsLoading ? 'dang-tai' : 'loi'
   const { data: quants, refetch: refetchQuants } = useFetch<QuantRow[]>(() => getStockQuants())
   useRealtimeRefetch(['stock'], () => { void refetchQuants() })
 
@@ -193,14 +163,8 @@ export default function MfgWarehousesPage({ groupKey }: { groupKey?: string | nu
         materialId: m.id, code: m.code, name: m.name, unit: m.unit, spec: m.spec,
         groupName: m.materialGroupId ? (groupNameById.get(String(m.materialGroupId)) ?? '—') : '—',
       }
-      const buckets = (rowsByMaterial.get(String(m.id)) ?? []).filter(r => r.qty !== 0)
-      if (buckets.length === 0) {
-        result.push({ ...base, stockLengthMm: null, qty: 0, availableQty: 0 })
-      } else {
-        for (const r of buckets) {
-          result.push({ ...base, stockLengthMm: r.stockLengthMm || null, bucketSpec: r.spec ?? '', qty: r.qty, availableQty: r.availableQty })
-        }
-      }
+      // Ô chiều dài 0 có tồn giữ stockLengthMm = 0 (khi sửa phải ghi đúng ô 0, không gộp với ô khác) - xem tachDongTheoO.
+      result.push(...tachDongTheoO(base, rowsByMaterial.get(String(m.id)) ?? []))
     }
     return result
   }
@@ -217,8 +181,11 @@ export default function MfgWarehousesPage({ groupKey }: { groupKey?: string | nu
     <WarehouseDetail
       wh={openWh}
       items={itemsOf(openWh)}
-      canWrite={canWrite}
-      isDeletable={isAdmin && !BASE_CODES.has(openWh.code)}
+      canWrite={quyenTrenKho(isAdmin, openWh).canWrite}
+      isDeletable={quyenTrenKho(isAdmin, openWh).isDeletable}
+      groups={groups ?? []}
+      groupsStatus={groupsStatus}
+      onRetryGroups={refetchGroups}
       openingBalanceWarehouseId={openingBalanceWarehouseId}
       warehouses={warehouses ?? []}
       allMaterials={materials ?? []}
@@ -453,11 +420,14 @@ function WhCard({ wh, itemCount, totalQty, onOpen }: { wh: WhRow; itemCount: num
 
 // ── Chi tiết kho ──────────────────────────────────────────────────────────────
 
-function WarehouseDetail({ wh, items, canWrite, isDeletable, openingBalanceWarehouseId, warehouses, allMaterials, onBack, onMaterialCreated, onQtyAdjusted, onWarehouseDeleted }: {
+function WarehouseDetail({ wh, items, canWrite, isDeletable, groups, groupsStatus, onRetryGroups, openingBalanceWarehouseId, warehouses, allMaterials, onBack, onMaterialCreated, onQtyAdjusted, onWarehouseDeleted }: {
   wh: WhRow
   items: StockItem[]
   canWrite: boolean
   isDeletable: boolean
+  groups: GroupRow[]
+  groupsStatus: TrangThaiNhomVatTu
+  onRetryGroups: () => void
   openingBalanceWarehouseId: string | null
   warehouses: WhRow[]
   allMaterials: MaterialRow[]
@@ -484,7 +454,9 @@ function WarehouseDetail({ wh, items, canWrite, isDeletable, openingBalanceWareh
   const [editValue, setEditValue] = useState('')
   // Vấn đề #25 audit 26/08 - chốt số xong KHÔNG gọi API ngay, mà chờ AdjustReasonModal thu lý do
   // thật (trước đây gửi thẳng note cố định) rồi mới ghi bút toán.
-  const [pendingAdjust, setPendingAdjust] = useState<{ it: StockItem; newQty: number; delta: number } | null>(null)
+  const [pendingAdjust, setPendingAdjust] = useState<{ it: StockItem; newQty: number; delta: number; cach: CachGhiChieuDai } | null>(null)
+  // Sắt chưa có ô chiều dài: Admin chọn chiều dài cây ngay trong hộp xác nhận (mặc định 6000), không để tồn rơi vào ô 0 "tàng hình".
+  const [chieuDaiText, setChieuDaiText] = useState('')
   const [adjustBusy, setAdjustBusy] = useState(false)
   const [adjustError, setAdjustError] = useState<string | null>(null)
   // Điện thoại: bảng tồn 7-8 cột đổi thành thẻ (ô Tồn vẫn bấm sửa được như trên bảng).
@@ -515,12 +487,19 @@ function WarehouseDetail({ wh, items, canWrite, isDeletable, openingBalanceWareh
       return
     }
     setAdjustError(null)
-    setPendingAdjust({ it, newQty, delta })
+    const material = allMaterials.find(m => m.id === it.materialId)
+    const cach = cachGhiChieuDai(it, !!material && laSatCay(material, groups))
+    setChieuDaiText(cach.kind === 'chon-chieu-dai' ? String(cach.macDinh) : '')
+    setPendingAdjust({ it, newQty, delta, cach })
   }
 
   const confirmAdjust = async (reason: string) => {
     if (!pendingAdjust || !openingBalanceWarehouseId) return
-    const { it, delta } = pendingAdjust
+    const { it, delta, cach } = pendingAdjust
+    // Tự kiểm lại chiều dài (không chỉ tin nút bị khoá): sai thì không gọi API.
+    const chieuDaiChon = cach.kind === 'chon-chieu-dai' ? docChieuDaiCay(chieuDaiText) : null
+    if (cach.kind === 'chon-chieu-dai' && chieuDaiChon === null) { setAdjustError(CAU_CHIEU_DAI_SAI); return }
+    const stockLengthMm = cach.kind === 'dung-o' ? cach.stockLengthMm : cach.kind === 'chon-chieu-dai' ? (chieuDaiChon ?? undefined) : undefined
     setAdjustBusy(true)
     setAdjustError(null)
     try {
@@ -529,10 +508,9 @@ function WarehouseDetail({ wh, items, canWrite, isDeletable, openingBalanceWareh
         toWarehouseId:   delta > 0 ? wh.id : openingBalanceWarehouseId,
         materialId: String(it.materialId),
         qty: Math.abs(delta),
-        // Dòng đã có chiều dài cụ thể (đang tách theo bucket) -> sửa ĐÚNG bucket đó. Dòng "—"
-        // (chưa từng phát sinh hoặc vật tư không bán theo chiều dài) -> bỏ trống, BE ghi vào
-        // bucket chung (0) - đúng hành vi cũ.
-        stockLengthMm: it.stockLengthMm ?? undefined,
+        // Dòng đã có ô (kể cả ô 0 hiện "—") -> sửa ĐÚNG ô đó, gửi cả số 0. Sắt chưa có ô -> chiều dài Admin chọn.
+        // Vật tư khác chưa có ô -> bỏ trống, BE ghi vào ô chung (0) - đúng hành vi cũ.
+        stockLengthMm,
         // Dòng tồn đã tách theo quy cách (nệm) -> sửa ĐÚNG bucket quy cách đó ('' = bucket không quy cách).
         spec: it.bucketSpec ?? '',
         note: reason,
@@ -556,6 +534,7 @@ function WarehouseDetail({ wh, items, canWrite, isDeletable, openingBalanceWareh
     if (adjustBusy) return
     setPendingAdjust(null)
     setAdjustError(null)
+    setChieuDaiText('')
   }
 
   const handleDeleteWarehouse = () => {
@@ -583,6 +562,11 @@ function WarehouseDetail({ wh, items, canWrite, isDeletable, openingBalanceWareh
       }}
       style={{ width: 84, padding: '3px 6px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, textAlign: 'right', background: 'var(--surface)', color: 'var(--text)' }}
     />
+  ) : canWrite && lyDoKhoaSuaTon(allMaterials.find(m => m.id === it.materialId), groupsStatus) ? (
+    // Chưa có danh sách nhóm vật tư: không cho sửa (sắt cây sẽ bị ghi nhầm vào ô chiều dài 0).
+    <span title={lyDoKhoaSuaTon(allMaterials.find(m => m.id === it.materialId), groupsStatus) ?? undefined} style={{ opacity: 0.6 }}>
+      {it.qty.toLocaleString('vi-VN')}
+    </span>
   ) : canWrite ? (
     <span onClick={() => startEdit(it)} style={{ cursor: 'pointer', borderBottom: '1px dashed var(--text3)' }} title="Bấm để sửa">
       {it.qty.toLocaleString('vi-VN')}
@@ -629,6 +613,13 @@ function WarehouseDetail({ wh, items, canWrite, isDeletable, openingBalanceWareh
           </>
         )}
       </div>
+
+      {canWrite && groupsStatus !== 'ok' && tab === 'stock' && (
+        <div style={{ marginBottom: 12, padding: '10px 14px', borderRadius: 10, background: 'var(--bg-fffbeb)', color: 'var(--fg-d97706)', fontSize: 13, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}>
+          <span>{groupsStatus === 'dang-tai' ? 'Đang tải nhóm vật tư… Tạm thời chưa sửa được tồn.' : 'Chưa tải được nhóm vật tư nên chưa sửa được tồn.'}</span>
+          {groupsStatus === 'loi' && <button onClick={onRetryGroups} style={btnGhost}>Thử lại</button>}
+        </div>
+      )}
 
       {/* Tabs */}
       <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', marginBottom: 16, overflowX: 'auto' }}>
@@ -729,6 +720,7 @@ function WarehouseDetail({ wh, items, canWrite, isDeletable, openingBalanceWareh
           targetItems={items}
           warehouses={warehouses}
           allMaterials={allMaterials}
+          groups={groups}
           onClose={() => setCopying(false)}
           onDone={() => { setCopying(false); onMaterialCreated() }}
         />
@@ -737,12 +729,30 @@ function WarehouseDetail({ wh, items, canWrite, isDeletable, openingBalanceWareh
       {pendingAdjust && (
         <AdjustReasonModal
           open
-          summary={`${pendingAdjust.it.name}: ${pendingAdjust.it.qty.toLocaleString('vi-VN')} → ${pendingAdjust.newQty.toLocaleString('vi-VN')} ${pendingAdjust.it.unit}`}
+          summary={`${pendingAdjust.it.name}: ${pendingAdjust.it.qty.toLocaleString('vi-VN')} → ${pendingAdjust.newQty.toLocaleString('vi-VN')} ${pendingAdjust.it.unit}${
+            pendingAdjust.cach.kind === 'chon-chieu-dai' && docChieuDaiCay(chieuDaiText) !== null ? ` · cây ${docChieuDaiCay(chieuDaiText)!.toLocaleString('vi-VN')} mm` : ''}`}
           busy={adjustBusy}
           error={adjustError}
+          confirmDisabled={pendingAdjust.cach.kind === 'chon-chieu-dai' && docChieuDaiCay(chieuDaiText) === null}
           onConfirm={(reason) => void confirmAdjust(reason)}
           onCancel={cancelAdjust}
-        />
+        >
+          {pendingAdjust.cach.kind === 'chon-chieu-dai' && (
+            <div style={{ margin: '0 0 10px' }}>
+              <label style={{ display: 'block', fontSize: 12, color: 'var(--text2)', margin: '4px 0 4px' }}>Chiều dài cây (mm) *</label>
+              <input
+                inputMode="numeric"
+                value={chieuDaiText}
+                disabled={adjustBusy}
+                onChange={e => setChieuDaiText(e.target.value)}
+                style={{ ...inp, border: `1px solid ${docChieuDaiCay(chieuDaiText) === null ? 'var(--fg-c62828)' : 'var(--border)'}` }}
+              />
+              {docChieuDaiCay(chieuDaiText) === null && (
+                <div style={{ color: 'var(--fg-c62828)', fontSize: 12, marginTop: 4 }}>{CAU_CHIEU_DAI_SAI}</div>
+              )}
+            </div>
+          )}
+        </AdjustReasonModal>
       )}
       {confirmModal}
     </div>
@@ -822,15 +832,18 @@ const norm = (s: string | null | undefined) => (s ?? '').trim().toLowerCase().re
 const sameItemKey = (x: { name: string; spec: string | null; unit: string }) =>
   `${norm(x.name)}|${norm(x.spec)}|${norm(x.unit)}`
 
-function CopyMaterialsModal({ targetWarehouse, targetItems, warehouses, allMaterials, onClose, onDone }: {
+function CopyMaterialsModal({ targetWarehouse, targetItems, warehouses, allMaterials, groups, onClose, onDone }: {
   targetWarehouse: WhRow
   /** Danh mục kho đích ĐANG thấy (itemsOf) - để đánh dấu "Đã có". */
   targetItems: StockItem[]
   warehouses: WhRow[]
   allMaterials: MaterialRow[]
+  groups: GroupRow[]
   onClose: () => void
   onDone: () => void
 }) {
+  // Sắt cây phần mềm: tồn đầu kỳ sẽ rơi vào ô chiều dài 0 (BE không nhận chiều dài ở đây) - không cho nhập, nhập ở "Sửa tồn".
+  const laSat = (m: MaterialRow) => laSatCay(m, groups)
   const sourceOptions = warehouses.filter(w => w.id !== targetWarehouse.id)
   const [sourceId, setSourceId] = useState(sourceOptions[0]?.id ?? '')
   const materialsOfSource = (id: string) => allMaterials.filter(m => m.warehouseId === id)
@@ -895,7 +908,7 @@ function CopyMaterialsModal({ targetWarehouse, targetItems, warehouses, allMater
           materialGroupId: m.materialGroupId ?? undefined,
           detailKind: m.detailKind ?? undefined,
           warehouseId: targetWarehouse.id,
-          openingQty: Number(openingQtyById[m.id]) > 0 ? Number(openingQtyById[m.id]) : undefined,
+          openingQty: !laSat(m) && Number(openingQtyById[m.id]) > 0 ? Number(openingQtyById[m.id]) : undefined,
         })
       } catch (e) {
         failed.push({ name: m.name, message: e instanceof Error ? e.message : 'Lỗi không rõ' })
@@ -943,7 +956,7 @@ function CopyMaterialsModal({ targetWarehouse, targetItems, warehouses, allMater
                   </th>
                   <th style={th}>Tên vật tư</th>
                   <th style={th}>ĐVT</th>
-                  <th style={{ ...th, width: 130 }}>Tồn ban đầu</th>
+                  <th style={{ ...th, width: 150 }}>Tồn ban đầu</th>
                 </tr>
               </thead>
               <tbody>
@@ -961,13 +974,17 @@ function CopyMaterialsModal({ targetWarehouse, targetItems, warehouses, allMater
                     </td>
                     <td style={{ ...td, color: 'var(--text3)' }}>{m.unit}</td>
                     <td style={td}>
-                      <input
-                        type="number" min={0} placeholder="0"
-                        disabled={!selected.has(m.id)}
-                        value={openingQtyById[m.id] ?? ''}
-                        onChange={e => setOpeningQtyById(prev => ({ ...prev, [m.id]: e.target.value }))}
-                        style={{ width: '100%', padding: '5px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, textAlign: 'right', background: 'var(--surface)', color: 'var(--text)' }}
-                      />
+                      {laSat(m) ? (
+                        <div style={{ fontSize: 11, color: 'var(--text3)' }}>Nhập tồn sắt ở Sửa tồn, chọn chiều dài cây</div>
+                      ) : (
+                        <input
+                          type="number" min={0} placeholder="0"
+                          disabled={!selected.has(m.id)}
+                          value={openingQtyById[m.id] ?? ''}
+                          onChange={e => setOpeningQtyById(prev => ({ ...prev, [m.id]: e.target.value }))}
+                          style={{ width: '100%', padding: '5px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, textAlign: 'right', background: 'var(--surface)', color: 'var(--text)' }}
+                        />
+                      )}
                     </td>
                   </tr>
                 ))}

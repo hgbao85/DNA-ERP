@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { pickCurrentStage, type ParallelStageInput } from './currentStagePick'
+import { isAwaitingFinish, pickCurrentStage, type ParallelStageInput } from './currentStagePick'
 
 const par = (frame: number, weaving: number, ck: number, pack: number): ParallelStageInput[] => [
   { key: 'FRAME', pct: frame, na: false },
@@ -42,5 +42,31 @@ describe('pickCurrentStage', () => {
   it('mfgStage = Mua hàng giữ nguyên như cũ', () => {
     expect(pickCurrentStage({ status: 'PRODUCING', mfgStage: 'PURCHASING', purchasingPct: 45, parallel: par(0, 0, 0, 0) }))
       .toEqual({ kind: 'STAGE', stage: 'PURCHASING', pct: 45 })
+  })
+})
+
+describe('isAwaitingFinish', () => {
+  const packed = pickCurrentStage({ status: 'PRODUCING', mfgStage: 'FRAME', purchasingPct: 100, parallel: par(100, 100, 100, 100) })
+  const notPacked = pickCurrentStage({ status: 'PRODUCING', mfgStage: 'FRAME', purchasingPct: 100, parallel: par(100, 40, 0, 0) })
+  it('đóng gói đủ + floorStage ACTIVE / PAUSED / PENDING -> chờ Kết thúc', () => {
+    for (const st of ['ACTIVE', 'PAUSED', 'PENDING']) expect(isAwaitingFinish(st, packed)).toBe(true)
+  })
+  it('đã FINISHED hoặc chưa có lệnh sàn -> không', () => {
+    expect(isAwaitingFinish('FINISHED', packed)).toBe(false)
+    expect(isAwaitingFinish(null, packed)).toBe(false)
+    expect(isAwaitingFinish(undefined, packed)).toBe(false)
+  })
+  it('đóng gói chưa đủ -> không', () => {
+    expect(isAwaitingFinish('ACTIVE', notPacked)).toBe(false)
+  })
+  it('công đoạn đóng gói không áp dụng -> không', () => {
+    const p = par(100, 100, 100, 100)
+    p[3] = { key: 'PACKAGING', pct: 100, na: true }
+    const pick = pickCurrentStage({ status: 'PRODUCING', mfgStage: 'FRAME', purchasingPct: 100, parallel: p })
+    expect(isAwaitingFinish('ACTIVE', pick)).toBe(false)
+  })
+  it('lệnh DONE -> không', () => {
+    const pick = pickCurrentStage({ status: 'DONE', mfgStage: 'PACKAGING', purchasingPct: 100, parallel: par(100, 100, 100, 100) })
+    expect(isAwaitingFinish('ACTIVE', pick)).toBe(false)
   })
 })

@@ -19,7 +19,7 @@
  * ở core.tsx đang dùng cho "Lệnh sản xuất" của CHÍNH vai Sơn). KHÔNG dùng `getSkuOptions()`/
  * `/products` - đã thử ở bản Hàn và bị BE chặn 403 "Missing required permission(s): PRODUCT:VIEW"
  * (HAN_STAFF/SON_STAFF chỉ có PRODUCTION_BATCH:VIEW, không có quyền đọc danh mục sản phẩm chung -
- * cùng giới hạn đã ghi ở XacNhanVatTuPage.tsx).
+ * cùng giới hạn của mọi trang tổ Hàn / Sơn).
  */
 
 import { useMemo, useState } from 'react'

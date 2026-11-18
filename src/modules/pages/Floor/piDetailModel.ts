@@ -19,6 +19,13 @@ export interface PieceView extends ProgressBuckets {
   /** Số mảnh / 1 bộ SKU (BE qtyPerUnit hoặc suy từ plannedQty / số bộ). undefined = không biết, hoặc gộp nhiều SKU mà khác
    *  nhau, hoặc vật tư thành phẩm không gắn mảnh (khoá 'm…') - khi đó KHÔNG kết luận lệch bộ (2026-11-17). */
   perUnit?: number
+  /** Số lỗi KCS chưa làm bù, tính TỪNG dòng (SKU × mảnh) rồi mới cộng: Σ min(lỗi, còn thiếu). Không tính trên số đã gộp. */
+  unmade: number
+}
+
+/** Lỗi KCS chưa làm bù của 1 dòng: lỗi ở dòng đã đủ số thì không tính; lỗi lớn hơn số còn thiếu thì chỉ tính số còn thiếu. */
+export function unmadeOf(failed: number, remaining: number): number {
+  return Math.max(0, Math.min(failed, remaining))
 }
 
 /** null = cả PI (mọi SKU). */
@@ -39,9 +46,10 @@ export function piecesOf(detail: BeStageDetail, orderId: OrderFilter): PieceView
     const b = bucketLine(line)
     const cur = byKey.get(key)
     if (!cur) {
-      byKey.set(key, { key, name, code, ...b, remaining: remainingQty(line), perUnit })
+      byKey.set(key, { key, name, code, ...b, remaining: remainingQty(line), perUnit, unmade: unmadeOf(b.failed, remainingQty(line)) })
       return
     }
+    cur.unmade += unmadeOf(b.failed, remainingQty(line))
     if (cur.perUnit !== perUnit) cur.perUnit = undefined // gộp 2 SKU mà khác SL/bộ → không so được
     for (const k of ['required', 'reported', 'passed', 'awaiting', 'open', 'failed'] as const) cur[k] += b[k]
     cur.remaining += remainingQty(line)
@@ -49,6 +57,7 @@ export function piecesOf(detail: BeStageDetail, orderId: OrderFilter): PieceView
   for (const [, plan] of planEntries(detail, orderId)) {
     for (const it of plan.items) push(`p${it.pieceId}`, it.pieceName, it.pieceCode, pieceLine(it), qtyPerUnitOf(it, plan.quantity))
     for (const it of plan.materialYieldItems ?? []) {
+      // Vật tư TP: BE chưa trả số lỗi KCS (đạt lấy từ sổ kho theo đợt chốt công đoạn cuối) nên lỗi = 0.
       push(`m${it.materialId}`, it.materialName, it.materialCode, { required: it.plannedQty, done: it.passedQty + it.awaitingQcQty, failed: 0, open: 0, awaiting: it.awaitingQcQty })
     }
   }
@@ -144,6 +153,13 @@ export function openBatchesOf(review: BeFloorReview | null, productionInvoiceId:
   return [...review.cutBundles, ...review.stepGroups, ...review.pieceBatches].filter((b) => b.pi?.productionInvoiceId === productionInvoiceId)
 }
 
+/** Lỗi chưa bù của các dòng Phôi (mỗi cỡ đoạn × công đoạn một dòng). */
+function unmadeSegments(materials: PhoiMaterialView[]): number {
+  let n = 0
+  for (const m of materials) for (const st of m.steps) for (const sg of st.segments) n += unmadeOf(sg.failed, sg.remaining)
+  return n
+}
+
 export function abnormalities(
   materials: PhoiMaterialView[],
   pieces: PieceView[],
@@ -163,8 +179,12 @@ export function abnormalities(
   }
   const stale = openBatchesOf(review, productionInvoiceId).filter((b) => isStale(b.waitingSince, now)).length
   if (stale > 0) out.push({ kind: 'stale', text: `${stale} đợt chờ gửi KCS quá 4 giờ` })
-  const failed = materials.reduce((a, m) => a + m.failed, 0) + pieces.reduce((a, p) => a + p.failed, 0)
-  if (failed > 0) out.push({ kind: 'qc-failed', text: `KCS chấm lỗi ${failed.toLocaleString('vi-VN')} ${materials.length ? 'đoạn' : 'cái'} - cần làm bù` })
+  // 2026-11-18: chỉ đếm lỗi CHƯA bù, tính từng dòng (cỡ đoạn × công đoạn; SKU × mảnh) rồi mới cộng - bù đủ thì hết hiện dù tổng lỗi KCS vẫn còn.
+  // 2026-11-18 (QA review): đoạn và cái là 2 đơn vị khác nhau - tách 2 dòng, không cộng lẫn (tổ Phôi có cả đoạn sắt lẫn mảnh như pat).
+  const failedSegments = unmadeSegments(materials)
+  const failedPieces = pieces.reduce((a, p) => a + p.unmade, 0)
+  if (failedSegments > 0) out.push({ kind: 'qc-failed', text: `KCS chấm lỗi ${failedSegments.toLocaleString('vi-VN')} đoạn chưa làm bù` })
+  if (failedPieces > 0) out.push({ kind: 'qc-failed', text: `KCS chấm lỗi ${failedPieces.toLocaleString('vi-VN')} cái chưa làm bù` })
   // 2026-11-17: lệch bộ tính theo từng SKU với SL/bộ của định mức (trước gộp mọi SKU + coi mọi mảnh ×1 nên báo sai).
   if (stage !== 'PHOI' && unbalanced.length > 0) {
     out.push({ kind: 'unbalanced', text: `Số mảnh đã báo chưa đồng bộ thành bộ (mảnh này nhiều, mảnh kia ít): ${unbalanced.join(', ')}` })

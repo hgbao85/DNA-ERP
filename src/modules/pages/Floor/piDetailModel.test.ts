@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import type { BeFloorReview, BeStageDetail } from '../../../services/floor-api'
 import { lechOf, type ProcLine } from '../../../components/sanxuat/core'
-import { abnormalities, missingText, phoiMaterialsOf, piecesOf, shortMaterials, shortPieces, summarize, syncComparable, unbalancedOrders } from './piDetailModel'
+import { abnormalities, missingText, phoiMaterialsOf, piecesOf, shortMaterials, shortPieces, summarize, syncComparable, unbalancedOrders, unmadeOf } from './piDetailModel'
 
 const seg = (cutLengthMm: number, s: { required: number; done: number; failed?: number; openQty?: number; awaitingQcQty?: number }, byOrder?: { productionOrderId: string | null; required: number; done: number; failed: number; openQty?: number; awaitingQcQty?: number }[]) => ({
   segmentSpecId: String(cutLengthMm), cutLengthMm, failed: 0, openQty: 0, awaitingQcQty: 0, ...s, byOrder: byOrder ?? [],
 })
 
-const plan = (items: { pieceId: string; plannedQty: number; passedQty: number; awaitingQcQty: number; openQty?: number; qtyPerUnit?: number }[], quantity = 1, productName = 'Ghế') => ({
+const plan = (items: { pieceId: string; plannedQty: number; passedQty: number; awaitingQcQty: number; openQty?: number; failedQty?: number; qtyPerUnit?: number }[], quantity = 1, productName = 'Ghế') => ({
   poNumber: 'PO', salesOrderCode: null, productName, quantity,
   items: items.map((i) => ({ pieceCode: `M${i.pieceId}`, pieceName: `Mảnh ${i.pieceId}`, rawMaterialOnHand: null, processSteps: [], stepProgress: [], ...i })),
 }) as unknown as BeStageDetail['plans'][string]
@@ -88,6 +88,31 @@ describe('piDetailModel', () => {
     expect(missingText({ lines: 39, materials: 6, materialsNotReceived: 4, pieces: 0 }, 4)).toBe('Còn thiếu 6 loại sắt (4 chưa nhận sắt) · 4 đợt chờ gửi KCS')
     expect(missingText({ lines: 5, materials: 0, materialsNotReceived: 0, pieces: 5 }, 0)).toBe('Còn thiếu 5 mảnh')
     expect(missingText({ lines: 2, materials: 0, materialsNotReceived: 0, pieces: 0 }, 0)).toBe('Còn thiếu 2 dòng')
+  })
+
+  describe('failedQty của mảnh (KCS chấm lỗi 4 ở đợt 10)', () => {
+    const han = (over: { passedQty: number; failedQty?: number }) =>
+      detail({ stage: 'HAN', phoi: null, plans: { '41': plan([{ pieceId: '7', plannedQty: 40, awaitingQcQty: 0, ...over }]) } })
+    const qcFailed = (d: BeStageDetail) => abnormalities([], piecesOf(d, null), null, '45', 'HAN').find((a) => a.kind === 'qc-failed')?.text
+
+    it('cần 40, đạt 36, lỗi 4 chưa bù -> có dòng lỗi, còn thiếu 4', () => {
+      const d = han({ passedQty: 36, failedQty: 4 })
+      expect(qcFailed(d)).toBe('KCS chấm lỗi 4 cái chưa làm bù')
+      expect(piecesOf(d, null)[0]).toMatchObject({ failed: 4, remaining: 4, reported: 36, unmade: 4 })
+    })
+    it('tiến độ không đổi so với trước khi có failedQty', () => {
+      const withFail = piecesOf(han({ passedQty: 36, failedQty: 4 }), null)[0]
+      const without = piecesOf(han({ passedQty: 36 }), null)[0]
+      expect(summarize([], [withFail]).percent).toBe(summarize([], [without]).percent)
+      expect(withFail.reported).toBe(without.reported)
+      expect(withFail.remaining).toBe(without.remaining)
+    })
+    it('bù đủ 4 đạt (đạt 40) -> hết dòng lỗi', () => {
+      expect(qcFailed(han({ passedQty: 40, failedQty: 4 }))).toBeUndefined()
+    })
+    it('thiếu trường failedQty -> như cũ, không có dòng lỗi', () => {
+      expect(qcFailed(han({ passedQty: 36 }))).toBeUndefined()
+    })
   })
 
   it('Hàn lệch bộ khi các mảnh báo không đều', () => {
@@ -172,5 +197,52 @@ describe('piDetailModel', () => {
     const ps = piecesOf(d, null)
     expect(ps.find((x) => x.key === 'm5')?.perUnit).toBeUndefined()
     expect(ps.find((x) => x.key === 'p1')?.perUnit).toBe(1)
+  })
+
+  describe('AC31: lỗi KCS chưa làm bù (tính từng dòng)', () => {
+    const phoiOf = (segments: ReturnType<typeof seg>[]) => detail({ phoi: [{
+      materialId: '1', materialCode: 'HOP', materialName: 'Sắt hộp', issuedBarCount: 5, steelBalance: null,
+      segments, steps: [],
+    }] as unknown as BeStageDetail['phoi'] })
+    const text = (d: BeStageDetail) => abnormalities(phoiMaterialsOf(d, null), [], null, '45', 'PHOI').find((a) => a.kind === 'qc-failed')?.text
+
+    it('lỗi 5, đã báo đủ 100 mà chưa bù -> có dòng "chưa làm bù 5"', () => {
+      expect(text(phoiOf([seg(355, { required: 100, done: 100, failed: 5 })]))).toBe('KCS chấm lỗi 5 đoạn chưa làm bù')
+    })
+    it('bù đủ (đã báo 105, lỗi vẫn 5) -> không còn dòng', () => {
+      expect(text(phoiOf([seg(355, { required: 100, done: 105, failed: 5 })]))).toBeUndefined()
+    })
+    it('2 cỡ: 1 cỡ đã bù, 1 cỡ chưa -> chỉ đếm cỡ chưa bù', () => {
+      expect(text(phoiOf([
+        seg(355, { required: 100, done: 105, failed: 5 }),
+        seg(185, { required: 50, done: 50, failed: 3 }),
+      ]))).toBe('KCS chấm lỗi 3 đoạn chưa làm bù')
+    })
+    it('lỗi lớn hơn số còn thiếu -> đếm bằng số còn thiếu', () => {
+      expect(text(phoiOf([seg(355, { required: 100, done: 107, failed: 10 })]))).toBe('KCS chấm lỗi 3 đoạn chưa làm bù')
+    })
+    it('unmadeOf: không âm, lấy nhỏ hơn giữa lỗi và còn thiếu (từng dòng, không min trên số gộp)', () => {
+      expect(unmadeOf(5, 0)).toBe(0)
+      expect(unmadeOf(0, 10)).toBe(0)
+      expect(unmadeOf(4, 10)).toBe(4)
+      // mảnh M: SKU1 lỗi 5 đã bù đủ (còn thiếu 0), SKU2 lỗi 0 còn thiếu 10 -> 0, không phải min(5, 10) = 5
+      expect(unmadeOf(5, 0) + unmadeOf(0, 10)).toBe(0)
+    })
+    it('mảnh gộp nhiều SKU: unmade cộng theo từng dòng', () => {
+      // SKU1 lỗi 5 đã bù đủ (đạt 10/10), SKU2 chưa làm (0/10, không lỗi): từng dòng ra 0; nếu lấy min trên số gộp sẽ ra 5.
+      const d = detail({ stage: 'HAN', phoi: null, plans: {
+        '1': plan([{ pieceId: '7', plannedQty: 10, passedQty: 10, awaitingQcQty: 0, failedQty: 5 }]),
+        '2': plan([{ pieceId: '7', plannedQty: 10, passedQty: 0, awaitingQcQty: 0 }]),
+      } })
+      expect(piecesOf(d, null)[0].failed).toBe(5)
+      expect(piecesOf(d, null)[0].unmade).toBe(0)
+    })
+    it('tổ Phôi có cả đoạn lẫn mảnh lỗi chưa bù -> 2 dòng riêng "đoạn" và "cái", không cộng lẫn', () => {
+      const d = phoiOf([seg(355, { required: 100, done: 100, failed: 5 })])
+      const withPat = { ...d, plans: { '1': plan([{ pieceId: '9', plannedQty: 20, passedQty: 17, awaitingQcQty: 0, failedQty: 3 }]) } } as unknown as BeStageDetail
+      const texts = abnormalities(phoiMaterialsOf(withPat, null), piecesOf(withPat, null), null, '45', 'PHOI')
+        .filter((a) => a.kind === 'qc-failed').map((a) => a.text)
+      expect(texts).toEqual(['KCS chấm lỗi 5 đoạn chưa làm bù', 'KCS chấm lỗi 3 cái chưa làm bù'])
+    })
   })
 })

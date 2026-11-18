@@ -76,8 +76,12 @@ export function percentOf(reported: number, required: number): number {
   return Math.min(100, Math.max(done > 0 ? 1 : 0, Math.floor((done / required) * 100)))
 }
 
-/** Mảnh từ batch-plan: `passedQty` đã là số ĐẠT sau KCS (lỗi đã trừ) nên failed = 0. */
-export function pieceLine(it: { plannedQty: number; passedQty: number; awaitingQcQty: number; openQty?: number }): ProgressLineInput {
+/**
+ * Mảnh từ batch-plan: `passedQty` đã là số ĐẠT sau KCS (lỗi đã trừ), `failedQty` = lỗi KCS cộng dồn (thiếu thì 0).
+ * Đã báo (done) = đạt + lỗi + chờ + chưa gửi; Được tính = done − failed nên số tiến độ / còn thiếu không đổi.
+ */
+export function pieceLine(it: { plannedQty: number; passedQty: number; awaitingQcQty: number; openQty?: number; failedQty?: number }): ProgressLineInput {
   const open = it.openQty ?? 0
-  return { required: it.plannedQty, done: it.passedQty + it.awaitingQcQty + open, failed: 0, open, awaiting: it.awaitingQcQty }
+  const failed = it.failedQty ?? 0
+  return { required: it.plannedQty, done: it.passedQty + failed + it.awaitingQcQty + open, failed, open, awaiting: it.awaitingQcQty }
 }

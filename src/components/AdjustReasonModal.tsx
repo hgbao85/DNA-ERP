@@ -11,6 +11,10 @@ interface AdjustReasonModalProps {
   error?: string | null
   onConfirm: (reason: string) => void
   onCancel: () => void
+  /** Nội dung thêm giữa phần tóm tắt và ô lý do (vd ô "Chiều dài cây (mm)" khi sửa tồn sắt). */
+  children?: React.ReactNode
+  /** Khoá nút xác nhận VÀ phím Enter ở ô lý do (vd chiều dài cây chưa hợp lệ). */
+  confirmDisabled?: boolean
 }
 
 /**
@@ -26,6 +30,8 @@ export default function AdjustReasonModal({
   error = null,
   onConfirm,
   onCancel,
+  children,
+  confirmDisabled = false,
 }: AdjustReasonModalProps) {
   const [reason, setReason] = useState('')
   const [touched, setTouched] = useState(false)
@@ -36,7 +42,7 @@ export default function AdjustReasonModal({
 
   const submit = () => {
     setTouched(true)
-    if (!trimmed) return
+    if (confirmDisabled || !trimmed) return
     onConfirm(trimmed)
   }
 
@@ -54,6 +60,8 @@ export default function AdjustReasonModal({
             <p style={{ margin: 0, fontSize: 13, color: 'var(--text2)' }}>{summary}</p>
           </div>
         </div>
+
+        {children}
 
         <label style={{ display: 'block', fontSize: 12, color: 'var(--text2)', margin: '4px 0 4px' }}>Lý do điều chỉnh *</label>
         <input
@@ -90,11 +98,11 @@ export default function AdjustReasonModal({
           </button>
           <button
             onClick={submit}
-            disabled={busy}
+            disabled={busy || confirmDisabled}
             style={{
               padding: '8px 18px', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, color: '#fff',
               background: 'var(--bg-4527a0)',
-              cursor: busy ? 'not-allowed' : 'pointer', opacity: busy ? 0.7 : 1,
+              cursor: busy || confirmDisabled ? 'not-allowed' : 'pointer', opacity: busy || confirmDisabled ? 0.7 : 1,
             }}
           >
             {busy ? 'Đang lưu...' : 'Xác nhận'}
