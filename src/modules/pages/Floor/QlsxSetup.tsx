@@ -24,6 +24,7 @@ import LoadingState from '../../../components/LoadingState'
 import LoadErrorState from '../../../components/LoadErrorState'
 import { btn, card, countNonCutUnassigned, input, isCutUnassigned, isWorkshopUnassigned, KIND_LABEL, kindWithMachine, Notice, Pill, STAGE_LABEL, STEP_LABEL, summarizeCutMachines, td, th, UNASSIGNED_DEFAULT_WORKSHOP_TITLE, UNASSIGNED_WORKSHOP_TITLE, workshopsMissingSteelReceive } from './qlsxUi'
 import { isLocalOrigin, kindCaption, printTems, qrDataUrl, workstationLink } from './qrPrint'
+import { cutTypeChangeMessage, offMessage, workshopChangeMessage } from './workstationConfirm'
 
 const STAGES: FloorStage[] = ['PHOI', 'HAN', 'SON']
 const STEPS = ['UON', 'DAP', 'DUC_LO', 'TAN', 'TOP_DAU', 'XE', 'NHAN']
@@ -195,9 +196,15 @@ function Workstations() {
   const savedBase = settings.data?.publicUrl ?? null
   const base = savedBase ?? (typeof window !== 'undefined' ? window.location.origin : '')
 
-  const toggle = async (w: BeWorkstation) => {
+  const doToggle = async (w: BeWorkstation) => {
     setErr(null)
     try { await floorAdmin.updateWorkstation(w.id, { isActive: !w.isActive }); void refetch() } catch (e) { setErr(errMsg(e)) }
+  }
+  // Tắt máy có hộp hỏi lại (18/11/2026); bật lại máy đã tắt thì không hỏi.
+  const toggle = (w: BeWorkstation) => {
+    if (!w.isActive) { void doToggle(w); return }
+    const t = offMessage(w, w.kind === 'CUT')
+    ask({ title: t.title, message: t.message, confirmLabel: t.confirmLabel, danger: true }, () => doToggle(w))
   }
   // Sửa nhanh xưởng / loại máy cắt trên dòng; lỗi BE hiện ở banner đầu bảng.
   const patch = async (w: BeWorkstation, d: UpdateWorkstationInput) => {
@@ -226,7 +233,13 @@ function Workstations() {
     return (
       <select style={{ ...selStyle(full), borderColor: none ? 'var(--amber)' : 'var(--border2)' }} value={w.workshopId ?? ''} aria-label={`Xưởng của ${w.code}`}
         title={none ? (isCut ? UNASSIGNED_WORKSHOP_TITLE : UNASSIGNED_DEFAULT_WORKSHOP_TITLE) : undefined}
-        onChange={(e) => void patch(w, { workshopId: e.target.value || null })}>
+        onChange={(e) => {
+          // Hỏi lại trước khi đổi. Ô chọn lấy giá trị từ dữ liệu nên Hủy thì tự về giá trị cũ, không gọi API.
+          const nextId = e.target.value || null
+          const nameOfId = (id: string | null | undefined) => (id ? workshops.find((x) => x.id === id)?.name ?? null : null)
+          const t = workshopChangeMessage(w, nameOfId(w.workshopId) ?? w.workshopName, nameOfId(nextId), isCut)
+          ask({ title: t.title, message: t.message, confirmLabel: t.confirmLabel, danger: isCut }, () => patch(w, { workshopId: nextId }))
+        }}>
         <option value="">- Chưa gán -</option>
         {workshops.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
       </select>
@@ -236,14 +249,19 @@ function Workstations() {
     if (w.kind !== 'CUT') return `${kindWithMachine(w)}${w.processStep ? ` · ${STEP_LABEL[w.processStep]}` : ''}`
     return (
       <select style={selStyle(full)} value={w.cutMachineType ?? ''} aria-label={`Loại máy cắt của ${w.code}`}
-        onChange={(e) => { if (e.target.value) void patch(w, { cutMachineType: e.target.value as SolverMachine }) }}>
+        onChange={(e) => {
+          if (!e.target.value) return
+          const nextType = e.target.value as SolverMachine
+          const t = cutTypeChangeMessage(w, w.cutMachineType, nextType)
+          ask({ title: t.title, message: t.message, confirmLabel: t.confirmLabel }, () => patch(w, { cutMachineType: nextType }))
+        }}>
         {!w.cutMachineType && <option value="">- Chọn -</option>}
         {CUT_TYPES.map((t) => <option key={t} value={t}>{MACHINE_LABEL[t]}</option>)}
       </select>
     )
   }
   const statusCell = (w: BeWorkstation) => (
-    <button type="button" onClick={() => void toggle(w)} style={{ ...btn('ghost'), padding: 0 }} aria-label={w.isActive ? `Tắt ${w.code}` : `Bật ${w.code}`}>
+    <button type="button" onClick={() => toggle(w)} style={{ ...btn('ghost'), padding: 0 }} aria-label={w.isActive ? `Tắt ${w.code}` : `Bật ${w.code}`}>
       {w.isActive ? <Pill tone="green">Đang dùng</Pill> : <Pill tone="gray">Đã tắt</Pill>}
     </button>
   )

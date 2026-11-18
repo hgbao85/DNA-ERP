@@ -19,6 +19,7 @@ import { useAuth } from '../../../context/AuthContext'
 import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
 import type { BeSegmentBalance } from '../../../services/segment-stock-api'
+import type { BeWarehouse } from '../../../services/warehouses-api'
 import LoadingState from '../../../components/LoadingState'
 import Modal from '../../../components/Modal'
 import { btnSecondary } from '../../../styles/buttons'
@@ -26,6 +27,7 @@ import { errMsg } from '../../../utils/errors'
 import LoadErrorState from '../../../components/LoadErrorState'
 import { pageTitle, pageSubtitle } from '../../../styles/typography'
 import { useRealtimeRefetch } from '../../../realtime/hooks'
+import { canhBaoKhoPhoi, CANH_BAO_DU_AM, CANH_BAO_TON_AM, chonKhoMacDinh, khoPhoiThat, khoPhoiTuSoDu, trangThaiTaiKhoPhoi } from './khoPhoiModel'
 
 const th: React.CSSProperties = { padding: '10px 14px', fontSize: 12, fontWeight: 600, color: 'var(--text2)', textAlign: 'left', whiteSpace: 'nowrap' }
 const thR: React.CSSProperties = { ...th, textAlign: 'right' }
@@ -35,13 +37,6 @@ const tdR: React.CSSProperties = { ...td, textAlign: 'right', whiteSpace: 'nowra
 const card: React.CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflowX: 'auto' }
 
 type Tab = 'duyet' | 'thua'
-
-/**
- * Kho ảo đối ứng - không phải tồn thật: PRODUCTION (Hàn / Sơn dùng đoạn thì đoạn "ra" kho này, KCS đạt thì "vào" từ đây),
- * OPENING_BALANCE "Cân đối tồn kho" (kiểm kê đoạn, chuyển đổi dữ liệu cũ). /segment-stock/balances trả mọi kho có dòng đoạn nên
- * phải bỏ cả 2 - thử bật công tắc 14/11 trên bản sao: sau kiểm kê, "Cân đối tồn kho" hiện thành 1 kho với số âm.
- */
-const VIRTUAL_WAREHOUSE_CODES = new Set(['PRODUCTION', 'OPENING_BALANCE', 'SUPPLIER', 'SCRAP'])
 
 const fmt = (n: number) => n.toLocaleString('vi-VN', { maximumFractionDigits: 4 })
 const fmtMm = (n: number) => n.toLocaleString('vi-VN', { maximumFractionDigits: 1 })
@@ -54,8 +49,10 @@ function tenDoan(r: BeSegmentBalance): string {
 /**
  * canStocktake: thủ kho kho Phôi (InboundWarehouseApp, tab "Tồn đoạn") - mỗi dòng có nút Kiểm kê (nhập số đếm, ghi phần chênh).
  * lockedWarehouseCode: chỉ hiện đúng kho của thủ kho (không có ô chọn kho).
+ * allPhoiWarehouses: màn Admin "Tồn đoạn kho Phôi" - ô chọn kho lấy mọi kho Phôi thật đang hoạt động (GET /warehouses), kể cả kho
+ * chưa có dòng đoạn. Tắt (mặc định): danh sách kho lấy từ các dòng tồn đoạn như trước.
  */
-export default function KhoPhoiPage({ canStocktake = false, lockedWarehouseCode }: { canStocktake?: boolean; lockedWarehouseCode?: string } = {}) {
+export default function KhoPhoiPage({ canStocktake = false, lockedWarehouseCode, allPhoiWarehouses = false }: { canStocktake?: boolean; lockedWarehouseCode?: string; allPhoiWarehouses?: boolean } = {}) {
   const { user } = useAuth()
   const [tab, setTab] = useState<Tab>('duyet')
   const [pickedCode, setWarehouseCode] = useState<string | null>(null)
@@ -63,17 +60,15 @@ export default function KhoPhoiPage({ canStocktake = false, lockedWarehouseCode 
   const { data: balances, isLoading, error, refetch } = useFetch<BeSegmentBalance[]>(() => api.getSegmentBalances(), [])
   // Realtime: tồn kho đổi (KCS đạt, Hàn / Sơn báo, chuyển, kiểm kê) -> làm mới ngay.
   useRealtimeRefetch(['stock'], refetch)
+  const { data: allWh, isLoading: whLoading, error: whError, refetch: refetchWh } = useFetch<BeWarehouse[]>(
+    () => (allPhoiWarehouses ? api.getWarehouses() : Promise.resolve([])), [allPhoiWarehouses])
 
-  // Các kho Phôi có đoạn (bỏ kho ảo). Mặc định: kho người xem đang được gán, không có thì kho đầu tiên.
-  const warehouses = useMemo(() => {
-    const m = new Map<string, string>()
-    for (const b of balances ?? []) if (!VIRTUAL_WAREHOUSE_CODES.has(b.warehouseCode)) m.set(b.warehouseCode, b.warehouseName)
-    return [...m.entries()].map(([code, name]) => ({ code, name })).sort((a, b) => a.name.localeCompare(b.name, 'vi'))
-  }, [balances])
+  // Mặc định: kho người xem đang được gán, không có thì kho đầu tiên.
+  const warehouses = useMemo(
+    () => (allPhoiWarehouses ? khoPhoiThat(allWh) : khoPhoiTuSoDu(balances)),
+    [allPhoiWarehouses, allWh, balances])
   const [kiemKe, setKiemKe] = useState<BeSegmentBalance | null>(null)
-  const warehouseCode = lockedWarehouseCode ? lockedWarehouseCode : pickedCode && warehouses.some(w => w.code === pickedCode)
-    ? pickedCode
-    : (warehouses.find(w => w.code === user?.warehouseScope) ?? warehouses[0])?.code ?? null
+  const warehouseCode = chonKhoMacDinh({ locked: lockedWarehouseCode, picked: pickedCode, options: warehouses, userScope: user?.warehouseScope })
 
   const { duyet, thua } = useMemo(() => {
     const rows = (balances ?? []).filter(b =>
@@ -88,12 +83,21 @@ export default function KhoPhoiPage({ canStocktake = false, lockedWarehouseCode 
 
   const tongDuyet = useMemo(() => duyet.reduce((s, i) => s + i.onHandQty, 0), [duyet])
   const tongThua = useMemo(() => thua.reduce((s, i) => s + i.onHandQty, 0), [thua])
-  const coAm = useMemo(() => [...duyet, ...thua].some(r => r.onHandQty < 0 || r.surplusQty < 0), [duyet, thua])
+  const canhBao = useMemo(() => canhBaoKhoPhoi([...duyet, ...thua]), [duyet, thua])
 
   const rows = tab === 'duyet' ? duyet : thua
 
-  if (isLoading) return <LoadingState />
-  if (error || !balances) return <LoadErrorState error={error ?? 'Không rõ nguyên nhân'} onRetry={refetch} />
+  const trangThai = trangThaiTaiKhoPhoi({
+    allPhoiWarehouses,
+    balances: { data: balances, isLoading, error },
+    warehouses: { data: allWh, isLoading: whLoading, error: whError },
+  })
+  if (trangThai === 'loading') return <LoadingState />
+  if (trangThai === 'error') {
+    // Báo đúng lệnh gọi bị lỗi; thử lại cả hai để khỏi kẹt ở lệnh còn lại.
+    const loi = error ?? whError ?? 'Không rõ nguyên nhân'
+    return <LoadErrorState error={loi} onRetry={() => { refetch(); if (allPhoiWarehouses) refetchWh() }} />
+  }
 
   const whName = warehouses.find(w => w.code === warehouseCode)?.name ?? warehouseCode ?? '—'
 
@@ -131,9 +135,14 @@ export default function KhoPhoiPage({ canStocktake = false, lockedWarehouseCode 
           label="Đoạn thừa (chờ xử lý)" badge={tongThua} />
       </div>
 
-      {coAm && (
+      {canhBao.tonAm && (
         <div style={{ marginBottom: 12, padding: '10px 14px', borderRadius: 10, background: 'var(--bg-fef2f2)', color: 'var(--fg-b91c1c)', fontSize: 13 }}>
-          Có số âm — dữ liệu cũ (trước khi quản đoạn theo lệnh) chưa chuyển đổi. Báo IT; thủ kho chỉnh lại khi kiểm kê.
+          {CANH_BAO_TON_AM}
+        </div>
+      )}
+      {canhBao.duAm && (
+        <div style={{ marginBottom: 12, padding: '10px 14px', borderRadius: 10, background: 'var(--bg-fffbeb)', color: 'var(--fg-d97706)', fontSize: 13 }}>
+          {CANH_BAO_DU_AM}
         </div>
       )}
 

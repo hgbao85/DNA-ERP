@@ -39,3 +39,11 @@ export function pickCurrentStage(input: {
   if (furthest) return { kind: 'STAGE', stage: furthest.key, pct: furthest.pct }
   return { kind: 'STAGE', stage: 'FRAME', pct: 0 }
 }
+
+/**
+ * SKU "đóng gói xong, chờ Kết thúc": lệnh sàn của SKU còn mở (có floorStage và khác FINISHED) và công đoạn hiện tại
+ * là PACKED_WAIT_END (cùng luật với nhãn "Đóng gói xong · chờ Kết thúc" ở bảng SKU). floorStage null = chưa có lệnh sàn.
+ */
+export function isAwaitingFinish(floorStage: string | null | undefined, pick: CurrentStagePick): boolean {
+  return !!floorStage && floorStage !== 'FINISHED' && pick.kind === 'PACKED_WAIT_END'
+}

@@ -14,9 +14,9 @@
  * lý = chuyển kho nội bộ.
  *
  * KHÔNG có cột "Người thực hiện" (bỏ hẳn 2026-09-12, theo yêu cầu người dùng - thấy thừa vì phần
- * lớn trùng lặp với chính tên kho đang xem ở cột Từ/Đến, chỉ khác trong vài trường hợp hiếm như tổ
- * Hàn tự báo tiêu hao hoặc Admin điều chỉnh tay). `createdByName`/`rejectedByName` vẫn giữ trong
- * kiểu dữ liệu BE/FE (không hại gì khi không dùng) phòng khi cần lại.
+ * lớn trùng lặp với chính tên kho đang xem ở cột Từ/Đến). Riêng dòng điều chỉnh / kiểm kê / tồn đầu kỳ (18/11/2026) hiện
+ * "Người sửa: <tên>" ngay trong ô Ghi chú (`createdByName`, xem warehouseLedgerModel.nguoiSuaCuaDong); dòng không có
+ * người (tồn đầu kỳ do hệ thống ghi, bút toán cũ) hiện "Người sửa: —". Dòng nhập / xuất / chuyển / KCS không hiện tên.
  *
  * KHÔNG có cột "Trạng thái" và KHÔNG gộp phiếu chuyển kho bị TỪ CHỐI vào đây (bỏ hẳn 2026-09-12,
  * theo phản hồi trực tiếp của Sếp qua Trương Văn Nhân: "lịch sử chỉ ghi lại những lần xuất, nhập
@@ -53,6 +53,7 @@ import { segmentStepsLabel } from '../services/segment-stock-api'
 import LoadingState from './LoadingState'
 import { tableWrap, tbl, compactTh as th, compactTd as td, emptyBox, tableScrollBox, stickyHeaderRow } from '../styles/table'
 import LenhCode from './LenhCode'
+import { chuNguoiSuaHienThi } from './warehouseLedgerModel'
 
 type Dir = 'ALL' | 'IN' | 'OUT'
 
@@ -242,7 +243,10 @@ export default function WarehouseLedgerHistory({ warehouseId, warehouseCode }: {
                     {isIn ? '+' : '−'}{e.qty.toLocaleString('vi-VN')}
                     {item.unit && <span style={{ fontWeight: 400, color: 'var(--text3)', fontSize: 11 }}> {item.unit}</span>}
                   </td>
-                  <td style={{ ...td, fontSize: 12, color: 'var(--text3)' }}>{e.note || '—'}</td>
+                  <td style={{ ...td, fontSize: 12, color: 'var(--text3)' }}>
+                    {e.note || '—'}
+                    {chuNguoiSuaHienThi(e) && <div style={{ fontSize: 11 }}>{chuNguoiSuaHienThi(e)}</div>}
+                  </td>
                 </tr>
               )
             })}

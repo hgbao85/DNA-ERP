@@ -7,8 +7,8 @@
  * weaving-issues/steel-issues: vật tư tiêu hao chưa bị trừ tồn ở bước nào trước đó).
  * BE chỉ có material-issue-plan THEO 1 productionOrderId (không có "toàn bộ PO cần gì" gộp sẵn)
  * nên phải chọn SKU/PO trước — cùng pattern master-detail với KhoXuatDanPage/KhoNhapDanPage.
- * Bấm "Xuất" → tạo đợt ISSUED → hiện ngay bên "Xác nhận nhận vật tư" của tổ (XacNhanVatTuPage) để
- * họ xác nhận đã nhận.
+ * Bấm "Xuất" → tạo đợt; vật tư Hàn / Sơn ghi RECEIVED ngay lúc tạo (kho xác nhận phiếu có chữ ký người nhận là
+ * đã nhận, tổ Hàn / Sơn không còn tab xác nhận nhận).
  */
 
 import MaterialChoiceTags from '../../../components/MaterialChoiceTags'

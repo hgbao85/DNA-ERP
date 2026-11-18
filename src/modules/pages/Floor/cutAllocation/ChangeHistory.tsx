@@ -1,19 +1,23 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { floorAdmin, type BeCutAllocationLog } from '../../../../services/floor-api'
 import { useFetch } from '../../../../hooks/useFetch'
 import { useIsMobile } from '../../../../hooks/useMediaQuery'
 import LoadingState from '../../../../components/LoadingState'
 import LoadErrorState from '../../../../components/LoadErrorState'
-import { defaultLogRange, isValidLogRange, ordersWithMoves } from '../cutAllocationModel'
+import { useLenhCodeLookup } from '../../../../components/LenhCode'
+import { defaultLogRange, isValidLogRange, logPiCodes, logWithLenhCodes, ordersWithMoves } from '../cutAllocationModel'
 import { btn, card, muted, Notice, stack } from '../qlsxUi'
 import { HistoryFilters, LogList, LogTable, OrdersTable } from './HistoryParts'
 
 const HEADER_BTN = { ...btn('ghost'), minHeight: 28, padding: '0 4px', fontSize: 15, fontWeight: 700, color: 'var(--text)' } as const
 const subTitle = { fontSize: 14, fontWeight: 700, marginBottom: 4 } as const
 
-function LogContent({ data }: { data: BeCutAllocationLog }) {
+function LogContent({ log }: { log: BeCutAllocationLog }) {
   const isMobile = useIsMobile()
+  // Ghi số LSX thay mã PI ở cả 2 bảng và danh sách điện thoại (đổi 1 lần ở đây).
+  const lenhOf = useLenhCodeLookup(logPiCodes(log))
+  const data = useMemo(() => logWithLenhCodes(log, lenhOf), [log, lenhOf])
   const orders = ordersWithMoves(data.byOrder)
   return (
     <>
@@ -46,7 +50,7 @@ function HistoryBody({ workshopId, tick }: { workshopId: string | null; tick: nu
       {!valid && <Notice tone="warn">Chọn ngày bắt đầu không sau ngày kết thúc.</Notice>}
       {valid && isLoading && <LoadingState />}
       {valid && !isLoading && (error || !data) && <LoadErrorState error={error ?? 'Không có dữ liệu'} onRetry={() => void refetch()} />}
-      {valid && data && <LogContent data={data} />}
+      {valid && data && <LogContent log={data} />}
     </div>
   )
 }

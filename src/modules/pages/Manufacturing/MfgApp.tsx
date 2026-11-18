@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import FloorStoppedBanner from '../../../components/FloorStoppedBanner'
 import { useCloseNavOnNotification } from '../../../hooks/useCloseNavOnNotification'
-import { QrCode, ClipboardList, Settings, LogOut, Grid, Package, Boxes, Warehouse, ClipboardCheck, Box, CalendarClock, Wrench, Flame, SprayCan, Check, Frame, Layers, Play, PackageCheck, Ruler, Menu, X, AlertTriangle, Eye } from 'lucide-react'
+import { QrCode, ClipboardList, Settings, LogOut, Grid, Package, Boxes, Warehouse, ClipboardCheck, Box, CalendarClock, Wrench, Flame, SprayCan, Check, Frame, Layers, Play, Ruler, Menu, X, AlertTriangle, Eye } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import { useIsCompact, useIsMobile } from '../../../hooks/useMediaQuery'
 import { useUrlState } from '../../../hooks/useUrlState'
@@ -26,7 +26,6 @@ import KhungHanPage from '../Han/KhungHanPage'
 import LenhSanXuatSon from '../Son/LenhSanXuatSon'
 import ManhChoDanPage from '../Son/ManhChoDanPage'
 import PhoiDinhMucManhPage from './PhoiDinhMucManhPage'
-import XacNhanVatTuPage from './XacNhanVatTuPage'
 import SKUListPage from '../ProductionPlan/SKUListPage'
 import KcsPhoiPage from '../Kcs/KcsPhoiPage'
 import KcsHanPage from '../Kcs/KcsHanPage'
@@ -41,7 +40,7 @@ import { useRealtimeRefetch } from '../../../realtime/hooks'
 
 type TabId =
   | 'lenh-sx' | 'ke-hoach' | 'phoi-xac-nhan-nhan-sat' | 'phoi-lenh-sx' | 'phoi-huong-dan-cat' | 'phoi-dinh-muc-manh' | 'phoi-kho-phoi'
-  | 'han-khung-han' | 'son-manh-cho-dan' | 'han-son-xac-nhan-vat-tu'
+  | 'han-khung-han' | 'son-manh-cho-dan'
   | 'weaving-points' | 'sku-list'
   | 'materials' | 'warehouses' | 'setup'
   | 'kcs-phoi' | 'kcs-han' | 'kcs-son'
@@ -49,7 +48,7 @@ type TabId =
 
 const TAB_VALUES: TabId[] = [
   'lenh-sx', 'ke-hoach', 'phoi-xac-nhan-nhan-sat', 'phoi-lenh-sx', 'phoi-huong-dan-cat', 'phoi-dinh-muc-manh', 'phoi-kho-phoi',
-  'han-khung-han', 'son-manh-cho-dan', 'han-son-xac-nhan-vat-tu',
+  'han-khung-han', 'son-manh-cho-dan',
   'weaving-points', 'sku-list',
   'materials', 'warehouses', 'setup',
   'kcs-phoi', 'kcs-han', 'kcs-son', 'san-luong-xuong', 'so-bao-vuot-doan', 'xem-cac-to',
@@ -180,7 +179,6 @@ export default function MfgApp({ onBack }: MfgAppProps) {
     ...((isPhoi || isHan || isSon || isDirector) ? [{ id: 'phoi-lenh-sx' as TabId, label: 'Lệnh sản xuất', icon: <ClipboardCheck size={16} /> }] : []),
     ...(isPhoi ? [{ id: 'phoi-huong-dan-cat' as TabId, label: 'Hướng dẫn cắt', icon: <Ruler size={16} /> }] : []),
     ...(isPhoi ? [{ id: 'phoi-xac-nhan-nhan-sat' as TabId, label: 'Xác nhận nhận sắt', icon: <Check size={16} /> }] : []),
-    ...((isHan || isSon) ? [{ id: 'han-son-xac-nhan-vat-tu' as TabId, label: 'Xác nhận nhận vật tư', icon: <PackageCheck size={16} /> }] : []),
     ...((isPhoi || isHan || isSon) ? [{ id: 'phoi-dinh-muc-manh' as TabId, label: 'Danh sách định mức mảnh', icon: <Box size={16} /> }] : []),
     ...(isPhoi ? [{ id: 'phoi-kho-phoi' as TabId, label: 'Kho phôi', icon: <Warehouse size={16} /> }] : []),
     ...(isHan ? [{ id: 'han-khung-han' as TabId, label: 'Khung hàn', icon: <Frame size={16} /> }] : []),
@@ -210,6 +208,7 @@ export default function MfgApp({ onBack }: MfgAppProps) {
   const floorOpen = floorSummary.data ? floorSummary.data.PHOI.open + floorSummary.data.HAN.open + floorSummary.data.SON.open : 0
   const badgeByTab: Partial<Record<TabId, number>> = {
     'lenh-sx': workQueue.qlsxProductionQueue,
+    'ke-hoach': isProdMgr ? workQueue.qlsxAwaitingFinish : undefined,
     'san-luong-xuong': floorOpen,
     'phoi-xac-nhan-nhan-sat': workQueue.phoiSteelReceiving,
     'kcs-phoi': workQueue.kcsPhoi,
@@ -347,7 +346,6 @@ export default function MfgApp({ onBack }: MfgAppProps) {
           <HuongDanCatPage initialPiId={huongDanCatPiId} onConsumeInitialPi={() => setHuongDanCatPiId(null)} />
         )}
         {tab === 'phoi-dinh-muc-manh' && (isPhoi || isHan || isSon || isDirector) && <PhoiDinhMucManhPage stage={isSon ? 'SON' : isHan ? 'HAN' : 'PHOI'} />}
-        {tab === 'han-son-xac-nhan-vat-tu' && (isHan || isSon) && <XacNhanVatTuPage stage={isHan ? 'HAN' : 'SON'} />}
         {tab === 'phoi-kho-phoi' && (isPhoi || isDirector) && <KhoPhoiPage />}
         {tab === 'han-khung-han' && (isHan || isDirector) && <KhungHanPage />}
         {tab === 'son-manh-cho-dan' && (isSon || isDirector) && <ManhChoDanPage />}

@@ -28,6 +28,13 @@ describe('progressModel', () => {
     expect(pieceLine({ plannedQty: 5, passedQty: 1, awaitingQcQty: 2 })).toEqual({ required: 5, done: 3, failed: 0, open: 0, awaiting: 2 })
   })
 
+  it('mảnh có failedQty: đã báo gồm cả lỗi, được tính vẫn = đạt + chờ + chưa gửi', () => {
+    const line = pieceLine({ plannedQty: 40, passedQty: 36, awaitingQcQty: 0, failedQty: 4 })
+    expect(line).toEqual({ required: 40, done: 40, failed: 4, open: 0, awaiting: 0 })
+    expect(remainingQty(line)).toBe(4)
+    expect(bucketLine(line)).toMatchObject({ reported: 36, passed: 36, failed: 4 })
+  })
+
   it('cộng nhiều dòng; % làm tròn xuống, có làm thì ≥ 1, chưa đủ không hiện 100', () => {
     const t = sumBuckets([bucketLine({ required: 10, done: 10, failed: 0, open: 10, awaiting: 0 }), bucketLine({ required: 5, done: 1, failed: 0, open: 0, awaiting: 1 })])
     expect(t).toEqual({ required: 15, reported: 11, passed: 0, awaiting: 1, open: 10, failed: 0 })

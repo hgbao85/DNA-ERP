@@ -40,6 +40,18 @@ describe('mapBatchPlanToLines', () => {
     expect(syncSummary(ls).needCut).toEqual(['Mảnh 1 +10'])
   })
 
+  it('BE trả failedQty (KCS chấm lỗi chưa bù): Đã báo, cần thêm và số bộ đồng bộ KHÔNG đổi so với khi thiếu trường', () => {
+    const base = plan({ done: [480, 590, 590, 590, 1180, 295, 295] })
+    const withFailed = plan({ done: [480, 590, 590, 590, 1180, 295, 295] })
+    ;(withFailed.items[0] as { failedQty?: number }).failedQty = 100
+    const a = mapBatchPlanToLines(base)
+    const b = mapBatchPlanToLines(withFailed)
+    expect(b.map((l) => l.doneQty)).toEqual(a.map((l) => l.doneQty))
+    expect(b[0].doneQty).toBe(480)
+    expect(syncSummary(b).db).toBe(syncSummary(a).db)
+    expect(syncSummary(b).needCut).toEqual(syncSummary(a).needCut)
+  })
+
   it('không biết số bộ của lệnh -> perManh undefined, không kết luận lệch', () => {
     const ls = mapBatchPlanToLines(plan({ quantity: 0, done: [10, 590, 590, 590, 1180, 295, 295] }))
     expect(ls.every((l) => l.perManh === undefined)).toBe(true)

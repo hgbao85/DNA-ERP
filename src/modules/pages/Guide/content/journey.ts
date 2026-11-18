@@ -306,7 +306,7 @@ export const journeyGroup: GuideGroup = {
       steps: [
         'Từ chối ở bất kỳ cổng duyệt nào (định mức, lệnh sản xuất, gộp đợt cắt...): hồ sơ quay lại đúng người phụ trách kèm lý do, dữ liệu đã nhập không mất.',
         'Lỗi chất lượng (KCS) chỉ ghi hai kết quả Đạt / Không đạt (kèm nguyên nhân). Phần không đạt KHÔNG tự sinh lô làm lại — công nhân báo bù bằng quét mã QR, QLSX kiểm rồi gửi KCS (Vật tư TP thì tài khoản Phôi báo bù ở "Lệnh sản xuất", nút "Bù đủ").',
-        'Nhận thiếu vẫn được ghi nhận — cả khi nhận hàng mua về lẫn khi nhận vật tư xuống xưởng, không bắt buộc khớp tuyệt đối.',
+        'Nhận thiếu vẫn được ghi nhận — cả khi nhận hàng mua về lẫn khi nhận sắt xuống xưởng, không bắt buộc khớp tuyệt đối. Riêng vật tư hàn / sơn không có bước nhận ở xưởng: thủ kho xuất phiếu có chữ ký người nhận là coi như đã nhận.',
         'Gộp đợt cắt sắt (nhiều sản phẩm dùng chung loại sắt) và tính lại phương án cắt chỉ thực hiện được TRƯỚC khi Giám đốc duyệt lệnh sản xuất.',
         'QLSX hoặc Giám đốc từ chối lệnh sản xuất = lệnh bị XOÁ, SKU quay về màn "Tối ưu cắt sắt" để KHSX tính và tạo lệnh lại từ đầu.',
       ],

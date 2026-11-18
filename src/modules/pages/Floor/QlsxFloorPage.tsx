@@ -30,7 +30,7 @@ const STAGES: FloorStage[] = ['PHOI', 'HAN', 'SON']
 const TOPICS = ['floor', 'steel-issues', 'production-batches', 'qc-reviews'] as const
 const LAST_STAGE_KEY = 'qlsx.floor.stage'
 
-function StageView({ stage, summary, refreshSummary, ws }: { stage: FloorStage; summary: BeFloorSummary | null; refreshSummary: () => void; ws: QueueWorkshop }) {
+function StageView({ stage, refreshSummary, ws }: { stage: FloorStage; refreshSummary: () => void; ws: QueueWorkshop }) {
   // Lưới 2 cột (mỗi cột ≥ 420px) chỉ đủ chỗ khi phần nội dung ≥ ~860px = màn ≥ ~1180px (trừ thanh bên + đệm); dưới đó lưới
   // tự xếp 1 cột → coi là "hẹp" để đưa "Chờ gửi KCS" lên trước (1024px của laptop vẫn là 1 cột).
   const compact = useMaxWidth(1180)
@@ -62,7 +62,7 @@ function StageView({ stage, summary, refreshSummary, ws }: { stage: FloorStage; 
   // Màn hẹp (< 900px, 1 cột): "Chờ gửi KCS" là việc hằng ngày của QLSX nên lên TRƯỚC thẻ PI + hàng đợi (2026-10-20, mục 53);
   // màn rộng giữ 2 cột như cũ (thẻ PI trái, chờ gửi KCS phải).
   const queueBlock = (
-    <QlsxQueue stage={stage} entries={queue.data} workshop={ws} openCount={summary?.[stage].open ?? 0} review={review.data}
+    <QlsxQueue stage={stage} entries={queue.data} workshop={ws} review={review.data}
       onChanged={refetchAll} onGoToReview={goToReview} />
   )
   const reviewBlock = (
@@ -140,7 +140,7 @@ export default function QlsxFloorPage() {
               )
             })}
           </div>
-          <StageView key={stage} stage={stage} summary={summary.data} refreshSummary={refreshSummary} ws={queueWorkshop} />
+          <StageView key={stage} stage={stage} refreshSummary={refreshSummary} ws={queueWorkshop} />
         </>
       )}
       {tab === 'cut' && <QlsxCutAllocation />}

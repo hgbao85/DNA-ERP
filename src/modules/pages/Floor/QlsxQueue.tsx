@@ -11,6 +11,7 @@ import { AlertTriangle, ArrowDown, ArrowUp, ChevronRight, ListChecks, Plus, Tras
 import { floorAdmin, otherWorkshopLabel, type BeFloorReview, type BeQueueCandidate, type BeQueueEntry, type BeStageDetail, type FloorStage } from '../../../services/floor-api'
 import { useConfirm } from '../../../hooks/useConfirm'
 import { useFetch } from '../../../hooks/useFetch'
+import { ApiError } from '../../../services/core/apiError'
 import { errMsg } from '../../../utils/errors'
 import QlsxPiDetail from './QlsxPiDetail'
 import { missingText, openBatchesOf, phoiMaterialsOf, piecesOf, shortMaterials, shortPieces, stepLabel } from './piDetailModel'
@@ -23,22 +24,37 @@ export const SON_QUEUE_NOTE = 'Hàng đợi Sơn theo nơi sơn: lệnh của Ph
 
 /** Tổ Phôi: "Xong Phôi" hệ thống tự tính, tự đóng lệnh và chạy lệnh tiếp - QLSX không bấm tay nữa. */
 export const PHOI_AUTO_ADVANCE_NOTE = 'Xong Phôi: hệ thống tự chuyển khi mọi đoạn đủ công đoạn và KCS đạt.'
+/**
+ * Tổ Phôi đã đủ để hệ thống tự đóng lệnh (mọi dòng KCS đạt đủ: required > 0 và passed ≥ required) mà dòng hàng đợi vẫn RUNNING
+ * (lượt nhắc nền chưa chạy / FLOOR_ALERTS tắt) - khi đó thẻ hiện nút "Chuyển lệnh tiếp" để QLSX tự đóng. Chỉ tổ Phôi.
+ */
+export function phoiAwaitingAutoClose(stage: string, running: Pick<BeQueueEntry, 'progress'> | null | undefined): boolean {
+  if (stage !== 'PHOI') return false
+  const p = running?.progress
+  return !!p && p.required > 0 && p.passed >= p.required
+}
 /** Tên người bấm của dòng hàng đợi; tổ Phôi không ai bấm (hệ thống tự đóng / tự chạy lệnh kế) thì ghi rõ. */
 export function queueActorText(stage: string, name: string | null, at: string | null): string {
   if (name) return ` · ${name}`
   return stage === 'PHOI' && at ? ' · hệ thống tự chuyển' : ''
 }
 
+/**
+ * Máy chủ trả 409 khi lệnh đang chạy đã đổi so với màn đang xem ("Chuyển lệnh tiếp" gửi id cũ). Khi đó phải tải lại hàng đợi,
+ * đóng hộp xác nhận (dữ liệu trong hộp đã cũ) và hiện câu của máy chủ ở thẻ.
+ */
+export function isStaleConflict(e: unknown): boolean {
+  return e instanceof ApiError && e.statusCode === 409
+}
+
 /** PI đang mở trong ngăn "còn thiếu gì". */
 interface DetailTarget { productionInvoiceId: string; piCode: string }
 
-export default function QlsxQueue({ stage, entries, workshop, openCount, review, onChanged, onGoToReview }: {
+export default function QlsxQueue({ stage, entries, workshop, review, onChanged, onGoToReview }: {
   stage: FloorStage
   entries: BeQueueEntry[]
   /** Xưởng đang xem (14/11/2026): mọi nút gửi đúng xưởng này; người không gắn xưởng chọn xưởng ở đầu khối. */
   workshop: QueueWorkshop
-  /** Số đợt của tổ còn chờ gửi KCS - đưa vào lời xác nhận khi chuyển PI. */
-  openCount: number
   /** Danh sách "Chờ gửi KCS" của tổ - ngăn chi tiết đếm đợt chờ quá lâu của từng PI. */
   review: BeFloorReview | null
   onChanged: () => void
@@ -52,7 +68,9 @@ export default function QlsxQueue({ stage, entries, workshop, openCount, review,
   const [adding, setAdding] = useState(false)
   const [showDone, setShowDone] = useState(false)
   const [detail, setDetail] = useState<DetailTarget | null>(null)
-  const [confirmShort, setConfirmShort] = useState(false)
+  // Bản chụp lệnh đang chạy + lệnh kế LÚC BẤM mở hộp: màn tự tải lại (realtime) làm `running` đổi sang lệnh mới thì hộp vẫn nói và
+  // gửi đúng lệnh đã hiện lúc bấm (máy chủ thấy khác thì 409 -> onStale đóng hộp, tải lại).
+  const [confirmShort, setConfirmShort] = useState<{ running: BeQueueEntry; next: BeQueueEntry | null } | null>(null)
 
   // Hiện số LSX (không hiện mã PI nội bộ) ở mọi chữ trong hộp xác nhận + hàng đợi.
   const lenhOf = useLenhCodeLookup(entries.map((e) => e.piCode))
@@ -74,13 +92,16 @@ export default function QlsxQueue({ stage, entries, workshop, openCount, review,
   }
 
   const next = queued[0] ?? null
-  // Tổ Phôi đang có lệnh chạy: ẩn "Chuyển lệnh tiếp" / "Mở lại" (hệ thống tự chuyển). Chưa có lệnh chạy thì vẫn bắt đầu tay được.
-  const autoAdvance = stage === 'PHOI' && !!running
+  // Tổ Phôi đang có lệnh chạy: hệ thống tự chuyển nên ẩn "Chuyển lệnh tiếp" - trừ khi KCS đã đạt đủ mà hệ thống chưa tự chuyển
+  // (awaitingClose). Chưa có lệnh chạy thì vẫn bắt đầu tay được. "Mở lại" ẩn khi tổ Phôi đang có lệnh chạy.
+  const phoiRunning = stage === 'PHOI' && !!running
+  const awaitingClose = phoiAwaitingAutoClose(stage, running)
+  const autoAdvance = phoiRunning && !awaitingClose
   const p = running?.progress ?? null
   const piOpenCount = running ? openBatchesOf(review, running.productionInvoiceId).length : 0
   // Tổ CHƯA đủ số (hoặc không tính được) mà bấm chuyển → hộp hỏi lại nêu đúng thiếu gì (mục 45.4), nút an toàn mặc định.
   const onAdvanceClick = () => {
-    if (running && !p?.complete) setConfirmShort(true)
+    if (running && !p?.complete) setConfirmShort({ running, next })
     else advance()
   }
   const advance = () => {
@@ -90,15 +111,22 @@ export default function QlsxQueue({ stage, entries, workshop, openCount, review,
         : `Tổ ${STAGE_LABEL[stage]} chưa chạy lệnh nào.`,
       next ? `${lenhOf(next.piCode)} bắt đầu chạy.` : 'Hàng đợi hết - tổ sẽ không còn lệnh đang chạy.',
     ]
-    if (openCount > 0) lines.push(`Còn ${openCount} đợt chưa gửi KCS - nên gửi trước khi chuyển.`)
+    if (piOpenCount > 0) lines.push(`Còn ${piOpenCount} đợt chờ gửi KCS - nên gửi trước khi chuyển.`)
     ask(
-      { title: 'Chuyển lệnh tiếp', message: lines.join('\n'), confirmLabel: 'Chuyển lệnh tiếp', danger: openCount > 0 },
-      async () => { await floorAdmin.advance(stage, workshopId); onChanged() },
+      { title: 'Chuyển lệnh tiếp', message: lines.join('\n'), confirmLabel: 'Chuyển lệnh tiếp', danger: piOpenCount > 0 },
+      // Gửi id lệnh màn đang thấy (null = màn thấy tổ chưa chạy lệnh nào): máy chủ thấy khác thì 409 bắt tải lại màn.
+      async () => {
+        try { await floorAdmin.advance(stage, workshopId, running?.productionInvoiceId ?? null); setErr(null); onChanged() } catch (e) {
+          if (!isStaleConflict(e)) throw e
+          // Không ném lỗi nữa nên hộp đóng; tải lại hàng đợi, câu của máy chủ hiện ở thẻ.
+          setErr(errMsg(e)); onChanged()
+        }
+      },
     )
   }
 
   // "Chuyển nhầm?" - PI vừa đóng mà mở lại được (BE chỉ bật cờ khi PI đang chạy chưa có lần báo nào). done đã xếp mới nhất trước.
-  const reopenable = autoAdvance ? null : (done.find((d) => d.canReopen) ?? null)
+  const reopenable = phoiRunning ? null : (done.find((d) => d.canReopen) ?? null)
   const reopen = () => {
     if (!reopenable) return
     const lines = [
@@ -109,7 +137,7 @@ export default function QlsxQueue({ stage, entries, workshop, openCount, review,
     ]
     ask(
       { title: 'Mở lại lệnh vừa chuyển', message: lines.join('\n'), confirmLabel: 'Mở lại' },
-      async () => { await floorAdmin.reopen(stage, workshopId); onChanged() },
+      async () => { await floorAdmin.reopen(stage, workshopId); setErr(null); onChanged() },
     )
   }
 
@@ -121,11 +149,13 @@ export default function QlsxQueue({ stage, entries, workshop, openCount, review,
         <QlsxPiDetail stage={stage} productionInvoiceId={detail.productionInvoiceId} piCode={detail.piCode} review={review}
           onClose={() => setDetail(null)} onGoToReview={() => { setDetail(null); onGoToReview() }} />
       )}
-      {confirmShort && running && (
-        <AdvanceShortDialog stage={stage} workshopId={workshopId} running={running} next={next} piOpenCount={piOpenCount}
-          onCancel={() => setConfirmShort(false)}
-          onShowDetail={() => { setConfirmShort(false); setDetail({ productionInvoiceId: running.productionInvoiceId, piCode: running.piCode }) }}
-          onDone={() => { setConfirmShort(false); onChanged() }} />
+      {confirmShort && (
+        <AdvanceShortDialog stage={stage} workshopId={workshopId} running={confirmShort.running} next={confirmShort.next}
+          piOpenCount={openBatchesOf(review, confirmShort.running.productionInvoiceId).length}
+          onCancel={() => setConfirmShort(null)}
+          onShowDetail={() => { setDetail({ productionInvoiceId: confirmShort.running.productionInvoiceId, piCode: confirmShort.running.piCode }); setConfirmShort(null) }}
+          onDone={() => { setConfirmShort(null); setErr(null); onChanged() }}
+          onStale={(msg) => { setConfirmShort(null); setErr(msg); onChanged() }} />
       )}
       <div style={card}>
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
@@ -153,6 +183,14 @@ export default function QlsxQueue({ stage, entries, workshop, openCount, review,
             </button>
           )}
         </div>
+        {awaitingClose && running && (
+          <div style={{ marginTop: 10 }}>
+            <Notice tone="warn">
+              KCS đã đạt đủ nhưng hệ thống chưa tự chuyển lệnh - bấm “Chuyển lệnh tiếp” để đóng Phôi của {lenhOf(running.piCode)}.
+              {piOpenCount > 0 ? ` Còn ${piOpenCount} đợt chờ gửi KCS.` : ''}
+            </Notice>
+          </div>
+        )}
         {autoAdvance && <div style={{ fontSize: 13, color: 'var(--text2)', marginTop: 10 }}>{PHOI_AUTO_ADVANCE_NOTE}</div>}
         {running && p && (
           <div style={{ marginTop: 12 }}
@@ -181,12 +219,12 @@ export default function QlsxQueue({ stage, entries, workshop, openCount, review,
           </div>
         )}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: running ? 12 : 0 }}>
-          {running && p?.complete && (
+          {running && p?.complete && !awaitingClose && (
             <Notice tone="ok">
               Tổ đã báo đủ số cần của {lenhOf(running.piCode)}.
               {autoAdvance
-                ? (openCount > 0 ? ` Còn ${openCount} đợt chờ gửi KCS - kiểm và gửi, hệ thống sẽ tự chuyển lệnh khi KCS đạt.` : '')
-                : (openCount > 0 ? ` Còn ${openCount} đợt chờ gửi KCS - kiểm và gửi, rồi bấm “Chuyển lệnh tiếp”.` : ' Bấm “Chuyển lệnh tiếp” khi sẵn sàng.')}
+                ? (piOpenCount > 0 ? ` Còn ${piOpenCount} đợt chờ gửi KCS - kiểm và gửi, hệ thống sẽ tự chuyển lệnh khi KCS đạt.` : '')
+                : (piOpenCount > 0 ? ` Còn ${piOpenCount} đợt chờ gửi KCS - kiểm và gửi, rồi bấm “Chuyển lệnh tiếp”.` : ' Bấm “Chuyển lệnh tiếp” khi sẵn sàng.')}
             </Notice>
           )}
           {running && !running.hasActiveFloor && (
@@ -215,7 +253,7 @@ export default function QlsxQueue({ stage, entries, workshop, openCount, review,
           </button>
         </div>
         {stage === 'SON' && <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 8 }}>{SON_QUEUE_NOTE}</div>}
-        {adding && <AddPi stage={stage} workshopId={workshopId} onAdded={() => { setAdding(false); onChanged() }} />}
+        {adding && <AddPi stage={stage} workshopId={workshopId} onAdded={() => { setAdding(false); setErr(null); onChanged() }} />}
         {queued.length === 0 ? (
           <div style={{ fontSize: 13, color: 'var(--text3)', padding: '8px 0' }}>Không có lệnh nào đang chờ.</div>
         ) : (
@@ -232,8 +270,8 @@ export default function QlsxQueue({ stage, entries, workshop, openCount, review,
                 <button type="button" aria-label={`Đưa ${lenhOf(q.piCode)} lên`} disabled={busy || i === 0} onClick={() => move(i, -1)} style={btn('ghost', busy || i === 0)}><ArrowUp size={16} /></button>
                 <button type="button" aria-label={`Đưa ${lenhOf(q.piCode)} xuống`} disabled={busy || i === queued.length - 1} onClick={() => move(i, 1)} style={btn('ghost', busy || i === queued.length - 1)}><ArrowDown size={16} /></button>
                 <button type="button" aria-label={`Bỏ ${lenhOf(q.piCode)} khỏi hàng đợi`} disabled={busy} style={btn('ghost', busy)}
-                  onClick={() => ask({ title: 'Bỏ khỏi hàng đợi', message: `Bỏ ${lenhOf(q.piCode)} khỏi hàng đợi tổ ${STAGE_LABEL[stage]}? Thêm lại được sau.`, confirmLabel: 'Bỏ', danger: true },
-                    async () => { await floorAdmin.removeEntry(q.id); onChanged() })}>
+                  onClick={() => ask({ title: 'Bỏ khỏi hàng đợi', message: `Bỏ ${lenhOf(q.piCode)} khỏi hàng đợi tổ ${STAGE_LABEL[stage]}? Thêm lại được sau.${stage === 'PHOI' ? ' Lệnh đã Bắt đầu mà còn dòng chia máy cắt sẽ được hệ thống xếp lại vào hàng đợi Phôi.' : ''}`, confirmLabel: 'Bỏ', danger: true },
+                    async () => { await floorAdmin.removeEntry(q.id); setErr(null); onChanged() })}>
                   <Trash2 size={16} color="var(--red)" />
                 </button>
               </li>
@@ -298,7 +336,7 @@ function AddPi({ stage, workshopId, onAdded }: { stage: FloorStage; workshopId: 
  * Hỏi lại khi "Chuyển PI tiếp" lúc tổ CHƯA đủ số (mục 45.4): nêu đúng thiếu gì (3 mục đầu + "và N mục khác"), số đợt chờ gửi
  * KCS của PI, và nhắc công nhân vẫn báo bù được. Nút được focus sẵn là nút an toàn "Xem còn thiếu gì"; Esc = đóng.
  */
-function AdvanceShortDialog({ stage, workshopId, running, next, piOpenCount, onCancel, onShowDetail, onDone }: {
+function AdvanceShortDialog({ stage, workshopId, running, next, piOpenCount, onCancel, onShowDetail, onDone, onStale }: {
   stage: FloorStage
   workshopId: string | null
   running: BeQueueEntry
@@ -307,6 +345,8 @@ function AdvanceShortDialog({ stage, workshopId, running, next, piOpenCount, onC
   onCancel: () => void
   onShowDetail: () => void
   onDone: () => void
+  /** Máy chủ báo lệnh đang chạy đã đổi (409): cha đóng hộp, tải lại hàng đợi và hiện câu lỗi. */
+  onStale: (message: string) => void
 }) {
   const lenhOf = useLenhCodeLookup([running.piCode, next?.piCode])
   const { data, error } = useFetch<BeStageDetail>(() => floorAdmin.stageDetail(stage, running.productionInvoiceId), [stage, running.productionInvoiceId])
@@ -330,7 +370,10 @@ function AdvanceShortDialog({ stage, workshopId, running, next, piOpenCount, onC
 
   const confirm = async () => {
     setBusy(true); setErr(null)
-    try { await floorAdmin.advance(stage, workshopId); onDone() } catch (e) { setErr(errMsg(e)); setBusy(false) }
+    try { await floorAdmin.advance(stage, workshopId, running.productionInvoiceId); onDone() } catch (e) {
+      if (isStaleConflict(e)) { onStale(errMsg(e)); return }
+      setErr(errMsg(e)); setBusy(false)
+    }
   }
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => { if (e.key === 'Escape' && !busy) onCancel() }
   const titleId = `advance-short-${stage}`

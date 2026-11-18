@@ -106,7 +106,7 @@ export const warehouseGroup: GuideGroup = {
         'Mở tab "Tồn đoạn". Màn chỉ hiện kho Phôi bạn đang làm.',
         'Đếm thực tế số đoạn của một mã đoạn, bấm "Kiểm kê" ở dòng đó.',
         { text: 'Nhập SỐ ĐẾM ĐƯỢC (không phải số chênh), ghi chú (bắt buộc), xem dòng "Chênh" rồi bấm "Ghi kiểm kê".', critical: true },
-        'Mã đoạn chưa có dòng nào trên màn (chưa từng có tồn) thì báo IT / Admin.',
+        'Mã đoạn chưa có dòng nào trên màn (chưa từng có tồn) thì báo IT, không tự thêm được.',
       ],
       tables: [
         {
@@ -121,12 +121,13 @@ export const warehouseGroup: GuideGroup = {
       ],
       result: 'Số đoạn trên phần mềm khớp số đếm thực tế; phần chênh ghi vào Lịch sử kho với đối ứng "Cân đối tồn kho".',
       warnings: [
-        'Số âm (chữ đỏ) là dữ liệu cũ trước khi quản đoạn theo lệnh — IT sẽ chuyển đổi trước khi bật; trong lúc chờ thì kiểm kê đưa về số đếm thật.',
+        'Số âm (chữ đỏ) là dữ liệu cũ trước khi quản đoạn theo lệnh, chưa được chuyển đổi. Màn có băng cảnh báo "báo IT". Khi dữ liệu đoạn cũ chưa chuyển, phần mềm KHÔNG cho ghi kiểm kê đoạn (báo lỗi) để số bạn nhập không bị xoá khi chuyển — báo IT chuyển xong rồi mới nhập lại số đếm.',
         'Đếm ít hơn phần "Giữ cho lệnh" thì Hàn / Sơn của lệnh đó sẽ thiếu đoạn (phần mềm ghi "Sổ báo vượt đoạn" cho QLSX) — hộp kiểm kê có cảnh báo khi xảy ra.',
         'Lệnh đổi xưởng thì phần đoạn lệnh còn giữ tự chuyển sang kho Phôi của xưởng mới, thủ kho không cần làm phiếu cho đoạn.',
       ],
       commonErrors: [
         { issue: '"Tồn ... vừa đổi (... → ...) - tải lại rồi nhập lại số đếm"', cause: 'Trong lúc bạn đếm, Hàn / Sơn báo hoặc KCS Phôi đạt làm tồn thay đổi.', fix: 'Tải lại trang, đếm lại nếu cần, nhập lại số đếm.' },
+        { issue: '"Chưa ghi kiểm kê đoạn được: dữ liệu đoạn cũ chưa được chuyển sang cách quản theo lệnh…"', cause: 'Dữ liệu đoạn cũ chưa được IT chuyển đổi.', fix: 'Báo IT chuyển đổi xong rồi nhập lại số đếm. Số đã gõ chưa được ghi.' },
         { issue: '"Bạn chỉ kiểm kê được kho mình phụ trách"', cause: 'Đang làm kho khác.', fix: 'Đổi "Kho đang làm" sang đúng kho Phôi.' },
       ],
       tags: ['tồn đoạn', 'kiểm kê đoạn', 'kho phôi', 'giữ cho lệnh', 'dư', 'mã đoạn', 'đếm đoạn'],
@@ -228,6 +229,7 @@ export const warehouseGroup: GuideGroup = {
         'Mảnh không đan đi thẳng kho Phôi/Hàn/Sơn → kho Thành phẩm của lệnh; không còn đi qua kho Phụ kiện. Chọn sai kho Thành phẩm thì hệ thống chặn.',
         'Trong cùng xưởng, mảnh đi Phôi → Hàn → Sơn KHÔNG lập phiếu: KCS đạt ở công đoạn cuối của mảnh thì phần mềm tự ghi mảnh vào kho của công đoạn đó (cần sơn → kho Sơn, chỉ hàn → kho Hàn, không hàn/sơn → kho Phôi).',
         'Xưởng Phước An (không có kho Sơn): thủ kho Hàn Phước An mở tab này, kho đích tự là kho Sơn Phú An, số được chuyển = số mảnh cần sơn đã qua KCS Hàn. Kho Sơn Phú An xác nhận ở "Nhập kho > Nhập nội bộ" khi xe chở mảnh tới.',
+        'Thủ kho Hàn Phước An: khi có mảnh hàn xong chờ chuyển sang kho Sơn, bạn nhận thông báo "N mảnh hàn xong chờ chuyển sang …" và tab "Xuất theo đơn hàng" có số đỏ (số lệnh còn mảnh chưa lập đủ phiếu). Phần mềm KHÔNG tự lập phiếu: bạn lập phiếu ở "Xuất theo đơn hàng" khi xe chở sang. Lập phiếu xong, số đỏ trên tab đổi ngay; thông báo không đóng ngay lúc lập phiếu mà đóng ở lượt nhắc nền kế tiếp (chậm nhất khoảng 10 phút). Khi nhắc nền đang tắt thì không có thông báo, chỉ có số đỏ trên tab.',
       ],
       commonErrors: [
         { issue: '"Không có mảnh nào đủ số lượng đã qua KCS ... để tạo phiếu chuyển kho"', cause: 'Số mảnh đã qua KCS không đủ, hoặc toàn bộ đã nằm trong một phiếu chuyển khác đang chờ xác nhận.', fix: 'Kiểm tra lại số liệu KCS và các phiếu chuyển đang chờ trước khi tạo phiếu mới.' },
@@ -392,7 +394,7 @@ export const warehouseGroup: GuideGroup = {
       ],
       result: 'Khi phiếu xuất được xác nhận, tồn kho sắt bị trừ theo đúng cỡ chiều dài cây; công nhân Phôi nhận sắt cây bằng mã QR "Khu nhận sắt" của xưởng rồi mới cắt; Sắt La và thanh nhôm thì tài khoản Phôi xác nhận ở "Xác nhận nhận sắt". Các lần đã xuất hiện ở bảng lịch sử bên dưới (Thời gian / Vật tư / Dài / Số cây / Trạng thái).',
       warnings: [
-        'Khi máy cắt rảnh tự kéo lệnh kế tiếp mà sắt của lệnh còn giữ trong kho, thủ kho kho Phôi của xưởng làm lệnh nhận thông báo "Xuất sắt lệnh … xuống Phôi ngay" (liệt kê loại sắt và số cây chưa xuất). Xuất xong đủ số cần thì thông báo tự đóng ở lượt kiểm kế tiếp (chậm nhất khoảng 10 phút). Lệnh vừa đổi xưởng mà sắt còn ở kho xưởng cũ thì máy chưa kéo: thủ kho kho cũ lập phiếu chuyển trước, kho xưởng mới nhận xong máy mới kéo.',
+        'Khi máy cắt rảnh tự kéo lệnh kế tiếp mà sắt của lệnh còn giữ trong kho, thủ kho kho Phôi của xưởng làm lệnh nhận thông báo "Xuất sắt lệnh … xuống Phôi ngay" (liệt kê loại sắt và số cây chưa xuất). Thông báo liệt kê mọi loại sắt của lệnh còn chưa xuất; xuất đủ số cần thì thông báo tự đóng ở lượt kiểm kế tiếp (chậm nhất khoảng 10 phút). QLSX chia máy cắt bằng tay chỉ gửi thông báo này khi nhắc nền đang bật; lượt nhắc nền cũng tự báo lại những lệnh đã chia mà chưa có thông báo. Lệnh vừa đổi xưởng mà sắt còn ở kho xưởng cũ thì máy chưa kéo: thủ kho kho cũ lập phiếu chuyển trước, kho xưởng mới nhận xong máy mới kéo.',
         'Cột "Cần" lấy từ phương án cắt đã duyệt (số cây thực sự cần), KHÔNG phải suy trực tiếp từ định mức (công thức sản xuất).',
         'Nếu Tổ Phôi xác nhận nhận với số đếm được khác số đã xuất, bảng lịch sử hiện thêm dòng "Phôi nhận N/M cây" — hệ thống không tự sửa lại tồn kho theo số lệch này, cần đối chiếu thủ công nếu nghi sai sót.',
       ],
@@ -426,7 +428,7 @@ export const warehouseGroup: GuideGroup = {
         { text: 'Bấm "In phiếu", đưa người nhận ký, chụp phiếu đã ký, bấm "Ảnh phiếu đã ký" chọn ảnh rồi "Xác nhận xuất".', critical: true },
         'In sai hoặc người nhận không nhận: bấm "Huỷ phiếu", ghi lý do. Số phiếu đã huỷ không cấp lại.',
       ],
-      result: 'Khi xác nhận, tồn kho trừ cho TẤT CẢ các dòng cùng lúc; công nhân Phôi nhận sắt cây bằng mã QR "Khu nhận sắt" của xưởng (Sắt La và thanh nhôm thì tài khoản Phôi xác nhận ở "Xác nhận nhận sắt"), Tổ Hàn/Sơn thấy vật tư ở "Xác nhận nhận vật tư". Phiếu chuyển sang "Phiếu đã xuất gần đây" kèm link ảnh phiếu ký.',
+      result: 'Khi xác nhận, tồn kho trừ cho TẤT CẢ các dòng cùng lúc; công nhân Phôi nhận sắt cây bằng mã QR "Khu nhận sắt" của xưởng (Sắt La và thanh nhôm thì tài khoản Phôi xác nhận ở "Xác nhận nhận sắt"). Vật tư hàn / sơn: bấm "Xác nhận xuất" có chữ ký người nhận là xong, kho coi như tổ Hàn/Sơn đã nhận — tổ không phải xác nhận lại. Phiếu chuyển sang "Phiếu đã xuất gần đây" kèm link ảnh phiếu ký.',
       warnings: [
         'Mỗi phiếu chỉ cho một kho — chọn dòng của nhiều kho thì phải tách thành nhiều phiếu.',
         'Một dòng không xuất được (thiếu tồn, vượt định mức, lệnh chưa Bắt đầu...) thì cả phiếu không xuất; phiếu vẫn chờ ký để sửa (huỷ, lập lại).',
@@ -465,7 +467,7 @@ export const warehouseGroup: GuideGroup = {
         { text: 'Nhập số lượng (không vượt "Còn phải xuất"), bấm "Thêm vào phiếu", rồi sang tab "Phiếu xuất" tạo phiếu, in, người nhận ký, tải ảnh và xác nhận xuất — lúc đó mới trừ tồn. Áp dụng cho cả vật tư TP, vật tư hàn, vật tư sơn.', critical: false },
         'Riêng "Xuất vật tư TP" có 2 chế độ: "Theo mảnh" (ví dụ sắt la cắt pat — chọn theo PO/SKU như trên) và "Không gắn mảnh (chân nhôm)" — chọn theo PI, bảng hiện Vật tư ra / Vật tư vào / Cần SX thêm / Cần nguyên liệu / Đã xuất, bấm "Thêm vào phiếu" để cấp nguyên liệu vào (ví dụ thanh nhôm).',
       ],
-      result: 'Tồn kho vật tư giảm khi xác nhận xuất phiếu (có ảnh ký). Vật tư TP: Tổ Phôi xác nhận nhận ở "Xác nhận nhận sắt"; vật tư hàn/sơn: Tổ Hàn/Sơn xác nhận nhận ở "Xác nhận nhận vật tư".',
+      result: 'Tồn kho vật tư giảm khi xác nhận xuất phiếu (có ảnh ký). Vật tư TP: Tổ Phôi xác nhận nhận ở "Xác nhận nhận sắt"; vật tư hàn/sơn: xác nhận phiếu có chữ ký là xong, tổ Hàn/Sơn không phải xác nhận nhận nữa (phiếu cũ còn dở cũng đã được đổi sang "Đã nhận").',
       warnings: [
         'Mỗi LỆNH sản xuất một dòng. Hai dòng cùng một SKU nhưng khác màu dây/màu vải nệm hiện thành hai dòng riêng, kèm nhãn màu cạnh mã SKU — chọn đúng dòng.',
       ],

@@ -1,6 +1,6 @@
 import type { BeCutAllocationBoard } from '../../../../services/floor-api'
-import { heldElsewhereText, WAITING_NOTE } from '../cutAllocationModel'
-import { btn, card, divider, muted, numTd, numTh, sectionTitle, TableScroll, td, th } from '../qlsxUi'
+import { heldElsewhereText, isNotStarted, NOT_STARTED_ADD_HINT, NOT_STARTED_ADD_TITLE, NOT_STARTED_LABEL, WAITING_NOTE } from '../cutAllocationModel'
+import { btn, card, divider, muted, numTd, numTh, Pill, sectionTitle, TableScroll, td, th } from '../qlsxUi'
 
 interface UnallocatedProps {
   items: BeCutAllocationBoard['unallocated']
@@ -19,7 +19,7 @@ export function UnallocatedPanel({ items, busy, onAuto }: UnallocatedProps) {
       {items.map((u) => (
         <div key={`${u.productionInvoiceId}:${u.materialId}`}
           style={{ fontSize: 13, padding: '4px 0', borderTop: divider, overflowWrap: 'anywhere' }}>
-          <b>{u.piCode}</b> · {u.materialLabel} · <b>{u.bars}</b> cây
+          <b>{u.piCode}</b>{isNotStarted(u) && <> <Pill tone="amber">{NOT_STARTED_LABEL}</Pill></>} · {u.materialLabel} · <b>{u.bars}</b> cây
         </div>
       ))}
     </section>
@@ -63,13 +63,15 @@ export function WaitingPanel({ items, busy, onAddAnyway }: WaitingProps) {
         <tbody>
           {items.map((w) => (
             <tr key={`${w.productionInvoiceId}:${w.materialId}`} style={{ borderTop: divider }}>
-              <td style={td}><b>{w.piCode}</b></td>
+              <td style={td}><b>{w.piCode}</b>{isNotStarted(w) && <> <Pill tone="amber">{NOT_STARTED_LABEL}</Pill></>}</td>
               <MaterialCell w={w} />
               <td style={numTd}>{w.requiredBars}</td>
               <td style={numTd}>{w.availableBars}</td>
               <td style={{ ...numTd, color: 'var(--red)', fontWeight: 600 }}>{w.shortBars}</td>
               <td style={numTd}>
-                <button type="button" style={btn('secondary', busy)} disabled={busy} onClick={() => onAddAnyway(w)}>Chia luôn</button>
+                <button type="button" style={btn('secondary', busy || isNotStarted(w))} disabled={busy || isNotStarted(w)}
+                  title={isNotStarted(w) ? NOT_STARTED_ADD_TITLE : undefined} onClick={() => onAddAnyway(w)}>Chia luôn</button>
+                {isNotStarted(w) && <div style={muted}>{NOT_STARTED_ADD_HINT}</div>}
               </td>
             </tr>
           ))}

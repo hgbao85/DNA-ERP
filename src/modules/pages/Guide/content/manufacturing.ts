@@ -2,7 +2,7 @@ import type { GuideGroup } from '../types';
 
 // Nguồn: ThongKePagePlan.tsx, LenhSanXuatPhoi.tsx, XacNhanNhanSatPage.tsx, KhoPhoiPage.tsx,
 // HuongDanCatPage.tsx, VatTuTpDetail.tsx, LenhSanXuatHan.tsx, LenhSanXuatSon.tsx,
-// XacNhanVatTuPage.tsx, KcsPhoiPage.tsx, KcsHanPage.tsx/KcsSonPage.tsx (kcsCore.tsx),
+// KcsPhoiPage.tsx, KcsHanPage.tsx/KcsSonPage.tsx (kcsCore.tsx),
 // SpecSteelPage.tsx, SpecDetailQuotaPage.tsx, SpecAccessoryCatalogPage.tsx +
 // BE production-orders/floor-gate/steel-issues/qc-reviews/production-batches —
 // đọc trực tiếp mã nguồn 22/09/2026, đối chiếu lại 12/10/2026.
@@ -25,15 +25,15 @@ export const manufacturingGroup: GuideGroup = {
         'QLSX: Tổng hợp lệnh SX, Xử lý lệnh sản xuất, Sản lượng xưởng (5 tab: Sản lượng & gửi KCS · Chia máy cắt · Báo cáo · Máy & tem QR · Công nhân), Sổ báo vượt đoạn, Xem các tổ (Hướng dẫn cắt · Kho phôi · Khung hàn · Mảnh chờ đan, chỉ xem), Danh sách SKU (chỉ xem), Tổng hợp vật tư, Tổng hợp kho.',
         'Công nhân tổ Phôi/Hàn/Sơn có tài khoản riêng: KHÔNG dùng phân hệ này mà quét mã QR dán ở máy bằng điện thoại để báo sản lượng (xem bài "Tổ Phôi / Hàn / Sơn — quét mã QR tại máy để báo sản lượng").',
         'Tài khoản thống kê Phôi: Lệnh sản xuất (còn báo Vật tư TP / chân nhôm và gán SKU cho đợt cũ), Hướng dẫn cắt, Xác nhận nhận sắt (còn Sắt La và thanh nhôm), Danh sách định mức mảnh, Kho phôi. Báo cắt, công đoạn phụ và nhận sắt cây đã chuyển sang quét mã QR.',
-        'Tài khoản thống kê Hàn: Lệnh sản xuất (chỉ xem), Xác nhận nhận vật tư, Danh sách định mức mảnh, Khung hàn.',
-        'Tài khoản thống kê Sơn: Lệnh sản xuất (chỉ xem), Xác nhận nhận vật tư, Danh sách định mức mảnh, Mảnh chờ đan.',
+        'Tài khoản thống kê Hàn: Lệnh sản xuất (chỉ xem), Danh sách định mức mảnh, Khung hàn.',
+        'Tài khoản thống kê Sơn: Lệnh sản xuất (chỉ xem), Danh sách định mức mảnh, Mảnh chờ đan.',
         'KCS: Phôi, Hàn, Sơn (tab Phôi gồm 3 mục con: Cắt sắt / Vật tư TP / VT không gắn mảnh).',
         'Chuyên viên định mức mảnh: Quản lý định mức > Định mức mảnh, Tổng hợp vật tư, Định mức vật tư thành phẩm.',
         'Chuyên viên định mức chi tiết: Quản lý định mức > Định mức mới, Tổng hợp vật tư.',
       ],
       result: 'Biết đúng tab cần mở cho từng việc; số đỏ cạnh tên tab là số việc đang chờ bạn.',
       warnings: [
-        'Tab "Xác nhận nhận vật tư" của Tổ Hàn/Sơn là nơi XÁC NHẬN ĐÃ NHẬN VẬT TƯ kho vừa cấp (khí CO2, dây hàn, bột sơn...) — còn số mảnh đã hàn/sơn thì công nhân báo bằng quét mã QR tại máy (tab "Lệnh sản xuất" chỉ để xem tiến độ).',
+        'Tổ Hàn/Sơn không còn tab xác nhận nhận vật tư. Vật tư hàn / sơn (khí CO2, dây hàn, bột sơn...): thủ kho xuất phiếu có chữ ký người nhận là đã nhận, tổ không phải bấm xác nhận thêm. Muốn tra lại vật tư đã xuất thì xem phiếu giấy hoặc nhờ thủ kho xem Lịch sử kho. Số mảnh đã hàn/sơn thì công nhân vẫn báo bằng quét mã QR tại máy (tab "Lệnh sản xuất" chỉ để xem tiến độ).',
       ],
       tags: ['tab sản xuất', 'menu sản xuất', 'vai trò sản xuất'],
       sourceRefs: ['src/modules/pages/Manufacturing/MfgApp.tsx'],
@@ -90,8 +90,8 @@ export const manufacturingGroup: GuideGroup = {
         { text: 'Bước 2 — "Tổng hợp lệnh SX": bấm vào PI → ở bảng SKU, cột "Xưởng" bấm "Bắt đầu" cho SKU sẽ làm (cổng 1).', critical: true },
         { text: 'Bước 3 — "Sản lượng xưởng" → tab "Sản lượng & gửi KCS" → chọn tổ (Phôi / Hàn / Sơn) → "Thêm lệnh" vào hàng đợi → nếu tổ chưa chạy PI nào thì bấm "Bắt đầu lệnh đầu hàng đợi" (cổng 2). Làm lần lượt cho cả 3 tổ.', critical: true },
         'Bước 4 — Hằng ngày: ở khối "Chờ gửi KCS", bấm vào từng đợt ("Kiểm & gửi") xem từng lần công nhân báo; lần nào sai thì "Hủy" (ghi lý do), đúng thì "Gửi KCS đợt này" (hoặc "Gửi KCS tất cả" khi đã kiểm hết).',
-        'Bước 5 — Theo dõi thẻ "PI đang chạy" của từng tổ (% và dòng "Còn thiếu…"); bấm "Xem còn thiếu gì" để biết thiếu loại sắt/cỡ đoạn/mảnh nào. Tổ báo đủ số (thẻ nhắc xanh) và đã gửi KCS hết thì bấm "Chuyển lệnh tiếp" — PI kế trong hàng đợi tự chạy.',
-        { text: 'Bước 6 — Khi SKU đã làm xong (đã đóng gói đủ), quay lại "Tổng hợp lệnh SX" → bấm "Kết thúc" cho SKU đó. Không hoàn tác được.', critical: true },
+        'Bước 5 — Theo dõi thẻ "PI đang chạy" của từng tổ (% và dòng "Còn thiếu…"); bấm "Xem còn thiếu gì" để biết thiếu loại sắt/cỡ đoạn/mảnh nào. Tổ báo đủ số (thẻ nhắc xanh) và đã gửi KCS hết thì bấm "Chuyển lệnh tiếp" — PI kế trong hàng đợi tự chạy. Tổ Phôi thường tự chuyển khi KCS đạt đủ; nếu KCS đã đạt đủ mà lệnh chưa tự chuyển thì thẻ hiện nút "Chuyển lệnh tiếp" để bạn tự đóng.',
+        { text: 'Bước 6 — Khi SKU đã làm xong (đã đóng gói đủ), hệ thống gửi thông báo "đã đóng gói đủ - bấm Kết thúc" và menu "Tổng hợp lệnh SX" hiện số đỏ. Bấm vào thông báo để mở thẳng lệnh, dòng SKU đó nháy lên; hoặc mở "Tổng hợp lệnh SX", bấm ô lọc "Chờ kết thúc (N)" để thấy các lệnh còn SKU chờ. Lưu ý: số đỏ ở menu đếm số SKU chờ Kết thúc, còn số N trong ô lọc đếm số lệnh có SKU chờ, nên hai số có thể khác nhau. Bấm "Kết thúc" cho SKU đó. Không hoàn tác được.', critical: true },
       ],
       tables: [{
         title: 'Việc nào làm ở màn nào',
@@ -99,6 +99,7 @@ export const manufacturingGroup: GuideGroup = {
         rows: [
           ['Chọn kho, gửi Sếp duyệt PI', 'Xử lý lệnh sản xuất', 'PI quá hạn hiện đỏ'],
           ['Bắt đầu / Tạm dừng / Tiếp tục / Kết thúc từng SKU', 'Tổng hợp lệnh SX → PI → bảng SKU', 'Có hộp xác nhận; "Kết thúc" không hoàn tác'],
+          ['Tìm SKU đã đóng gói đủ, chờ Kết thúc', 'Tổng hợp lệnh SX → ô lọc "Chờ kết thúc" (hoặc bấm thông báo)', 'Menu "Tổng hợp lệnh SX" có số đỏ'],
           ['Xếp PI cho từng tổ, đổi thứ tự, Chuyển lệnh tiếp', 'Sản lượng xưởng → Sản lượng & gửi KCS', 'Mỗi tổ chạy 1 PI một lúc'],
           ['Chia sắt cho từng máy cắt, in phiếu cắt', 'Sản lượng xưởng → Chia máy cắt', 'Hệ thống chia sẵn, QLSX chỉnh tay'],
           ['Kiểm số công nhân báo, Gửi KCS, Hủy lần báo sai', 'Sản lượng xưởng → khối "Chờ gửi KCS"', 'Gửi KCS rồi thì không hủy được nữa'],
@@ -141,6 +142,7 @@ export const manufacturingGroup: GuideGroup = {
       steps: [
         'Mở "Sản lượng xưởng" > tab "Máy & tem QR", bấm "Thêm máy": nhập Mã ngắn (in trên tem), Tên gọi, chọn Tổ (Phôi/Hàn/Sơn) và Loại máy. Tổ Phôi có 3 loại: Máy cắt, Máy công đoạn phụ (chọn đúng công đoạn Uốn/Dập/Đục lỗ...), Khu nhận sắt; Hàn/Sơn chỉ có Điểm làm việc. Mọi loại đều chọn Xưởng đặt máy: máy chưa gán xưởng (ô Xưởng viền vàng) được tính theo xưởng mặc định, nên máy đặt ở Xưởng Phước An phải gán Xưởng Phước An, nếu không công nhân quét tem sẽ thấy lệnh của xưởng mặc định.',
         'Với Máy cắt, chọn thêm Loại máy cắt (MC Laser / MC Tự động). Khai đủ máy cắt của từng xưởng (vd Phú An 4 MC Laser + 1 MC Tự động, Phước An MC Tự động): hệ thống dùng danh sách này để chia sắt cho máy. Dòng "Máy cắt đang dùng" đầu bảng cho biết mỗi xưởng đã khai bao nhiêu máy; máy chưa gán xưởng (ô Xưởng viền vàng) thì chọn xưởng và loại máy cắt ngay trên dòng của máy. Trên điện thoại mỗi máy hiện thành 1 thẻ.',
+        'Tắt máy, đổi xưởng hoặc đổi loại máy đều có hộp hỏi lại trước khi lưu — đọc kỹ rồi mới bấm xác nhận. Tắt máy cắt hoặc đổi xưởng máy cắt thì phần việc đã chia của máy đó bị xoá, số cây quay về "Chưa chia"; sau đó vào "Chia máy cắt" chia lại. Đổi loại máy cắt thì xem lại bảng "Chia máy cắt" của máy đó. Công nhân quét tem của máy đã tắt sẽ thấy "Máy này đang tắt - báo QLSX bật lại máy ở Máy & tem QR".',
         'Bấm "Xem / in" ở từng máy (hoặc "In tất cả tem") để lấy mã QR dán tại máy — mỗi máy 1 mã cố định, mã KHÔNG gắn với PI nào (PI lấy từ hàng đợi của tổ, xem bài "QLSX — "Sản lượng xưởng": xếp PI cho từng tổ, kiểm & gửi KCS").',
         'Chuyển tab "Công nhân", bấm "Thêm công nhân": nhập Họ tên, Tên đăng nhập, chọn Tổ — không đặt PIN, công nhân tự đặt PIN riêng ở lần đăng nhập đầu tiên.',
         'Công nhân quên PIN hoặc bị khoá tạm (nhập sai PIN 5 lần): bấm "Cho đặt lại PIN" (xoá PIN hiện tại, công nhân tự đặt PIN mới ở lần đăng nhập tới) hoặc "Mở khoá tạm".',
@@ -196,12 +198,12 @@ export const manufacturingGroup: GuideGroup = {
       },
       steps: [
         'Mở "Sản lượng xưởng" (tab mặc định "Sản lượng & gửi KCS"), chọn đúng Tổ (số vàng "N chờ gửi" = số đợt đang chờ bạn kiểm). Màn hẹp (laptop ~1024px) thì khối "Chờ gửi KCS" nằm trên cùng.',
-        'Hàng đợi chia theo xưởng (14/11/2026). QLSX của 1 xưởng chỉ thấy hàng đợi xưởng mình; KHSX / Sếp / Admin chọn xưởng ở ô "Xưởng" đầu khối hàng đợi (hệ thống nhớ lựa chọn). Mọi nút (Chuyển lệnh tiếp, Mở lại, Đổi thứ tự, Bỏ, Thêm lệnh) làm trên đúng xưởng đang chọn, mỗi thẻ PI ghi tên xưởng. Tổ Sơn xếp theo NƠI SƠN: lệnh của Phước An sơn ở Phú An nên nằm trong hàng đợi Sơn của Phú An.',
+        'Hàng đợi chia theo xưởng (14/11/2026). Màn "Sản lượng xưởng" chỉ dành cho QLSX. QLSX của 1 xưởng chỉ thấy hàng đợi xưởng mình; QLSX không gắn xưởng nào thì chọn xưởng ở ô "Xưởng" đầu khối hàng đợi (hệ thống nhớ lựa chọn). Mọi nút (Chuyển lệnh tiếp, Mở lại, Đổi thứ tự, Bỏ, Thêm lệnh) làm trên đúng xưởng đang chọn, mỗi thẻ PI ghi tên xưởng. Tổ Sơn xếp theo NƠI SƠN: lệnh của Phước An sơn ở Phú An nên nằm trong hàng đợi Sơn của Phú An, và thông báo của tổ Sơn lệnh đó (KCS đạt / không đạt) đi tới QLSX Phú An. Thông báo "chờ gửi KCS quá 4 giờ" tách riêng theo từng tổ và từng xưởng, mỗi tổ của mỗi xưởng một thông báo, số đợt tự cập nhật.',
         'Bấm "Thêm lệnh", chọn 1 PI chưa chạy ở tổ này — PI được xếp vào cuối hàng đợi; dùng mũi tên lên/xuống để đổi thứ tự, PI đầu hàng đợi có nhãn "tiếp theo"; "Xem" để xem trước PI đó đã nhận sắt chưa. Tổ chưa chạy PI nào thì bấm "Bắt đầu lệnh đầu hàng đợi".',
         'Thẻ "PI đang chạy": thanh màu Đạt KCS (xanh lá) / Chờ KCS (cam) / Chưa gửi KCS (xanh dương), % từng công đoạn (Cắt, Uốn, Dập…) và dòng "Còn thiếu N loại sắt (M chưa nhận sắt) · K đợt chờ gửi KCS". Bấm "Xem còn thiếu gì" để mở ngăn bên phải với 3 tab: "Còn thiếu" (loại sắt chưa nhận lên đầu, từng cỡ đoạn × công đoạn còn thiếu), "Tất cả" (bảng đầy đủ như Tổng hợp lệnh SX), "Bất thường" (báo vượt sắt đã nhận, đợt chờ quá 4 giờ, KCS chấm lỗi, Hàn/Sơn lệch bộ - so theo SL/bộ của định mức, mảnh báo dư không làm lệch). Xem cả lệnh có nhiều SKU khác sản phẩm thì bảng không hiện số bộ đồng bộ chung: chọn 1 SKU ở ô "Xem theo SKU" để xem.',
         'Khối "Chờ gửi KCS" liệt kê từng đợt công nhân đã báo kèm số đã báo/cần — bấm vào đầu đợt ("Kiểm & gửi") để mở từng lần báo (ai, máy nào, lúc nào). Kiểm xong bấm "Gửi KCS đợt này", hoặc "Gửi KCS tất cả" khi đã kiểm hết.',
         { text: 'Nếu phát hiện 1 lần báo sai, bấm "Hủy" ở đúng lần báo đó, bắt buộc nhập lý do → "Hủy lần báo" — số bị trừ khỏi đợt, công nhân thấy lại đúng lý do này.', critical: true },
-        'Tổ báo đủ số (thẻ nhắc xanh) và đã gửi KCS hết thì bấm "Chuyển lệnh tiếp": PI đang chạy chuyển sang "đã xong", PI đầu hàng đợi (nếu có) bắt đầu chạy.',
+        'Tổ báo đủ số (thẻ nhắc xanh) và đã gửi KCS hết thì bấm "Chuyển lệnh tiếp": PI đang chạy chuyển sang "đã xong", PI đầu hàng đợi (nếu có) bắt đầu chạy. Hộp hỏi lại có ghi còn bao nhiêu đợt chờ gửi KCS của lệnh đang chạy — nên gửi trước khi chuyển. Nếu màn mở đã lâu và hệ thống vừa tự chuyển lệnh, phần mềm báo "Lệnh đang chạy của tổ … đã đổi" — tải lại màn rồi xem lại. Bỏ một lệnh khỏi hàng đợi Phôi: lệnh đã Bắt đầu mà còn dòng chia máy cắt sẽ được hệ thống xếp lại vào hàng đợi Phôi.',
       ],
       result: 'Đợt được gửi sang đúng luồng KCS cũ — KCS duyệt như bình thường, không phân biệt báo qua QR hay gõ tay.',
       statuses: [
@@ -237,11 +239,14 @@ export const manufacturingGroup: GuideGroup = {
       preconditions: [
         'Đã khai đủ máy cắt của xưởng (Loại máy cắt + Xưởng) ở tab "Máy & tem QR".',
         'Lệnh đã được Sếp duyệt, có phương án cắt đã duyệt, và dòng lệnh thuộc xưởng của bạn.',
+        'Lệnh đã bấm "Bắt đầu" ở "Tổng hợp lệnh SX" (SKU đang chạy). Lệnh chưa Bắt đầu hoặc đang Tạm dừng thì chia tay không được.',
       ],
       mock: { title: 'Sản lượng xưởng > Chia máy cắt', buttons: ['Chia tự động', 'Chia phần còn lại', 'Chia lại', 'In tất cả máy', 'Sửa', 'In phiếu'] },
       steps: [
         'Mở "Sản lượng xưởng" > tab "Chia máy cắt". QLSX của 1 xưởng thấy ngay xưởng mình; QLSX chung chọn xưởng ở ô "Xưởng".',
-        'Bấm "Chia tự động" (lần đầu) hoặc "Chia phần còn lại": hệ thống chia các loại sắt đã đủ sắt cho các máy của xưởng. Bấm "Cách hệ thống chia" để xem luật chia của xưởng đang xem.',
+        'Bấm "Chia tự động" (lần đầu) hoặc "Chia phần còn lại": hệ thống chia các loại sắt đã đủ sắt cho các máy của xưởng. Bấm "Cách hệ thống chia" để xem luật chia của xưởng đang xem. Bảng và phiếu cắt ghi mã lệnh (GP-xxx), không ghi mã PI.',
+        'Lệnh chưa Bắt đầu vẫn hiện trong bảng, kèm nhãn "chưa Bắt đầu"; nút "Chia luôn" của lệnh đó bị khoá (rê chuột sẽ thấy "Bấm Bắt đầu lệnh ở Tổng hợp lệnh SX trước"). Bảng cảnh báo "Chưa chia N lệnh chưa Bắt đầu" nghĩa là còn lệnh đang chờ bạn Bắt đầu rồi mới chia.',
+        'Khi bạn chia tay một lệnh đã Bắt đầu, hệ thống tự xếp lệnh vào hàng đợi Phôi (nếu chưa có) và báo thủ kho xuất sắt, giống như lúc máy cắt rảnh tự kéo lệnh. Thủ kho nhận thông báo "QLSX vừa chia lệnh này cho máy cắt. Chưa xuất: …". Bấm "Chia lại" mà kết quả y như cũ thì không báo thủ kho lần nữa.',
         'Mỗi máy là 1 thẻ, có 1 thanh mảnh dưới tên máy: độ dài phần tô màu là số cây của máy so với máy nhiều cây nhất (máy nhiều nhất tô đầy) để nhìn lướt biết các máy cân hay lệch; trong phần tô màu, xanh lá là số cây ước đã cắt, xanh dương là số cây còn lại. Các dòng liền nhau cùng lệnh, cùng loại sắt, cùng chiều dài cây gom thành 1 nhóm: đầu nhóm ghi lệnh (N1 / Booking / Hạn), loại sắt và chiều dài cây; mỗi dòng ghi kiểu cắt (đoạn × số đoạn trên cây), đoạn nào Uốn / Dập / Khoan / Tán và số cây; cuối nhóm ghi chi tiết ra và đoạn dư của cả loại sắt.',
         'Nhãn trên dòng: "Cắt được máy tự động" (cây không có đoạn dập đang xếp ở máy laze), "Lỗ làm tay" (xưởng không có máy laze, cây có đoạn dập), "Cây có đoạn dập – nên cắt laze" (màu đỏ, nên chuyển sang máy laze).',
         'Kiểu cắt theo bó (dòng ghi "Cắt theo bó") KHÔNG tách sang máy khác và không sửa số cây (Sếp chốt 14/11). Chỉ đổi máy được khi máy hư: chọn máy mới, hộp xác nhận hiện ra, bắt buộc chọn lý do "Máy hư" rồi mới đổi. Dòng thường đổi máy hoặc tách thì có thể ghi thêm lý do (Máy hư / Khác) và ghi chú.',
@@ -267,16 +272,17 @@ export const manufacturingGroup: GuideGroup = {
       }],
       result: 'Mỗi máy cắt có phiếu cắt ghi rõ lệnh, loại sắt, số cây; QLSX chỉnh được mà không ảnh hưởng luồng quét QR.',
       warnings: [
-        '"Chia lại" giữ các dòng bạn đã sửa tay, chia lại phần còn lại và xếp lại thứ tự cắt trên mọi máy theo ưu tiên lệnh. "Chia phần còn lại" chỉ chia phần cây chưa có dòng, rồi cũng xếp lại thứ tự.',
+        '"Chia lại" giữ các dòng bạn đã sửa tay, bỏ các dòng hệ thống chia của lệnh chưa Bắt đầu, chia lại phần còn lại và xếp lại thứ tự cắt trên mọi máy theo ưu tiên lệnh. "Chia phần còn lại" chỉ chia phần cây chưa có dòng, rồi cũng xếp lại thứ tự.',
         'Dòng có đoạn dập không chuyển được sang máy tự động khi xưởng có máy laze (Sếp chốt 13/11). Ô chọn máy khoá sẵn các máy đó.',
         '"Đã báo ≈X/Y đoạn" chỉ là số xấp xỉ: cộng các đoạn công nhân báo qua QR tại máy đó cho cùng lệnh và loại sắt.',
-        'Máy cắt rảnh (đã cắt đủ số cây được chia, hoặc chưa có dòng nào) thì hệ thống tự kéo lệnh kế tiếp (Sếp chốt 14/11). Chỉ kéo lệnh đã đủ sắt (đã xuất và đang giữ chỗ ở kho của xưởng này), QLSX đã bấm "Bắt đầu", không chờ KHSX "Đã kiểm" lại phương án cắt (lệnh vừa đổi xưởng: chưa kiểm thì kho chưa chuyển / xuất sắt được), và có phần máy đó cắt được; lệnh gần nhất (N1 → booking → hạn) kéo trước. Lệnh được chia như khi bấm "Chia", tính theo số cây còn phải cắt nên máy rảnh nhận phần lớn; việc của máy khác không bị chia bớt. Dòng mới nằm cuối việc của máy, không đảo thứ tự dòng đang cắt. QLSX và KHSX xưởng đó nhận thông báo "Máy rảnh kéo lệnh …"; lệnh tự vào hàng đợi Phôi nếu chưa có. "Lịch sử chia tay" ghi dòng "Hệ thống kéo (máy rảnh)". Máy vẫn có nhãn "Máy rảnh" và thông báo máy rảnh nghĩa là không còn lệnh đủ sắt, đã Bắt đầu, máy cắt được: xem mục "Chờ sắt", Bắt đầu lệnh, nhắc KHSX kiểm lại phương án cắt của lệnh vừa đổi xưởng, hoặc chia tay.',
-        'Xong Phôi do hệ thống tự tính: khi mọi đoạn đủ công đoạn và KCS đạt thì hệ thống tự đóng lệnh và chạy lệnh tiếp theo trong hàng đợi (Sếp chốt 14/11). Tổ Phôi không còn nút "Chuyển lệnh tiếp" khi đang có lệnh chạy; tổ chưa có lệnh chạy vẫn bấm "Bắt đầu lệnh đầu hàng đợi". Lệnh do hệ thống đóng hoặc tự chạy ghi "hệ thống tự chuyển" thay cho tên người bấm.',
+        'Máy cắt rảnh (đã cắt đủ số cây được chia, hoặc chưa có dòng nào) thì hệ thống tự kéo lệnh kế tiếp (Sếp chốt 14/11). Chỉ kéo lệnh đã đủ sắt (đã xuất và đang giữ chỗ ở kho của xưởng này), QLSX đã bấm "Bắt đầu", không chờ KHSX "Đã kiểm" lại phương án cắt (lệnh vừa đổi xưởng: chưa kiểm thì kho chưa chuyển / xuất sắt được), và có phần máy đó cắt được; lệnh gần nhất (N1 → booking → hạn) kéo trước. Lệnh được chia như khi bấm "Chia", tính theo số cây còn phải cắt nên máy rảnh nhận phần lớn; việc của máy khác không bị chia bớt. Dòng mới nằm cuối việc của máy, không đảo thứ tự dòng đang cắt. QLSX và KHSX xưởng đó nhận thông báo "Máy rảnh kéo lệnh …"; lệnh tự vào hàng đợi Phôi nếu chưa có. "Lịch sử chia tay" ghi dòng "Hệ thống kéo (máy rảnh)". Máy vẫn có nhãn "Máy rảnh" và thông báo máy rảnh nghĩa là không còn lệnh đủ sắt, đã Bắt đầu, máy cắt được: xem mục "Chờ sắt", Bắt đầu lệnh, nhắc KHSX kiểm lại phương án cắt của lệnh vừa đổi xưởng, hoặc chia tay (chỉ chia được lệnh đã Bắt đầu).',
+        'Xong Phôi do hệ thống tự tính: khi mọi đoạn đủ công đoạn và KCS đạt thì hệ thống tự đóng lệnh và chạy lệnh tiếp theo trong hàng đợi (Sếp chốt 14/11). Thường tổ Phôi không có nút "Chuyển lệnh tiếp" khi đang có lệnh chạy; chỉ khi KCS đã đạt đủ mà hệ thống chưa tự chuyển thì thẻ mới hiện nút này để QLSX tự đóng (màn đã cũ thì phần mềm báo tải lại); tổ chưa có lệnh chạy vẫn bấm "Bắt đầu lệnh đầu hàng đợi". Lệnh do hệ thống đóng hoặc tự chạy ghi "hệ thống tự chuyển" thay cho tên người bấm.',
       ],
       commonErrors: [
         { issue: '"Xưởng … chưa khai máy cắt"', cause: 'Xưởng chưa có máy cắt đang dùng.', fix: 'Tab "Máy & tem QR" → thêm máy cắt, chọn Loại máy cắt và Xưởng.' },
         { issue: 'Lệnh không hiện trong bảng', cause: 'Lệnh chưa có phương án cắt đã duyệt, dòng lệnh không thuộc xưởng này, hoặc tổ Phôi đã chuyển PI tiếp (xong).', fix: 'Kiểm ở "Tổng hợp lệnh SX". Lệnh chưa đủ sắt thì nằm ở "Chờ sắt".' },
         { issue: 'Lệnh đã có sắt giữ trong kho mà vẫn nằm ở "Chờ sắt"', cause: 'Lệnh vừa đổi xưởng, sắt còn giữ ở kho Phôi của xưởng cũ - chưa xuất được cho xưởng này.', fix: 'Nhờ thủ kho kho cũ lập phiếu chuyển sắt sang kho xưởng này (sau khi KHSX bấm "Đã kiểm" phương án cắt). Kho xưởng này nhận xong thì lệnh vào phần đủ sắt; máy rảnh tự kéo.' },
+        { issue: '"… chưa có SKU nào đang chạy ở xưởng này (chưa Bắt đầu hoặc đang Tạm dừng)…"', cause: 'Chia tay một lệnh chưa Bắt đầu hoặc chỉ có SKU Tạm dừng.', fix: 'Vào "Tổng hợp lệnh SX" bấm "Bắt đầu" cho SKU rồi mới chia máy cắt.' },
         { issue: '"Dòng này đã cũ…"', cause: 'Phương án cắt đã tính lại hoặc lệnh đã xong Phôi sau lần chia trước.', fix: 'Bấm "Chia lại".' },
       ],
       tags: ['chia máy cắt', 'chia sắt', 'phiếu cắt', 'máy laze', 'máy tự động', 'bảng chia', 'chờ sắt', 'qr-qlsx'],
@@ -564,31 +570,6 @@ export const manufacturingGroup: GuideGroup = {
       ],
       tags: ['sổ báo vượt', 'báo vượt đoạn', 'thiếu đoạn', 'vượt lệnh', 'làm lại', 'đóng dòng', 'tồn đoạn'],
       sourceRefs: ['src/modules/pages/Manufacturing/SoBaoVuotDoanPage.tsx', 'src/modules/pages/ProductionPlan/ProductionPlanApp.tsx'],
-    },
-    {
-      id: 'mfg-han-son-nhan-vattu',
-      title: 'Tổ Hàn / Tổ Sơn — xác nhận nhận vật tư tiêu hao (tab "Xác nhận nhận vật tư")',
-      roles: ['han', 'son'],
-      purpose: 'Xác nhận đã nhận vật tư tiêu hao của công đoạn (VD sơn bột cho tổ Sơn) do Thủ kho cấp — khác hẳn Sắt, không qua KCS.',
-      mock: {
-        title: 'Xác nhận nhận vật tư',
-        columns: ['PO', 'Vật tư', 'SL kho xuất', 'Thời gian xuất', 'Xác nhận nhận'],
-        rows: [['PO-2026-014', 'Sơn bột (VTK-004)', '0,9', '09:10 01/10/2026', '___']],
-        buttons: ['Nhận thiếu', 'Xác nhận đã nhận'],
-      },
-      screenshot: '/guide-screens/mfg-han-son-nhan-vattu.png',
-      steps: [
-        'Mở tab "Xác nhận nhận vật tư" trên menu (xác nhận đã nhận vật tư kho cấp).',
-        { text: 'Bấm "Xác nhận đã nhận" nếu nhận đủ.', critical: false },
-        { text: 'Hoặc bấm "Nhận thiếu" để sửa số thực nhận, rồi "Lưu & xác nhận".', critical: false },
-        'Xem lại các lần đã nhận ở tab "Lịch sử" (SL đã nhận / Thời gian xuất / Thời gian nhận).',
-      ],
-      result: 'Đợt xuất vật tư chuyển từ "Đã xuất" sang "Đã nhận".',
-      commonErrors: [
-        { issue: '"Không thể xác nhận nhận vật tư"', cause: 'Lỗi chung từ máy chủ (PI chưa Bắt đầu, hoặc lỗi khác).', fix: 'Kiểm tra trạng thái PI với QLSX rồi thử lại.' },
-      ],
-      tags: ['nhận vật tư tiêu hao', 'sơn bột', 'bột sơn', 'xác nhận đã nhận', 'nhận thiếu'],
-      sourceRefs: ['src/modules/pages/Manufacturing/XacNhanVatTuPage.tsx'],
     },
     {
       id: 'mfg-han-son-kho',

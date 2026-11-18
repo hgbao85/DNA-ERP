@@ -180,7 +180,6 @@ function ShortList({ materials, pieces, stage }: { materials: ShortMaterial[]; p
   if (materials.length === 0 && pieces.length === 0) {
     return <Notice tone="ok">Không còn thiếu gì - tổ {STAGE_LABEL[stage]} đã báo đủ số cần (đã trừ số KCS chấm lỗi).</Notice>
   }
-  const unit = stage === 'PHOI' ? 'đoạn' : 'cái'
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       {materials.map((m) => {
@@ -227,7 +226,8 @@ function ShortList({ materials, pieces, stage }: { materials: ShortMaterial[]; p
                 <span>{fmt(p.reported)}/{fmt(p.required)}</span>
                 {p.awaiting > 0 && <span style={{ color: 'var(--text2)' }}>chờ KCS {fmt(p.awaiting)}</span>}
                 {p.open > 0 && <span style={{ color: 'var(--text2)' }}>chưa gửi {fmt(p.open)}</span>}
-                <span style={{ color: 'var(--amber)', fontWeight: 600 }}>thiếu {fmt(p.remaining)} {unit}</span>
+                {/* Mảnh / vật tư TP luôn đếm bằng "cái" (cả ở tổ Phôi); kèm số KCS chấm lỗi chưa bù để biết lỗi nằm ở mảnh nào. */}
+                <span style={{ color: 'var(--amber)', fontWeight: 600 }}>thiếu {fmt(p.remaining)} cái{p.unmade > 0 ? ` (KCS lỗi chưa bù ${fmt(p.unmade)})` : ''}</span>
               </li>
             ))}
           </ul>
