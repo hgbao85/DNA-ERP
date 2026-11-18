@@ -77,7 +77,7 @@
   </div>
 
   <div class="note">
-    <b>Cập nhật 17/11:</b> đã sửa <b>X1</b>, <b>X2–X4</b>, <b>L1–L6</b>, <b>K1–K6</b>, <b>B1–B4</b> (B3 phần chính), <b>C1–C4</b>; <b>X5</b> hết là lỗi — các thẻ có nhãn xanh "Đã sửa". Còn mở: <b>L7</b>, <b>B5</b>, <b>C5</b>. K1–K6, B1–B2 đã thử sống trên bản sao DB dev; B3 (đăng nhập) và B4 (câu tìm khoá migrate) đã thử trên DB dev; X4, L3–L6 đã thử sống qua API trên DB dev (dữ liệu thử đã dọn); X1 (phần sót), X2, X3, L1, L2, C1–C4 mới có test tự động (chưa thử sống - DB dev không có đợt cắt / lệnh chờ duyệt để thử). Toàn bộ đã gộp và push (BE <code>main</code>, FE <code>demo</code>). Số đếm bên dưới là số mục ban đầu.
+    <b>Cập nhật 17/11:</b> đã sửa <b>X1</b>, <b>X2–X4</b>, <b>L1–L6</b>, <b>K1–K6</b>, <b>B1–B4</b> (B3 phần chính), <b>C1–C5</b>; <b>X5</b> hết là lỗi — các thẻ có nhãn xanh "Đã sửa". Còn mở: <b>L7</b>, <b>B5</b>. K1–K6, B1–B2 đã thử sống trên bản sao DB dev; B3 (đăng nhập) và B4 (câu tìm khoá migrate) đã thử trên DB dev; X4, L3–L6 đã thử sống qua API trên DB dev (dữ liệu thử đã dọn); X1 (phần sót), X2, X3, L1, L2, C1–C4 mới có test tự động (chưa thử sống - DB dev không có đợt cắt / lệnh chờ duyệt để thử). Toàn bộ đã gộp và push (BE <code>main</code>, FE <code>demo</code>). Số đếm bên dưới là số mục ban đầu.
   </div>
 
   <div class="stats">
@@ -238,7 +238,8 @@
     <p><code>transferOrderHoldings</code> trỏ lại mọi <code>SegmentProduction.warehouseId</code> kể cả phần dư/đã tiêu vẫn ở kho cũ → lần tính lại sau ghi sổ sai kho.</p>
     <p class="where">BE <code>segment-stock.service.ts</code> ~561</p></div>
 
-  <div class="item low"><h3><span class="id">C5</span>Các mục nhỏ <span class="tag low">Thấp</span></h3>
+  <div class="item done"><h3><span class="id">C5</span>Các mục nhỏ <span class="tag low">Thấp</span><span class="tag done">Đã sửa 17/11</span></h3>
+    <p class="fix"><b>Đã sửa — BE <code>f3c34f2</code> (gộp <code>b855cee</code>), 17/11:</b> tạo phương án theo Idempotency-Key bắt P2002 trả phương án đã có; <code>totalWasteMm</code> nới lên <code>Decimal(12,1)</code> (migration <code>20261117180000_widen_cutting_waste_mm</code>); <code>getBatchSolves</code> / <code>aggregateDemand</code> đọc gộp 1 lượt; <code>countNeedsAction</code> đếm bằng COUNT. Đã thử sống trên bản sao DB dev (số đỏ QLSX, gửi trùng đồng thời).</p>
     <p>Idempotency kiểu đọc-rồi-tạo (P2002 khi trùng đồng thời) ~453-470. <code>CuttingProposalLine.totalWasteMm</code> là <code>Decimal(7,1)</code>, chế độ gấp hao hụt lớn có thể tràn. N+1 ở <code>getBatchSolves</code>, <code>aggregateDemand</code>; <code>countNeedsAction</code> không giới hạn.</p></div>
 
   <h2>Đã sửa và push ngày 16/11</h2>
