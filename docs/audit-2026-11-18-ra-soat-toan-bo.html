@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DNA-ERP — Rà soát toàn bộ (18/11/2026)</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Be+Vietnam+Pro:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root{
+    --bg:#eef1f0; --surface:#fff; --surface-2:#f5f7f6;
+    --border:#d7dcda; --text:#182220; --text-muted:#56635f; --text-faint:#8a948f;
+    --accent:#1f6f78; --accent-soft:#dcecec;
+    --high:#a8382b; --high-soft:#f6e3df;
+    --mid:#96631f; --mid-soft:#f3e6d3;
+    --low:#727d78; --low-soft:#eceeed;
+    --done:#3f6b4f; --done-soft:#e1ede4;
+    --shadow:0 1px 2px rgba(20,30,28,.06),0 6px 20px -12px rgba(20,30,28,.18);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#10171a; --surface:#161f22; --surface-2:#1b2528;
+      --border:#2a3538; --text:#e7ede9; --text-muted:#a3b2ac; --text-faint:#728079;
+      --accent:#63b9bd; --accent-soft:#1e3436;
+      --high:#e07a68; --high-soft:#3a231e; --mid:#d9ab68; --mid-soft:#392e1b;
+      --low:#8ea198; --low-soft:#212b28; --done:#84c096; --done-soft:#1f3526;
+      --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px -14px rgba(0,0,0,.6);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#10171a; --surface:#161f22; --surface-2:#1b2528;
+    --border:#2a3538; --text:#e7ede9; --text-muted:#a3b2ac; --text-faint:#728079;
+    --accent:#63b9bd; --accent-soft:#1e3436;
+    --high:#e07a68; --high-soft:#3a231e; --mid:#d9ab68; --mid-soft:#392e1b;
+    --low:#8ea198; --low-soft:#212b28; --done:#84c096; --done-soft:#1f3526;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px -14px rgba(0,0,0,.6);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:'Be Vietnam Pro',system-ui,sans-serif;font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased}
+  main{max-width:980px;margin:0 auto;padding:40px 16px 80px}
+  h1,h2{font-family:'Archivo',sans-serif;letter-spacing:-.01em;line-height:1.25}
+  h1{font-size:30px;margin:0 0 8px}
+  h2{font-size:21px;margin:44px 0 6px}
+  .sub{color:var(--text-muted);margin:0 0 4px}
+  .lead{color:var(--text-muted);margin:0 0 16px;font-size:15px}
+  code{font-family:'IBM Plex Mono',monospace;font-size:.84em;background:var(--surface-2);border:1px solid var(--border);border-radius:4px;padding:0 4px;overflow-wrap:anywhere}
+  .note{background:var(--accent-soft);border-radius:10px;padding:14px 18px;margin:20px 0;font-size:15px}
+  .note b{color:var(--accent)}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:24px 0}
+  .stat{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 16px;box-shadow:var(--shadow)}
+  .stat .n{font-family:'Archivo',sans-serif;font-size:28px;font-weight:800;line-height:1.1}
+  .stat .l{color:var(--text-muted);font-size:13px}
+  .item{background:var(--surface);border:1px solid var(--border);border-left:4px solid var(--low);border-radius:10px;padding:14px 18px;margin:12px 0;box-shadow:var(--shadow)}
+  .item.high{border-left-color:var(--high)} .item.mid{border-left-color:var(--mid)} .item.done{border-left-color:var(--done)}
+  .item h3{font-size:16px;margin:0 0 4px;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+  .id{font-family:'IBM Plex Mono',monospace;color:var(--text-faint);font-size:13px;font-weight:500}
+  .tag{font-size:12px;font-weight:600;border-radius:999px;padding:1px 9px;white-space:nowrap}
+  .tag.high{background:var(--high-soft);color:var(--high)} .tag.mid{background:var(--mid-soft);color:var(--mid)}
+  .tag.low{background:var(--low-soft);color:var(--low)} .tag.done{background:var(--done-soft);color:var(--done)}
+  .tag.ask{background:var(--accent-soft);color:var(--accent)}
+  .item p{margin:4px 0;font-size:15px}
+  .where{color:var(--text-muted);font-size:14px}
+  .fix{font-size:14px;color:var(--text-muted)}
+  .fix b{color:var(--text)}
+  ul.done-list{padding-left:20px;font-size:15px}
+  ul.done-list li{margin:4px 0}
+  footer{margin-top:48px;color:var(--text-faint);font-size:13px}
+</style>
+</head>
+<body>
+<main>
+  <h1>Rà soát toàn bộ</h1>
+  <p class="sub">FE <code>D:\DNA-ERP</code> (demo 4bfd82b) + BE <code>D:\DNA-ERP-BE</code> (main b5d9776) — 18/11/2026</p>
+  <p class="lead">Lượt đọc độc lập sau khi 2 danh sách 14/11 và 16/11 đã sửa xong. 8 agent đọc theo vùng (chỉ đọc), mỗi phát hiện đã được đối chiếu lại trên code. Không gồm các mục đã có ở 2 file cũ, trừ chỗ bản sửa cũ còn sót (ghi rõ "mục cũ … sót").</p>
+
+  <div class="note">
+    <b>Cách đọc.</b> Nhãn <span class="tag ask">Cần nghiệp vụ</span> = code chắc chắn chạy như mô tả nhưng có thể là chủ đích - cần anh Nhân/Sếp chốt trước khi sửa. "Đã kiểm" = đã tự đọc lại đúng dòng code; "Khá chắc" = đường code đúng nhưng chưa chạy thử / cần thao tác đồng thời. Những gì agent đã đọc và thấy ổn ghi ở cuối trang.
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="n" style="color:var(--high)">1</div><div class="l">Cao</div></div>
+    <div class="stat"><div class="n" style="color:var(--mid)">16</div><div class="l">Trung bình (3 cần nghiệp vụ, 1 chỉ qua API thẳng)</div></div>
+    <div class="stat"><div class="n" style="color:var(--low)">13</div><div class="l">Thấp</div></div>
+    <div class="stat"><div class="n">1</div><div class="l">lỗi mới do bản sửa 18/11 (FE1)</div></div>
+  </div>
+
+  <h2>Cao</h2>
+
+  <div class="item high"><h3><span class="id">PH1</span>Màn KCS "Cắt sắt" mất đợt chờ kiểm của lệnh cũ <span class="tag high">Cao</span></h3>
+    <p>KCS chỉ tải 100 lô sắt mới nhất (<code>getSteelIssuesByStatus</code> 1 trang) rồi <code>buildPiRows</code> LỌC BỎ mọi đợt cắt có lô nằm ngoài 100 lô đó; đợt công đoạn phụ cũng chỉ 100 đợt mới nhất. Chỉ cần ~15–20 lệnh xuất sắt sau đó là đợt <code>AWAITING_QC</code> của lệnh cũ biến mất: KCS không chấm được, QLSX không huỷ được đợt đã gửi, Phôi không bao giờ "xong". Kèm: realtime chỉ tải lại lô + kết quả chấm, KHÔNG tải lại danh sách đợt - đợt QLSX vừa gửi không hiện tới khi F5 (kể cả tải nền 5 phút). <code>HuongDanCatPage</code>, <code>LenhSanXuatPhoi</code> dùng cùng hàm 1 trang; <code>KcsChanNhomSection</code> chỉ nghe <code>qc-reviews</code>.</p>
+    <p class="where">FE <code>Kcs/KcsPhoiPage.tsx:113-129, 182-186</code>; <code>services/steel-issues-api.ts:197-206, 421-426</code>; <code>Phoi/HuongDanCatPage.tsx:60</code>; <code>Phoi/LenhSanXuatPhoi.tsx:214</code>. Đã kiểm.</p>
+    <p class="fix"><b>Hướng sửa:</b> 2 hàm đổi sang <code>getAllPages</code>; KCS lấy đợt theo <code>status=AWAITING_QC</code>, mã lệnh lấy kèm trong response đợt cắt; callback realtime tải lại cả danh sách đợt (thêm topic <code>floor</code> / <code>production-batches</code>).</p>
+  </div>
+
+  <h2>Trung bình</h2>
+
+  <div class="item mid"><h3><span class="id">MUA1</span>Duyệt lại phương án cắt sau khi đã nhận sắt: hàng đã nhận bị trừ 2 lần <span class="tag mid">Trung bình–Cao</span></h3>
+    <p><code>creditPool</code> cộng hàng nhận vào dòng giữ chỗ ưu tiên đầu - có thể là dòng của phương án cắt (CUTTING_PROPOSAL). KHSX "Tính lại" rồi duyệt tay phương án mới → <code>releaseByRef</code> nhả cả phần vừa nhận → phần đó vừa tính là tồn khả dụng vừa nằm trong "đã ký" (receivedQty). Ví dụ: tồn 30, mua 70, nhận đủ; tính lại nhu cầu 150 → hệ thống mua 0 thay vì 50 → Phôi thiếu sắt. Biến thể: báo "nhu cầu giảm dưới số đã ký" sai cho người mua + Giám đốc.</p>
+    <p class="where">BE <code>stock/stock-reservations.service.ts:461-469</code>; <code>cutting-proposals.service.ts:2640-2650, 2717-2736, 3680-3700</code>. Đã kiểm <code>pool[0]</code>; phần còn lại khá chắc (chưa chạy).</p>
+    <p class="fix"><b>Hướng sửa:</b> <code>creditPool</code> luôn cộng vào dòng PRODUCTION_INVOICE, hoặc khi thay phương án thì chuyển phần đã cộng sang dòng PRODUCTION_INVOICE thay vì nhả.</p>
+  </div>
+
+  <div class="item mid"><h3><span class="id">HS1</span>Xuất theo công thức (thanh nhôm → chân nhôm) không trả giữ chỗ — mục cũ MH1 sót <span class="tag mid">Trung bình</span></h3>
+    <p>Nguồn mua công thức giữ chỗ thật (<code>reserveOrAdjust</code>), nhưng phiếu xuất theo công thức không gọi <code>drainPool</code> (4 luồng xuất khác đều gọi). Tồn 20, PI A giữ 10, xuất 10 → giữ chỗ A vẫn ACTIVE 10 → PI B duyệt sau thấy khả dụng 0, mua 10 thanh dù kho còn 10; Admin "Tạo lại" cho A mua lại đúng 10 thanh đã xuất. Ngược lại xuất cho B so tồn thô, lấy được hàng đang giữ cho A. Comment "CHƯA nối … bổ sung sau" (01/10) đã lỗi thời. 2 agent độc lập cùng tìm ra.</p>
+    <p class="where">BE <code>material-yield-recipes/material-yield-recipe-issues.service.ts:59-69, 146-205</code>; <code>production-invoices/material-yield-recipe-purchase.service.ts:154-209</code>. Đã kiểm.</p>
+    <p class="fix"><b>Hướng sửa:</b> <code>createInTx</code> làm như <code>material-yield-issues</code>: <code>getAvailableQty(…, ownPi)</code> + <code>drainPoolBestEffort</code>.</p>
+  </div>
+
+  <div class="item mid"><h3><span class="id">HS2</span>Phiếu xuất đan mảnh không kiểm tồn mảnh thật ở kho xuất <span class="tag mid">Trung bình</span></h3>
+    <p>Trần xuất đan <code>byStock</code> = số lô SƠN đã KCS − đã chuyển − đã lên phiếu, không đọc <code>stock_quant</code>. Lệnh xưởng Phước An: mảnh chỉ vào kho Sơn Phú An khi phiếu chuyển Hàn→Sơn được xác nhận (ảnh ký). KCS Sơn đạt trước khi phiếu chuyển được ký → vẫn xác nhận được phiếu đan → kho Sơn PA âm, hoặc ăn mảnh cùng <code>pieceId</code> của lệnh khác. Phiếu chuyển mảnh đã kiểm tồn thật từ 16/11, riêng xuất đan sót.</p>
+    <p class="where">BE <code>weaving-issues/weaving-issues.service.ts:270-321, 354-388</code>; <code>issue-slips.service.ts:648-650</code>. Đã kiểm trần <code>byStock</code>; khá chắc (phụ thuộc phiếu chuyển xác nhận trễ hơn KCS Sơn).</p>
+    <p class="fix"><b>Hướng sửa:</b> trong <code>assertPieceCapInTx</code> khoá <code>stock_quant</code> (kho xuất, mảnh) FOR UPDATE, chặn khi vượt tồn − phần trên phiếu chờ ký khác.</p>
+  </div>
+
+  <div class="item mid"><h3><span class="id">CS3</span>Duyệt phương án cắt tính trước lỗi sau khi Sếp duyệt: im lặng <span class="tag mid">Trung bình</span></h3>
+    <p>Sếp duyệt xong (đã tạo lệnh, PI PRODUCING) mà <code>approve()</code> phương án tính trước lỗi (vd transaction quá giờ khi chờ khoá lúc đang nhận hàng) → chỉ <code>logger.error</code>: phương án vẫn DRAFT, không giữ chỗ, không dòng mua sắt, Phôi bị chặn xuất sắt. Không thông báo nào (lỗi tạo lệnh và lỗi mua ngoài sắt đều có thông báo); màn vẫn hiện "Đã tính xong / OK"; nút cứu Admin "Tạo lại" ghi là "dòng mua ngoài sắt" nên không ai biết bấm.</p>
+    <p class="where">BE <code>production-invoices.service.ts:2639-2653</code>; <code>cutting-proposals.service.ts:4973, 5052-5060</code>; FE <code>Admin/businessData/ProductionInvoicesPage.tsx:33-58</code>. Đã kiểm.</p>
+    <p class="fix"><b>Hướng sửa:</b> catch bắn thông báo Admin (kiểu NON_STEEL_PURCHASE_FAILED); "DRAFT tính trước + PI đã có lệnh" hiện NEEDS_ACTION; sửa nhãn nút.</p>
+  </div>
+
+  <div class="item mid"><h3><span class="id">CS2</span>1 cây tồn lẻ ở bất kỳ kho Phôi nào kéo cả lệnh sang chiều dài lẻ <span class="tag mid">Trung bình</span><span class="tag ask">Cần nghiệp vụ</span></h3>
+    <p>Chiều dài nào còn ≥ 1 cây khả dụng ở BẤT KỲ kho Phôi đều vào danh sách bộ giải (code ghi rõ chủ đích). Kho PhA còn 1 cây 5450, lệnh xưởng PA cần 120 cây ở chế độ "chỉ cây chuẩn": nếu 5450 hao hụt thấp hơn 6000, bộ giải chốt cả 120 cây 5450 → lúc duyệt đọc tồn kho PA (không có) → đẩy mua 120 cây 5450 - cây đặt riêng phải chờ NCC cán, đúng thứ chế độ này muốn tránh.</p>
+    <p class="where">BE <code>cutting-proposals/steel-stock-lengths.util.ts:60-196</code>; <code>solver-ts/optimize-one-material.ts:298-333</code>; <code>cutting-proposals.service.ts:2745-2752</code>. Đã kiểm phần nạp chiều dài.</p>
+    <p class="fix"><b>Hỏi:</b> NCC có bán sẵn chiều dài tồn lẻ không? <b>Hướng sửa:</b> chỉ dùng tồn kho Phôi đúng xưởng; chiều dài tồn dùng tối đa đúng số cây khả dụng, phần còn lại theo cây chuẩn.</p>
+  </div>
+
+  <div class="item mid"><h3><span class="id">PH2</span>"Xong Phôi" tự tính theo cả PI, không theo từng SKU <span class="tag mid">Trung bình</span><span class="tag ask">Cần nghiệp vụ</span></h3>
+    <p>Tự đóng hàng đợi Phôi dùng tổng cỡ đoạn cả PI. PI gộp 2 lệnh cùng cỡ 600mm, mỗi lệnh 10: báo cả 20 vào SKU 1 → dòng 600mm đạt 20/20 → KCS xong là nền tự đóng hàng đợi và kéo lệnh kế lên, trong khi màn quét vẫn báo SKU 2 thiếu 10 (trái nguyên tắc "dòng báo vượt không che dòng còn thiếu").</p>
+    <p class="where">BE <code>floor/floor-admin.service.ts:165-195</code> (<code>progressFrom</code>); <code>floor-alerts.service.ts:264-289</code>; FE <code>Floor/progressModel.ts</code>. Khá chắc.</p>
+    <p class="fix"><b>Hỏi:</b> SKU có phải đơn vị thật của Phôi trong lệnh gộp? <b>Hướng sửa:</b> mỗi dòng = cỡ đoạn × SKU từ <code>byOrder</code>, cả BE và FE.</p>
+  </div>
+
+  <div class="item mid"><h3><span class="id">LS1</span>"Kết thúc" lệnh đi lùi được qua "Tạm dừng" → PI kẹt DONE, không xuất sắt được nữa <span class="tag mid">Trung bình</span></h3>
+    <p><code>pauseFloor</code>/<code>startFloor</code> ghi <code>floorStage</code> theo id, không kiểm trạng thái. QLSX A "Kết thúc" SKU cuối → PI DONE, nhả giữ chỗ; QLSX B (tab cũ) bấm "Tạm dừng" → FINISHED → PAUSED → "Tiếp tục" ACTIVE: PI vẫn DONE (chỉ mở lại khi đọc thấy FINISHED), chia máy cắt bỏ PI, xuất sắt phần còn lại 409 vĩnh viễn vì giữ chỗ sắt đã RELEASED (giữ chỗ sắt chỉ sinh lúc duyệt phương án). Gọi thẳng <code>floor-start</code> trên lệnh FINISHED cũng không giữ chỗ lại.</p>
+    <p class="where">BE <code>production-orders/production-orders.service.ts:365-438, 497-555</code>; FE <code>Manufacturing/ThongKePagePlan.tsx:571</code>. Đã kiểm.</p>
+    <p class="fix"><b>Hướng sửa:</b> ghi có điều kiện + kiểm count (tạm dừng chỉ từ ACTIVE; bắt đầu/tiếp tục chỉ từ PENDING/PAUSED; FINISHED → 409, khớp FE "không hoàn tác").</p>
+  </div>
+
+  <div class="item mid"><h3><span class="id">LS2</span>Màu dây / vải nệm của dòng đơn không sửa, không xoá được → Sếp duyệt 409 mãi <span class="tag mid">Trung bình</span></h3>
+    <p>Bản định mức đổi tick (Admin ghi đè <code>wireOptions</code>, bỏ hết tick, hoặc lần đầu thêm tick) → dòng đơn cũ không khớp → duyệt 409 "Sales cần chọn lại". Nhưng FE Bán hàng chỉ chọn màu lúc tạo đơn; BE gửi rỗng thì thành <code>undefined</code> (không ghi null nên không xoá được); không xoá dòng được vì đã gom vào PI. Luồng tính trước: tính lại xong ghim bản mới, lại vướng đúng 409. Sếp chỉ còn từ chối → gom lại → lặp.</p>
+    <p class="where">BE <code>sales-orders/sales-orders.service.ts:512-523</code>; <code>production-orders.service.ts:207-229</code>; FE <code>services/sales-orders-api.ts:147-155</code>, <code>Sales/OrderManagementPage.tsx</code>. Đã kiểm.</p>
+    <p class="fix"><b>Hướng sửa:</b> BE nhận <code>null</code> để xoá; FE thêm ô chọn màu cho dòng đơn chưa có lệnh.</p>
+  </div>
+
+  <div class="item mid"><h3><span class="id">MUA2</span>Màn Nhập kho tính "còn chờ" gồm dòng đã Đóng phần thiếu → thủ kho kẹt <span class="tag mid">Trung bình</span></h3>
+    <p>FE cộng <code>purchaseQty</code>/<code>receivedQty</code> trên cả dòng đã đóng phần thiếu (cùng đơn), BE chỉ cộng dòng còn PURCHASING. Đơn gộp A/B/C mỗi lệnh 10, đã nhận 15, đóng phần thiếu B: FE còn chờ 15, BE 10. NCC giao 12 → FE không hiện ô lý do nhận vượt, BE trả 400 "bắt buộc ghi lý do" → thủ kho không nhận được, chỉ còn Từ chối. Ngược lại FE đòi lý do oan.</p>
+    <p class="where">FE <code>Manufacturing/NhapKhoNhanHang.tsx:63-81, 297-300, 331, 501</code>; BE <code>purchase-receipts.service.ts:196-209</code>. Đã kiểm.</p>
+    <p class="fix"><b>Hướng sửa:</b> FE tính "còn chờ" và nhận vượt chỉ trên dòng PURCHASING như BE.</p>
+  </div>
+
+  <div class="item mid"><h3><span class="id">KH1</span>Hàng mua về sau khi lệnh đã Kết thúc bị giữ chỗ vĩnh viễn cho lệnh đã xong <span class="tag mid">Trung bình</span><span class="tag ask">Cần nghiệp vụ</span></h3>
+    <p>Nhả giữ chỗ chỉ chạy lúc bấm Kết thúc. Nhận nốt 20 kg của PI A đã DONE: <code>creditPool</code> cộng vào dòng ACTIVE đã tiêu hết (dòng tiêu hết không bị nhả) hoặc MỞ LẠI dòng đã nhả (code ghi chủ đích "PI xong rồi vẫn nhận tiếp thì mở lại"). 20 kg đứng tên PI DONE mãi → PI khác bị trừ oan khi xuất tiêu hao / đóng gói / kèm đan, và lượt tính mua của PI khác mua thêm.</p>
+    <p class="where">BE <code>stock/stock-reservations.service.ts:397-470, 889-903</code>; <code>production-orders.service.ts:497-538</code>. Đã kiểm.</p>
+    <p class="fix"><b>Hỏi:</b> hàng về muộn cho lệnh đã xong nên vào tồn tự do? <b>Hướng sửa:</b> <code>creditPool</code> không giữ chỗ khi PI đã DONE (hoặc nhả ngay sau khi cộng).</p>
+  </div>
+
+  <div class="item mid"><h3><span class="id">BM1</span>Người tạo SKU / sửa vật tư xoá được bất kỳ ảnh nào trên Cloudinary <span class="tag mid">Trung bình</span></h3>
+    <p>Tạo SKU lỗi → nhánh catch <code>deleteByUrl(dto.imageUrl)</code> - URL do client gửi; <code>deleteByUrl</code> chỉ cắt public_id, không kiểm host / thư mục / còn bản ghi nào dùng. KHSX (đọc được <code>approvalFileUrl</code>) gửi URL ảnh phiếu Sếp ký kèm <code>mfgProductId</code> sai → Cloudinary huỷ file, mất chứng từ duy nhất. Vật tư: tạo với <code>imageUrl</code> của người khác, rồi đổi/xoá vật tư đó xoá luôn file gốc.</p>
+    <p class="where">BE <code>skus/skus.service.ts:245-252</code>; <code>uploads/cloudinary.service.ts:72</code>; <code>materials/materials.service.ts:369-371, 500-501</code>. Đã kiểm.</p>
+    <p class="fix"><b>Hướng sửa:</b> không xoá theo URL client trong nhánh lỗi; trước khi destroy kiểm đúng cloud + thư mục <code>dna-erp/</code> + không còn bản ghi nào trỏ tới.</p>
+  </div>
+
+  <div class="item mid"><h3><span class="id">BM2</span>Mục cũ B1 sót: 2 đường leo quyền không qua "chỉ cấp quyền mình đang có" <span class="tag mid">Trung bình</span></h3>
+    <p>(1) <code>PATCH /users/&lt;mình&gt;/mfg-attributes</code> tự gán <code>mfgRole</code> → hệ thống tự gán vai trò đi kèm (QLSX, KCS…), không <code>assertCanAssignRoles</code>, không chặn tự sửa mình. (2) <code>roles.update</code> chỉ cấm tên ADMIN: đổi tên vai trò BOSS rồi đổi tên vai trò của mình thành BOSS → qua mọi <code>@RequireRole(BOSS)</code> + thành "tổng kho". Hiện chỉ ADMIN có USER:UPDATE / ROLE:UPDATE - đúng kịch bản B1 muốn chặn khi cấp thêm cho vai trò khác.</p>
+    <p class="where">BE <code>users/users.service.ts:176-306</code>; <code>roles/roles.service.ts:72-102</code>. Agent chắc về code; rủi ro thật phụ thuộc cấu hình quyền.</p>
+    <p class="fix"><b>Hướng sửa:</b> <code>assertCanAssignRoles</code> + chặn tự sửa ở <code>updateMfgAttributes</code>; cấm người không phải ADMIN đổi tên vai trò hệ thống hoặc đổi sang tên đó.</p>
+  </div>
+
+  <div class="item mid"><h3><span class="id">FE1</span>Sửa nhanh tồn kho bị BE từ chối 400 với số lẻ — lỗi mới do CK10 (18/11) <span class="tag mid">Trung bình</span></h3>
+    <p>FE gửi <code>qty = Math.abs(newQty − it.qty)</code> không làm tròn; BE vừa thêm <code>maxDecimalPlaces: 4</code>. 12,3 → 12,1 gửi <code>0.20000000000000107</code>, 5 → 4,7 gửi <code>0.2999999999999998</code> → 400 "Số lượng tối đa 4 chữ số thập phân" → mọi vật tư kg/m không sửa nhanh được. Các DTO khác vừa giới hạn (phiếu XK, phiếu chuyển, thực nhận) FE gửi số người gõ / số BE trả - không dính.</p>
+    <p class="where">FE <code>Manufacturing/MfgWarehousesPage.tsx:482, 510</code>; BE <code>stock/dto/create-stock-adjustment.dto.ts:36</code> (2068cce). Đã kiểm (chạy node ra đúng số).</p>
+    <p class="fix"><b>Hướng sửa:</b> làm tròn 4 số lẻ trước khi gửi.</p>
+  </div>
+
+  <div class="item mid"><h3><span class="id">FE2</span>Không xuất được phần lẻ vật tư tiêu hao Hàn/Sơn theo lệnh <span class="tag mid">Trung bình</span></h3>
+    <p><code>Math.floor</code> ở số thêm vào phiếu và ô nhập. Que hàn 0,05 kg × 30 ghế = 1,5 kg: chỉ thêm được 1 kg, còn 0,5 kg nút không làm gì, gõ 0.5 thành 0. Dòng không bao giờ "đã xuất đủ"; muốn xuất nốt phải đi "Dùng chung", mất gắn lệnh. Sót từ bản mock; cùng loại "XacNhanVatTu phần lẻ" đã sửa 16/11.</p>
+    <p class="where">FE <code>InboundWarehouse/XuatVatTuTieuHaoPage.tsx:74-75, 167</code>. Đã kiểm.</p>
+    <p class="fix"><b>Hướng sửa:</b> bỏ <code>Math.floor</code>, làm tròn 4 số lẻ (như <code>KhoVatTuKemDanPage</code>).</p>
+  </div>
+
+  <div class="item mid"><h3><span class="id">FE3</span>Mạng chập chờn / BE khởi động lại là bị đăng xuất <span class="tag mid">Thấp–Trung bình</span></h3>
+    <p>F5 đúng lúc deploy/restart, hoặc <code>/auth/refresh</code> timeout / 502 / 429 → FE coi như hết phiên, xoá token, về /login, mất dữ liệu đang nhập. Không phân biệt "BE từ chối 401" với "không liên lạc được" (statusCode 0). Điện thoại xưởng Wi-Fi yếu gặp thường xuyên. Bản sửa B5 17/11 chỉ xử lý nhiều tab.</p>
+    <p class="where">FE <code>context/AuthContext.tsx:102-105</code>; <code>services/core/http.ts:117-123, 143-145</code>. Agent chắc.</p>
+    <p class="fix"><b>Hướng sửa:</b> chỉ xoá token khi BE thật sự trả 401/403; lỗi mạng / 5xx / 429 giữ phiên, báo lỗi tạm thời.</p>
+  </div>
+
+  <div class="item mid"><h3><span class="id">CS1</span>Gọi thẳng "Tính lại" lệnh gộp chưa duyệt → giữ chỗ + dòng mua mồ côi <span class="tag mid">Trung bình</span><span class="tag low">Chỉ API thẳng</span></h3>
+    <p><code>POST /production-invoices/:id/cutting-proposals</code> chỉ kiểm <code>isMerged</code>: phương án neo PI không có items nên bỏ qua cổng "đã có lệnh", tự duyệt, giữ chỗ sắt + dòng mua NEW cho lệnh Sếp chưa duyệt. Sếp từ chối cả cụm → <code>releaseForInvoice</code> không đụng phương án này → PI bị xoá (FK SET NULL) → giữ chỗ ACTIVE với <code>productionInvoiceId = null</code> trừ tồn mãi, dòng mua mất PI vẫn hiện cho người mua. Không có UI gọi.</p>
+    <p class="where">BE <code>cutting-proposals.controller.ts:69-80</code>; <code>cutting-proposals.service.ts:535-600, 1259-1275, 2469-2482, 3338-3345</code>. Agent chắc về đường code.</p>
+    <p class="fix"><b>Hướng sửa:</b> đòi mọi dòng PI đã có lệnh (cùng cổng poCount) ở <code>requestForInvoice</code> và <code>approve()</code>; <code>releaseForInvoice</code> gỡ cả phương án không items.</p>
+  </div>
+
+  <h2>Thấp</h2>
+
+  <div class="item"><h3><span class="id">HS3</span>Mục cũ K1 sót ở 2 luồng xuất <span class="tag low">Thấp</span></h3>
+    <p>Xuất vật tư thành phẩm và xuất theo công thức khoá <code>stock_quant</code> không lọc <code>"stockLengthMm" = 0 AND "spec" = ''</code> (bút toán luôn ghi ô 0/''). Vật tư có ô 6000 = 50, ô 0 = 0: kiểm thấy 50, cho xuất, ô 0 âm.</p>
+    <p class="where">BE <code>material-yield-issues.service.ts:262-266</code>; <code>material-yield-recipe-issues.service.ts:176-180</code>. Đã kiểm.</p>
+  </div>
+
+  <div class="item"><h3><span class="id">CS4</span>Mục cũ C3 sót: thẻ "Nghi treo" sau khi BE khởi động lại không xoá được <span class="tag low">Thấp</span></h3>
+    <p><code>discardBatchSolve</code> từ chối mọi CALCULATING kể cả đã quá hạn; <code>attachToInvoice</code> chỉ supersede DRAFT/FAILED. SKU đã gom từ lượt khác → Xoá 409, Tính lại 409, thẻ ma nằm mãi và chiếm chỗ trong <code>take: 30</code>.</p>
+    <p class="where">BE <code>cutting-proposals.service.ts:882-884, 1182-1193</code>; FE <code>ProductionPlan/CuttingSolvePanel.tsx:589-607</code>. Đã kiểm.</p>
+  </div>
+
+  <div class="item"><h3><span class="id">CS5</span>2 lượt tạo lệnh chung SKU cùng lúc → PI rỗng / mất SKU <span class="tag low">Thấp</span></h3>
+    <p><code>claimSolo</code> kiểm <code>productionInvoiceId === null</code> ngoài transaction, update không điều kiện; <code>mergeItems</code> updateMany không điều kiện.</p>
+    <p class="where">BE <code>production-invoices.service.ts:916-979, 1013-1060</code>. Đã kiểm.</p>
+  </div>
+
+  <div class="item"><h3><span class="id">PH3</span>Bỏ PI khỏi hàng đợi xoá vô điều kiện, ngoài khoá hàng đợi <span class="tag low">Thấp</span></h3>
+    <p>Kiểm QUEUED ngoài transaction rồi <code>delete</code> không điều kiện, không lấy <code>queueLockKey</code> → có thể xoá dòng vừa thành RUNNING/DONE.</p>
+    <p class="where">BE <code>floor/floor-admin.service.ts:1158-1170</code>. Đã kiểm.</p>
+  </div>
+
+  <div class="item"><h3><span class="id">LS3</span>Route thô sửa PI / thêm dòng PI không kiểm vai trò, trạng thái <span class="tag low">Thấp</span><span class="tag low">Chỉ API thẳng</span></h3>
+    <p><code>PATCH /production-invoices/:id</code> (thủ kho có UPDATE đổi hạn PI đã duyệt, lách luật Đợt 9) và <code>POST /production-invoices/:id/items</code> (thêm dòng vào PI đã duyệt / gộp). FE không dùng cả 2.</p>
+    <p class="where">BE <code>production-invoices.controller.ts:100-104, 118-122</code>; service 559-581, 1070-1101.</p>
+  </div>
+
+  <div class="item"><h3><span class="id">LS4</span>Sửa thời hạn phân loại "đã duyệt / chưa duyệt" từ dữ liệu đọc ngoài transaction <span class="tag low">Thấp</span></h3>
+    <p>Lưu đúng lúc Sếp duyệt SKU → dòng xếp nhánh "chưa duyệt", ghi thẳng mốc mới lên dòng vừa APPROVED, không qua yêu cầu chờ Sếp. (L7 đã đưa kiểm khoá vào transaction nhưng phân loại vẫn từ <code>befores</code>.)</p>
+    <p class="where">BE <code>production-invoices.service.ts:1164-1174, 1196-1212</code>. Khá chắc.</p>
+  </div>
+
+  <div class="item"><h3><span class="id">MUA3</span>"Sếp đã duyệt" theo đơn khoá đề xuất không theo thứ tự id → có thể deadlock <span class="tag low">Thấp</span></h3>
+    <p class="where">BE <code>supplier-orders.service.ts:308-330</code> (các hàm khác đều sắp xếp). Bấm lại là được.</p>
+  </div>
+
+  <div class="item"><h3><span class="id">MUA4</span>Gỡ dòng khỏi đơn chen "Sếp đã duyệt" → dòng thành "Đang mua" không thuộc đơn nào <span class="tag low">Thấp</span></h3>
+    <p class="where">BE <code>purchase-proposals.service.ts:544-555</code> (thiếu <code>supplierOrderId</code> trong điều kiện). Khá chắc.</p>
+  </div>
+
+  <div class="item"><h3><span class="id">MUA5</span>Mục cũ MH6 sót: tính lại "đủ tồn" gỡ dòng cuối để lại đơn nháp rỗng <span class="tag low">Thấp</span></h3>
+    <p class="where">BE <code>consumable-material-purchase.service.ts:428-435</code>, <code>piece-material-yield-purchase.service.ts:347-354</code>, <code>material-yield-recipe-purchase.service.ts:256-263</code>, <code>cutting-proposals.service.ts:~2877-2881</code>.</p>
+  </div>
+
+  <div class="item"><h3><span class="id">BM3</span>Khoá tài khoản không thu hồi refresh token <span class="tag low">Thấp</span></h3>
+    <p>Mở lại tài khoản → mọi máy còn token cũ (≤ 7 ngày) vào thẳng. <code>updateWorker</code> và <code>resetPassword</code> có thu hồi, <code>users.update</code> thì không.</p>
+    <p class="where">BE <code>users/users.service.ts:126-163</code>. Đã kiểm.</p>
+  </div>
+
+  <div class="item"><h3><span class="id">KH2</span>Số phiếu XK xuất booking đã giữ không gắn người giữ <span class="tag low">Thấp</span></h3>
+    <p>Thủ kho khác dùng được số người kia đã in; bên nhận hàng NK đã sửa đúng việc này (L2 14/11).</p>
+    <p class="where">BE <code>bookings/booking-shipments.service.ts:188-191</code>. Đã kiểm.</p>
+  </div>
+
+  <div class="item"><h3><span class="id">FE4</span>Danh sách đề xuất mua bị bản tải cũ đè bản mới <span class="tag low">Thấp</span></h3>
+    <p class="where">FE <code>context/InspectionContext.tsx</code> (<code>loadProposals</code> không chống kết quả cũ). Khá chắc.</p>
+  </div>
+
+  <div class="item"><h3><span class="id">FE5</span>Ngày đơn bán mặc định lấy theo giờ UTC <span class="tag low">Thấp</span></h3>
+    <p>Tạo đơn 00:00–06:59 giờ VN → ô ngày mặc định là hôm trước.</p>
+    <p class="where">FE <code>Sales/OrderManagementPage.tsx:52</code>.</p>
+  </div>
+
+  <h2>Đã đọc và thấy ổn</h2>
+  <ul class="done-list">
+    <li><b>FE ↔ BE:</b> đối chiếu tự động 336 lời gọi - 100% route còn tồn tại, field gửi khớp DTO, mọi route bắt buộc Idempotency-Key đều có gửi, không còn nút nào gọi route đã đóng 16/11.</li>
+    <li><b>Bảo mật:</b> mọi route ghi có <code>@RequirePermissions</code> (trừ ngoại lệ chủ đích); route ghi kho có <code>@RequireAssignedWarehouse</code> + kiểm phạm vi trong service; không có SQL ghép giá trị người dùng; không lộ hash / token; refresh rotation + ân hạn, LiveAuth, throttle 2 tầng, socket đều ổn.</li>
+    <li><b>Phôi / KCS:</b> báo cắt và công đoạn phụ qua QR, nhận sắt, gửi KCS, chấm KCS, huỷ lần báo, phạm vi xưởng QLSX, hàng đợi (trừ PH3), PIN - bản sửa X1–X5 vẫn đúng.</li>
+    <li><b>Hàn → Đóng gói:</b> lỗi cũ "postLedgerEntry ngoài transaction" đã sửa - tiêu hao / đóng gói / vật tư TP ghi sổ trong transaction có FOR UPDATE; cổng đóng gói MIN theo mảnh, đan 2 phiếu, chặn vượt chuyền kiểm / đóng gói đều đúng.</li>
+    <li><b>Kho:</b> sửa tồn, phiếu chuyển (tạo / nhận thiếu / huỷ / đổi nơi nhận), chuyển giữ chỗ khi đổi xưởng, phiếu XK 2 bước, xuất booking, kiểm kê đoạn - có khoá và kiểm lại trong transaction.</li>
+    <li><b>Cắt sắt:</b> đọc tồn đúng ô chiều dài + quy cách khi duyệt, lưu kết quả giải có điều kiện (phương án bị thay không sống lại), đếm số cây / gộp SegmentSpec đúng.</li>
+    <li><b>Lệnh:</b> L1–L7 không thấy bản sửa nào còn sót (ngoài LS4 ghi ở trên).</li>
+  </ul>
+
+  <footer>Rà soát 18/11/2026 — 8 agent đọc song song (chỉ đọc, không ghi DB) + tự đối chiếu lại trên code. Tiếp nối <code>audit-2026-11-16-loi-con-ton-doc-code.html</code> và <code>audit-2026-11-14-ra-soat-mua-hang-kho.html</code>.</footer>
+</main>
+</body>
+</html>
