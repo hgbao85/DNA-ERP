@@ -77,7 +77,7 @@
   </div>
 
   <div class="note">
-    <b>Cập nhật 17/11:</b> đã sửa <b>X1</b>, <b>X2–X4</b>, <b>L1–L6</b>, <b>K1–K6</b>, <b>B1–B4</b> (B3 phần chính), <b>B5</b> (3/4), <b>C1–C5</b>; <b>X5</b> hết là lỗi — các thẻ có nhãn xanh "Đã sửa". Còn mở: <b>L7</b>, <b>B5</b> (audit log ngoài transaction). K1–K6, B1–B2 đã thử sống trên bản sao DB dev; B3 (đăng nhập), B4 (câu tìm khoá migrate) và B5 (làm mới token, upload, khoá tài khoản) đã thử trên DB dev; X4, L3–L6 đã thử sống qua API trên DB dev (dữ liệu thử đã dọn); X1 (phần sót), X2, X3, L1, L2, C1–C4 mới có test tự động (chưa thử sống - DB dev không có đợt cắt / lệnh chờ duyệt để thử). Toàn bộ đã gộp và push (BE <code>main</code>, FE <code>demo</code>). Số đếm bên dưới là số mục ban đầu.
+    <b>Cập nhật 17/11:</b> đã sửa <b>X1</b>, <b>X2–X4</b>, <b>L1–L6</b>, <b>K1–K6</b>, <b>B1–B4</b> (B3 phần chính), <b>B5</b> (3/4), <b>C1–C5</b>; <b>X5</b> hết là lỗi — các thẻ có nhãn xanh "Đã sửa". Còn mở: <b>L7</b> (chờ anh Nhân: Admin ghi đè định mức của lệnh đang chạy), <b>B5</b> (audit log ngoài transaction). K1–K6, B1–B2 đã thử sống trên bản sao DB dev; B3 (đăng nhập), B4 (câu tìm khoá migrate) và B5 (làm mới token, upload, khoá tài khoản) đã thử trên DB dev; X4, L3–L6 đã thử sống qua API trên DB dev (dữ liệu thử đã dọn); X1 (phần sót), X2, X3, L1, L2, C1–C4 mới có test tự động (chưa thử sống - DB dev không có đợt cắt / lệnh chờ duyệt để thử). Toàn bộ đã gộp và push (BE <code>main</code>, FE <code>demo</code>). Số đếm bên dưới là số mục ban đầu.
   </div>
 
   <div class="stats">
@@ -152,7 +152,8 @@
     <p><code>sales-orders.service.ts addItem</code> không tạo ProductionInvoiceItem. Chặn số lượng ở <code>updateItem</code> luôn khớp nên vô tác dụng.</p>
     <p class="where">BE <code>sales-orders.service.ts</code> ~397-420, ~439-453</p></div>
 
-  <div class="item low"><h3><span class="id">L7</span>Các mục nhỏ / cần hỏi nghiệp vụ <span class="tag low">Thấp</span></h3>
+  <div class="item done"><h3><span class="id">L7</span>Các mục nhỏ / cần hỏi nghiệp vụ <span class="tag low">Thấp</span><span class="tag done">Đã sửa 18/11 (2/4)</span></h3>
+    <p class="fix"><b>Đã sửa 18/11 - BE nhánh <code>sua-l7-18-11</code>:</b> (1) Sửa hạn giao cả PI: dòng chưa duyệt (ghi thẳng) và yêu cầu chờ Sếp của dòng đã duyệt nay cùng 1 transaction (<code>DeadlineChangesService.saveEntriesInTx</code>), khoá nghiệp vụ mọi dòng lấy ngay đầu; lỗi giữa chừng thì không lưu gì. (2) Đề xuất mua vật tư thành phẩm tính theo từng cặp (bản định mức, mảnh) - mỗi phần dùng định mức của chính bản đó, mảnh có sẵn chia lần lượt không đếm 2 lần. <b>Còn lại:</b> ý Admin ghi đè định mức - chờ anh Nhân trả lời; PI chưa có CANCELLED - khoảng trống đã biết.</p>
     <p>Sửa hạn giao: ghi thẳng và tạo yêu cầu duyệt nằm ở 2 transaction riêng (<code>updateItemsDeadlines</code> ~1119/~1168) → lỗi giữa chừng để lại lưu nửa vời.</p>
     <p>PI trộn nhiều BOM revision: <code>piece-material-yield-purchase.service.ts</code> ~112-115 lấy định mức theo revision gặp cuối cùng.</p>
     <p>Admin ghi đè định mức xoá/tạo lại dòng của revision ACTIVE mà lệnh đang chạy trỏ tới — tính năng này cố ý ship 15/10, cần hỏi lại có chấp nhận BOM của lệnh đang chạy đổi theo không.</p>
