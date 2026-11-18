@@ -85,6 +85,18 @@ function notifySessionExpired(): void {
 // Dedupe: nhiều request 401 đồng thời chỉ gọi /auth/refresh đúng 1 lần.
 let refreshPromise: Promise<string> | null = null;
 
+/** Refresh token trong localStorage đã đổi khác `sent` (tab khác vừa làm mới) -> access token mới; chờ tối đa ~2 giây. */
+async function waitForRotatedTokens(sent: string): Promise<string | null> {
+  for (let i = 0; i < 8; i++) {
+    const current = tokenStorage.getRefreshToken();
+    const access = tokenStorage.getAccessToken();
+    if (current && current !== sent && access) return access;
+    if (!current) return null; // đã đăng xuất ở tab khác
+    await new Promise((r) => setTimeout(r, 250));
+  }
+  return null;
+}
+
 function refreshAccessToken(): Promise<string> {
   if (!refreshPromise) {
     refreshPromise = (async () => {
@@ -103,6 +115,10 @@ function refreshAccessToken(): Promise<string> {
         tokenStorage.setTokens(tokens.accessToken, tokens.refreshToken);
         return tokens.accessToken;
       } catch (err) {
+        // B5 (17/11): tab khác (cùng localStorage) vừa làm mới bằng ĐÚNG refresh token này - BE từ chối lượt của tab này
+        // (token đã bị thu hồi khi đổi). Chờ tab kia lưu token mới (tối đa ~2 giây) rồi dùng luôn, không đăng xuất.
+        const fromOtherTab = await waitForRotatedTokens(refreshToken);
+        if (fromOtherTab) return fromOtherTab;
         throw toApiError(err as AxiosError<BeEnvelope>);
       }
     })().finally(() => {
