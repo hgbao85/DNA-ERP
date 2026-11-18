@@ -49,6 +49,7 @@ export const AUDIT_TABLE_LABEL: Record<string, string> = {
   MaterialYieldRecipe: 'Công thức vật tư thành phẩm',
   MaterialYieldIssue: 'Xuất vật tư theo định mức cắt',
   MaterialYieldRecipeIssue: 'Xuất vật tư theo công thức',
+  IssueSlip: 'Phiếu xuất XK',
   MaterialYieldStepBatch: 'Đợt công đoạn vật tư TP',
   MaterialYieldStepBundle: 'Bó công đoạn vật tư TP',
   WeavingIssue: 'Xuất đan',
