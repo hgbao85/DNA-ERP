@@ -44,7 +44,9 @@ export default function KcsChanNhomSection() {
   const { data: reviews, refetch: refetchReviews } = useFetch<BeMaterialYieldStepBundleQcReview[]>(
     () => api.getQcReviewsForMaterialYieldStepBundles(), [],
   )
-  useRealtimeRefetch(['qc-reviews'], () => { void refetch(); void refetchReviews() })
+  // PH1 rà soát 18/11: Phôi gửi KCS chân nhôm phát topic 'production-batches' - trước chỉ nghe 'qc-reviews' nên chỉ tự cập
+  // nhật nhờ tải nền 5 phút.
+  useRealtimeRefetch(['qc-reviews', 'production-batches'], () => { void refetch(); void refetchReviews() })
   const [target, setTarget] = useState<BeMaterialYieldStepBundle | null>(null)
   const isMobile = useIsMobile()
 

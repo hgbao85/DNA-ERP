@@ -183,7 +183,11 @@ function KcsSatSection() {
   const { data: allBundles, refetch: refetchBundles } = useFetch<BeCutBundle[]>(() => api.getAllCutBundles(), [])
   const { data: allStepBundles, refetch: refetchStepBundles } = useFetch<BeStepBundle[]>(() => api.getAllStepBundles(), [])
   const { data: reviews, refetch: refetchReviews } = useFetch<BeQcReview[]>(() => api.getQcReviewsForSteelIssues(), [])
-  useRealtimeRefetch(['steel-issues', 'qc-reviews'], () => { void refetch(); void refetchReviews() })
+  // PH1 rà soát 18/11: tải lại CẢ danh sách đợt cắt / đợt công đoạn - trước chỉ tải lô + kết quả chấm, đợt QLSX vừa gửi KCS
+  // không hiện tới khi F5. BE nay phát STEEL_ISSUE (topic 'steel-issues') lúc gửi KCS - KCS không nhận topic 'floor'.
+  useRealtimeRefetch(['steel-issues', 'qc-reviews'], () => {
+    void refetch(); void refetchBundles(); void refetchStepBundles(); void refetchReviews()
+  })
   const [selPi, setSelPi] = useState<string | null>(null)
 
   const piRows = useMemo(

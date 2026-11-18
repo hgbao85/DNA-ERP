@@ -198,11 +198,12 @@ export async function getSteelIssuesByStatus(
   status?: SteelIssueStatus,
   activeOnly?: boolean,
 ): Promise<BeSteelIssue[]> {
-  const params = new URLSearchParams({ limit: '100' });
-  if (status) params.set('status', status);
-  if (activeOnly) params.set('activeOnly', 'true');
-  const res = await http.get<BeSteelIssue[] | { data: BeSteelIssue[] }>(`/steel-issues?${params.toString()}`);
-  return unwrap(res);
+  // PH1 rà soát 18/11: đọc HẾT các trang - trước đây chỉ trang 1 (100 lô mới nhất), màn KCS lọc bỏ mọi đợt cắt có lô ngoài
+  // 100 lô đó -> đợt chờ KCS của lệnh cũ biến mất, Phôi kẹt. Cùng lỗi ở Hướng dẫn cắt / Lệnh SX Phôi.
+  return getAllPages<BeSteelIssue>('/steel-issues', {
+    status,
+    activeOnly: activeOnly ? 'true' : undefined,
+  });
 }
 
 export async function getSteelIssue(id: string): Promise<BeSteelIssue> {
@@ -419,10 +420,8 @@ export async function getStepBundlesForInvoice(productionInvoiceId: string): Pro
 /** Flat, không cần productionInvoiceId - màn KCS lấy thẳng AWAITING_QC, cùng lý do
  *  getSteelIssuesByStatus()/getAllCutBundles() tồn tại riêng. */
 export async function getAllStepBundles(status?: 'AWAITING_QC' | 'QC_PASSED'): Promise<BeStepBundle[]> {
-  const params = new URLSearchParams({ limit: '100' });
-  if (status) params.set('status', status);
-  const res = await http.get<BeStepBundle[] | { data: BeStepBundle[] }>(`/step-bundles?${params.toString()}`);
-  return unwrap(res);
+  // PH1 rà soát 18/11: đọc HẾT các trang (trước chỉ 100 đợt gửi gần nhất - đợt chờ KCS cũ hơn biến mất).
+  return getAllPages<BeStepBundle>('/step-bundles', { status });
 }
 
 /** Danh sách PO/SKU thuộc 1 PI - khối tham khảo cho màn Lệnh sản xuất Phôi, KHÔNG mang số liệu

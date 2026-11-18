@@ -479,7 +479,9 @@ function WarehouseDetail({ wh, items, canWrite, isDeletable, groups, groupsStatu
   const commitEdit = (it: StockItem) => {
     const newQty = Number(editValue)
     if (editValue === '' || Number.isNaN(newQty) || newQty < 0) { cancelEdit(); return }
-    const delta = newQty - it.qty
+    // FE1 rà soát 18/11: làm tròn 4 số lẻ - trừ số thực ra đuôi kiểu 0.20000000000000107 (12,3 → 12,1), BE chỉ nhận tối đa
+    // 4 chữ số thập phân (CK10) nên trước đây báo 400 với mọi vật tư kg/m.
+    const delta = Math.round((newQty - it.qty) * 1e4) / 1e4
     cancelEdit()
     if (delta === 0) return
     if (!openingBalanceWarehouseId) {

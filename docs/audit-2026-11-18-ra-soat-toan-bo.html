@@ -81,11 +81,13 @@
     <div class="stat"><div class="n" style="color:var(--mid)">16</div><div class="l">Trung bình (3 cần nghiệp vụ, 1 chỉ qua API thẳng)</div></div>
     <div class="stat"><div class="n" style="color:var(--low)">13</div><div class="l">Thấp</div></div>
     <div class="stat"><div class="n">1</div><div class="l">lỗi mới do bản sửa 18/11 (FE1)</div></div>
+    <div class="stat"><div class="n" style="color:var(--done)">3</div><div class="l">đã sửa 18/11 (PH1, LS1, FE1)</div></div>
   </div>
 
   <h2>Cao</h2>
 
-  <div class="item high"><h3><span class="id">PH1</span>Màn KCS "Cắt sắt" mất đợt chờ kiểm của lệnh cũ <span class="tag high">Cao</span></h3>
+  <div class="item done"><h3><span class="id">PH1</span>Màn KCS "Cắt sắt" mất đợt chờ kiểm của lệnh cũ <span class="tag high">Cao</span><span class="tag done">Đã sửa 18/11</span></h3>
+    <p class="fix"><b>Đã sửa 18/11:</b> FE <code>getSteelIssuesByStatus</code> / <code>getAllStepBundles</code> đọc HẾT các trang (<code>getAllPages</code>) - sửa luôn Hướng dẫn cắt và Lệnh SX Phôi; KCS tải lại cả danh sách đợt khi có sự kiện; BE phát STEEL_ISSUE lúc gửi KCS đợt cắt / đợt công đoạn phụ (KCS không có quyền nhận topic <code>floor</code>); màn VT không gắn mảnh nghe thêm <code>production-batches</code>. Thử sống trên bản sao: chèn 110 lô sắt mới hơn đẩy lô có đợt chờ KCS ra khỏi trang 1 - màn KCS vẫn hiện đủ (FE tải trang 1 + 2); QLSX gửi KCS 1 đợt mới khi màn KCS đang mở - màn tự lên 4 đợt, không F5.</p>
     <p>KCS chỉ tải 100 lô sắt mới nhất (<code>getSteelIssuesByStatus</code> 1 trang) rồi <code>buildPiRows</code> LỌC BỎ mọi đợt cắt có lô nằm ngoài 100 lô đó; đợt công đoạn phụ cũng chỉ 100 đợt mới nhất. Chỉ cần ~15–20 lệnh xuất sắt sau đó là đợt <code>AWAITING_QC</code> của lệnh cũ biến mất: KCS không chấm được, QLSX không huỷ được đợt đã gửi, Phôi không bao giờ "xong". Kèm: realtime chỉ tải lại lô + kết quả chấm, KHÔNG tải lại danh sách đợt - đợt QLSX vừa gửi không hiện tới khi F5 (kể cả tải nền 5 phút). <code>HuongDanCatPage</code>, <code>LenhSanXuatPhoi</code> dùng cùng hàm 1 trang; <code>KcsChanNhomSection</code> chỉ nghe <code>qc-reviews</code>.</p>
     <p class="where">FE <code>Kcs/KcsPhoiPage.tsx:113-129, 182-186</code>; <code>services/steel-issues-api.ts:197-206, 421-426</code>; <code>Phoi/HuongDanCatPage.tsx:60</code>; <code>Phoi/LenhSanXuatPhoi.tsx:214</code>. Đã kiểm.</p>
     <p class="fix"><b>Hướng sửa:</b> 2 hàm đổi sang <code>getAllPages</code>; KCS lấy đợt theo <code>status=AWAITING_QC</code>, mã lệnh lấy kèm trong response đợt cắt; callback realtime tải lại cả danh sách đợt (thêm topic <code>floor</code> / <code>production-batches</code>).</p>
@@ -129,7 +131,8 @@
     <p class="fix"><b>Hỏi:</b> SKU có phải đơn vị thật của Phôi trong lệnh gộp? <b>Hướng sửa:</b> mỗi dòng = cỡ đoạn × SKU từ <code>byOrder</code>, cả BE và FE.</p>
   </div>
 
-  <div class="item mid"><h3><span class="id">LS1</span>"Kết thúc" lệnh đi lùi được qua "Tạm dừng" → PI kẹt DONE, không xuất sắt được nữa <span class="tag mid">Trung bình</span></h3>
+  <div class="item done"><h3><span class="id">LS1</span>"Kết thúc" lệnh đi lùi được qua "Tạm dừng" → PI kẹt DONE, không xuất sắt được nữa <span class="tag mid">Trung bình</span><span class="tag done">Đã sửa 18/11</span></h3>
+    <p class="fix"><b>Đã sửa 18/11:</b> BE <code>startFloor</code> / <code>pauseFloor</code> ghi có điều kiện + kiểm count: tạm dừng chỉ từ ACTIVE (gọi lại khi đã PAUSED thì thôi), bắt đầu / tiếp tục chỉ từ PENDING / PAUSED (ACTIVE thì thôi); lệnh đã Kết thúc → 409 "Kết thúc không hoàn tác được" (khớp FE, bỏ đường mở lại qua API vì không giữ chỗ sắt lại được). Thử sống: tạm dừng / tiếp tục chạy; tạm dừng & bắt đầu lệnh đã Kết thúc → 409, PI giữ DONE; Kết thúc + Tạm dừng bấm cùng lúc → kết quả FINISHED, tạm dừng 409.</p>
     <p><code>pauseFloor</code>/<code>startFloor</code> ghi <code>floorStage</code> theo id, không kiểm trạng thái. QLSX A "Kết thúc" SKU cuối → PI DONE, nhả giữ chỗ; QLSX B (tab cũ) bấm "Tạm dừng" → FINISHED → PAUSED → "Tiếp tục" ACTIVE: PI vẫn DONE (chỉ mở lại khi đọc thấy FINISHED), chia máy cắt bỏ PI, xuất sắt phần còn lại 409 vĩnh viễn vì giữ chỗ sắt đã RELEASED (giữ chỗ sắt chỉ sinh lúc duyệt phương án). Gọi thẳng <code>floor-start</code> trên lệnh FINISHED cũng không giữ chỗ lại.</p>
     <p class="where">BE <code>production-orders/production-orders.service.ts:365-438, 497-555</code>; FE <code>Manufacturing/ThongKePagePlan.tsx:571</code>. Đã kiểm.</p>
     <p class="fix"><b>Hướng sửa:</b> ghi có điều kiện + kiểm count (tạm dừng chỉ từ ACTIVE; bắt đầu/tiếp tục chỉ từ PENDING/PAUSED; FINISHED → 409, khớp FE "không hoàn tác").</p>
@@ -165,7 +168,8 @@
     <p class="fix"><b>Hướng sửa:</b> <code>assertCanAssignRoles</code> + chặn tự sửa ở <code>updateMfgAttributes</code>; cấm người không phải ADMIN đổi tên vai trò hệ thống hoặc đổi sang tên đó.</p>
   </div>
 
-  <div class="item mid"><h3><span class="id">FE1</span>Sửa nhanh tồn kho bị BE từ chối 400 với số lẻ — lỗi mới do CK10 (18/11) <span class="tag mid">Trung bình</span></h3>
+  <div class="item done"><h3><span class="id">FE1</span>Sửa nhanh tồn kho bị BE từ chối 400 với số lẻ — lỗi mới do CK10 (18/11) <span class="tag mid">Trung bình</span><span class="tag done">Đã sửa 18/11</span></h3>
+    <p class="fix"><b>Đã sửa 18/11:</b> FE làm tròn 4 số lẻ trước khi gửi. Thử sống: số chưa làm tròn 0.20000000000000107 → 400 như báo cáo, số đã làm tròn 0.2 → 201.</p>
     <p>FE gửi <code>qty = Math.abs(newQty − it.qty)</code> không làm tròn; BE vừa thêm <code>maxDecimalPlaces: 4</code>. 12,3 → 12,1 gửi <code>0.20000000000000107</code>, 5 → 4,7 gửi <code>0.2999999999999998</code> → 400 "Số lượng tối đa 4 chữ số thập phân" → mọi vật tư kg/m không sửa nhanh được. Các DTO khác vừa giới hạn (phiếu XK, phiếu chuyển, thực nhận) FE gửi số người gõ / số BE trả - không dính.</p>
     <p class="where">FE <code>Manufacturing/MfgWarehousesPage.tsx:482, 510</code>; BE <code>stock/dto/create-stock-adjustment.dto.ts:36</code> (2068cce). Đã kiểm (chạy node ra đúng số).</p>
     <p class="fix"><b>Hướng sửa:</b> làm tròn 4 số lẻ trước khi gửi.</p>
