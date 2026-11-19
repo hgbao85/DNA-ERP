@@ -56,7 +56,8 @@ export function ActionBar({ action, onClick, leading }: { action: ScanAction; on
   )
 }
 
-export interface ConfirmRow { label: string; value: string; warn?: string }
+/** `warn` = nhắc (vẫn lưu được); `block` = chặn (dòng đỏ, khoá nút xác nhận - BE không cho lưu quá số còn báo được). */
+export interface ConfirmRow { label: string; value: string; warn?: string; block?: string }
 
 function ConfirmRows({ rows }: { rows: ConfirmRow[] }) {
   return (
@@ -68,6 +69,7 @@ function ConfirmRows({ rows }: { rows: ConfirmRow[] }) {
             <span style={{ fontSize: 18, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{r.value}</span>
           </div>
           {r.warn && <div style={{ fontSize: 14, color: 'var(--amber)', fontWeight: 600 }}><span aria-hidden>⚠ </span>{r.warn}</div>}
+          {r.block && <div role="alert" style={{ fontSize: 14, color: 'var(--red)', fontWeight: 600 }}><span aria-hidden>⛔ </span>{r.block}</div>}
         </div>
       ))}
     </div>
@@ -75,9 +77,9 @@ function ConfirmRows({ rows }: { rows: ConfirmRow[] }) {
 }
 
 /**
- * Bảng xác nhận TRƯỚC KHI lưu: công nhân không tự sửa được, chỉ QLSX đảo trước khi gửi KCS nên đếm lại một lần ở đây rẻ hơn.
- * Liệt kê đúng những gì sắp ghi; dòng nào vượt kế hoạch thì nói rõ. Đóng bằng "Sửa lại", nút nền mờ hoặc phím Esc;
- * trả focus về nút Lưu.
+ * Bảng xác nhận TRƯỚC KHI lưu: công nhân không tự sửa được, QLSX chỉ đảo được khi KCS chưa chấm nên đếm lại một lần ở đây
+ * rẻ hơn. Liệt kê đúng những gì sắp ghi; dòng nào nhập quá số còn báo được thì đỏ (`block`) và khoá nút xác nhận.
+ * Đóng bằng "Sửa lại", nút nền mờ hoặc phím Esc; trả focus về nút Lưu.
  */
 export function ConfirmSheet({ title, context, rows, total, notes, confirmLabel, busy, onConfirm, onCancel }: {
   title: string
@@ -91,6 +93,7 @@ export function ConfirmSheet({ title, context, rows, total, notes, confirmLabel,
   onCancel: () => void
 }) {
   const ref = useRef<HTMLDivElement>(null)
+  const blocked = rows.some((r) => !!r.block)
   useEffect(() => {
     const prev = document.activeElement as HTMLElement | null
     ref.current?.focus()
@@ -125,7 +128,9 @@ export function ConfirmSheet({ title, context, rows, total, notes, confirmLabel,
         <ConfirmRows rows={rows} />
         {total && <div style={{ fontSize: 16, fontWeight: 700, textAlign: 'right' }}>{total}</div>}
         {(notes ?? []).map((n) => <Banner key={n} tone="warn">{n}</Banner>)}
-        <button type="button" disabled={busy} style={btn(true, busy)} onClick={onConfirm}>{busy ? 'Đang lưu…' : confirmLabel}</button>
+        <button type="button" disabled={busy || blocked} style={btn(true, busy || blocked)} onClick={onConfirm}>
+          {busy ? 'Đang lưu…' : confirmLabel}
+        </button>
         <button type="button" disabled={busy} style={btn(false, busy)} onClick={onCancel}>Sửa lại</button>
       </div>
     </div>

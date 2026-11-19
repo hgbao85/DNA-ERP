@@ -57,7 +57,7 @@ export interface ProcLine {
    *  kho, từ BeProductionBatchPlanItem.rawMaterialOnHand. null/undefined ngoài stage=PHOI. */
   rawMaterialOnHand?: number | null
   /** Phần của `doneQty` (Đã báo) đang chờ KCS chấm / chưa gửi KCS - chỉ màn xem tổng hợp ("Tổng hợp lệnh SX") đặt,
-   *  để cột "Đã báo" hiện "chờ KCS n · chưa gửi n" mà không cần `choKcsFor` (2026-10-19). */
+   *  để cột "Đã báo" hiện "chờ KCS n · đang mở n" mà không cần `choKcsFor` (2026-10-19). */
   kcs?: { awaiting: number; open: number }
 }
 export interface ProcManh {
@@ -462,7 +462,7 @@ export function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, banner
         const pend = choKcsFor?.(l.id) ?? 0
         // Màn tổng hợp: `doneQty` đã gồm chờ KCS + chưa gửi, `kcs` cho biết bao nhiêu trong đó chưa chấm.
         const kcsParts = !choKcsFor && l.kcs
-          ? [l.kcs.awaiting > 0 ? `chờ KCS ${fmt(l.kcs.awaiting)}` : null, l.kcs.open > 0 ? `chưa gửi ${fmt(l.kcs.open)}` : null].filter(Boolean)
+          ? [l.kcs.awaiting > 0 ? `chờ KCS ${fmt(l.kcs.awaiting)}` : null, l.kcs.open > 0 ? `đang mở ${fmt(l.kcs.open)}` : null].filter(Boolean)
           : []
         return <>
           {fmt(l.doneQty)}

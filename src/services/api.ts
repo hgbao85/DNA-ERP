@@ -171,7 +171,7 @@ export {
   getSteelIssuesByStatus, getSteelIssue, getCutBundles, receiveSteelIssue,
   recordCutBatch, getPhoiProgress, getStepProgress, recordStepBatch, getPiOrderSummary,
   getQcReviewsForSteelIssues, getAllQcReviews, updateQcReviewPhoto,
-  getAllCutBundles, finishCutBundle, reviewCutBundleQc, undoLastCutBatch, assignCutBundleOrder, assignStepBundleOrder, reassignCutBundleOrder, reassignStepBundleOrder,
+  getAllCutBundles, finishCutBundle, reviewCutBundleQc, assignCutBundleOrder, assignStepBundleOrder, reassignCutBundleOrder, reassignStepBundleOrder,
   submitStepBundle, reviewStepBundleQc, getStepBundlesForInvoice, getAllStepBundles,
 } from './steel-issues-api';
 export { getWorkQueue } from './work-queue-api';

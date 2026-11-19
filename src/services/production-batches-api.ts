@@ -68,7 +68,7 @@ export async function getProductionBatchesForOrder(
 
 export async function reviewProductionBatch(
   batchId: string,
-  data: { failedQty: number; reason?: string; defectReasonId?: string; photoUrl?: string },
+  data: { failedQty: number; shortQty?: number; reason?: string; defectReasonId?: string; photoUrl?: string },
 ): Promise<void> {
   await http.post(`/production-batches/${batchId}/qc-review`, data);
 }
@@ -80,6 +80,8 @@ export interface BeProductionBatchQcReview {
   id: string;
   productionBatchId: string | null;
   failedQty: number;
+  /** KCS ghi thiếu (P1) - ghi riêng, không cộng vào failedQty. Optional: BE cũ chưa trả. */
+  shortQty?: number;
   defectReasonId: string | null;
   defectReasonLabel: string | null;
   reason: string | null;
@@ -183,6 +185,8 @@ export interface BePieceStepProgress {
    *  hiện nút "Bù đủ" khi remaining > 0 && failedQty > 0, chỉ gợi ý sẵn số lượng vào ô nhập - Phôi
    *  làm thêm rồi gửi KCS như đợt mới. */
   failedQty: number;
+  /** Σ KCS ghi thiếu của đúng bước này (P1, không tính lỗi). Optional: BE cũ chưa trả. */
+  shortQty?: number;
 }
 
 // ── QC theo TỪNG CÔNG ĐOẠN (PieceStepBundle, 2026-09-07) ───────────────────────
@@ -237,6 +241,8 @@ export interface BePieceStepBundleQcReview {
   id: string;
   pieceStepBundleId: string | null;
   failedQty: number;
+  /** KCS ghi thiếu (P1). Optional: BE cũ chưa trả. */
+  shortQty?: number;
   reviewedAt: string;
   reviewedById: string;
 }
@@ -250,7 +256,7 @@ export async function getQcReviewsForPieceStepBundles(): Promise<BePieceStepBund
 
 export async function reviewPieceStepQc(
   pieceStepBundleId: string,
-  data: { failedQty: number; reason?: string; defectReasonId?: string; photoUrl?: string },
+  data: { failedQty: number; shortQty?: number; reason?: string; defectReasonId?: string; photoUrl?: string },
 ): Promise<void> {
   await http.post(`/piece-step-bundles/${pieceStepBundleId}/qc-review`, data);
 }
@@ -267,6 +273,8 @@ export interface BeProductionBatchPlanItem {
   passedQty: number;
   /** KCS chấm lỗi cộng dồn (bất biến) của các đợt đã chấm; passedQty đã trừ lỗi. BE cũ chưa trả thì coi 0. Thêm 18/11/2026. */
   failedQty?: number;
+  /** KCS ghi thiếu cộng dồn (P1) = Σ thiếu lô QC_DONE + Σ thiếu mọi công đoạn của pat; passedQty đã trừ thiếu. BE cũ chưa trả thì coi 0. */
+  shortQty?: number;
   /** Đã "Lưu đợt" nhưng CHƯA gửi KCS (lô OPEN) - 2026-10-16. Đã báo = openQty + awaitingQcQty + passedQty. */
   openQty?: number;
   /** Chỉ có giá trị cho stage=PHOI khi mảnh có định mức PieceMaterialYield (vd chân nhôm) - tồn

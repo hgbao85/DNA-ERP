@@ -170,13 +170,13 @@ describe('cộng số', () => {
 })
 
 describe('pendingText - số đang chờ KCS', () => {
-  it('ghi rõ chưa gửi / chờ KCS theo từng loại việc, đúng thứ tự quy trình, bỏ loại không có gì chờ', () => {
+  it('ghi rõ đang mở / KCS đang chấm theo từng loại việc, đúng thứ tự quy trình, bỏ loại không có gì chờ', () => {
     expect(pendingText([
       { op: 'HAN', notSent: 0, awaitingQc: 13 },
       { op: 'CAT', notSent: 125, awaitingQc: 136 },
       { op: 'UON', notSent: 3, awaitingQc: 0 },
       { op: 'SON', notSent: 0, awaitingQc: 0 },
-    ])).toBe('Cắt: 125 đoạn chưa gửi, 136 đoạn chờ KCS · Uốn: 3 đoạn chưa gửi · Hàn: 13 mảnh chờ KCS')
+    ])).toBe('Cắt: 125 đoạn đang mở, 136 đoạn KCS đang chấm · Uốn: 3 đoạn đang mở · Hàn: 13 mảnh KCS đang chấm')
   })
   it('không có gì chờ thì rỗng', () => {
     expect(pendingText([])).toBe('')
@@ -226,7 +226,7 @@ describe('lọc theo công nhân (QLSX xem từng người)', () => {
       { op: 'CAT', notSent: 7, awaitingQc: 6 },
       { op: 'HAN', notSent: 0, awaitingQc: 9 },
     ])
-    expect(pendingText(filterByWorker(pending, 'u3'))).toBe('Cắt: 5 đoạn chưa gửi')
+    expect(pendingText(filterByWorker(pending, 'u3'))).toBe('Cắt: 5 đoạn đang mở')
   })
 
   it('slugName / tên file có tên công nhân (không dấu, an toàn cho tên file)', () => {
@@ -278,6 +278,7 @@ describe('bảng cho Excel', () => {
   it('summaryAoa: gồm cả loại việc chỉ có số đang chờ (chưa có số đạt)', () => {
     const a = summaryAoa(rows, [{ op: 'CAT', notSent: 125, awaitingQc: 136 }, { op: 'UON', notSent: 3, awaitingQc: 7 }])
     expect(a[0]).toHaveLength(7)
+    expect(a[0].slice(5)).toEqual(['Đã báo, đang mở', 'KCS đang chấm']) // từ P1 không còn bước "gửi KCS"
     expect(a[1]).toEqual(['Cắt', 'đoạn', 18, 2, 90, 125, 136])
     expect(a[2]).toEqual(['Uốn', 'đoạn', 0, 0, '', 3, 7])
     expect(a[3]).toEqual(['Hàn', 'mảnh', 40, 3, 93, 0, 0])

@@ -33,10 +33,54 @@ export function useRealtimeEvent<N extends RealtimeEventName>(
 interface RealtimeRefetchOptions {
   /** Gom các event dồn dập (vd nhiều dòng cùng 1 lần duyệt) thành 1 lần refetch. */
   debounceMs?: number;
+  /** Trần chờ (mặc định 5000 ms): có event thì tải lại chậm nhất sau chừng này kể từ event ĐẦU TIÊN của đợt,
+   *  dù event còn đến liên tục (debounce không bị dời mãi). */
+  maxWaitMs?: number;
   /** Lọc thêm SAU khi đã khớp topic - cùng ý nghĩa với ChangeNoticeOptions.filter (xem dưới). Dùng
    *  khi màn CHỈ đáng tự refetch nếu đúng bản ghi đang mở đổi, không phải mọi bản ghi cùng loại.
    *  KHÔNG áp dụng cho nhánh resync/safetyTick (không có entityId cụ thể để lọc). */
   filter?: (payload: EntityChangedPayload) => boolean;
+}
+
+export const DEFAULT_MAX_WAIT_MS = 5000;
+
+/** Độ trễ thật của lần hẹn: debounce, nhưng không vượt quá mốc (event đầu của đợt + maxWait). */
+export function nextRefetchDelay(now: number, firstEventAt: number, debounceMs: number, maxWaitMs: number): number {
+  return Math.max(0, Math.min(debounceMs, firstEventAt + maxWaitMs - now));
+}
+
+/**
+ * Lịch tải lại: `event()` = debounce có trần maxWait tính từ event đầu của đợt; `now()` = tải lại ngay (resync / safetyTick);
+ * `cancel()` = huỷ lịch. Hàm thuần (không React) để test bằng giờ giả.
+ */
+export function createRefetchScheduler(
+  run: () => void,
+  debounceMs: number,
+  maxWaitMs: number = DEFAULT_MAX_WAIT_MS,
+): { event: () => void; now: () => void; cancel: () => void } {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  let firstAt: number | null = null;
+  const arm = (delay: number) => {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => {
+      timer = null;
+      firstAt = null;
+      run();
+    }, delay);
+  };
+  return {
+    event: () => {
+      const t = Date.now();
+      if (firstAt === null) firstAt = t;
+      arm(nextRefetchDelay(t, firstAt, debounceMs, maxWaitMs));
+    },
+    now: () => arm(0),
+    cancel: () => {
+      if (timer) clearTimeout(timer);
+      timer = null;
+      firstAt = null;
+    },
+  };
 }
 
 /**
@@ -50,7 +94,7 @@ export function useRealtimeRefetch(
   refetch: () => void,
   options: RealtimeRefetchOptions = {},
 ): void {
-  const { debounceMs = 400 } = options;
+  const { debounceMs = 400, maxWaitMs = DEFAULT_MAX_WAIT_MS } = options;
   const refetchRef = useRef(refetch);
   const filterRef = useRef(options.filter);
   useEffect(() => {
@@ -63,32 +107,24 @@ export function useRealtimeRefetch(
   useEffect(() => {
     if (topicsKey === '') return;
     const wanted = new Set(topicsKey.split('|'));
-    let timer: ReturnType<typeof setTimeout> | null = null;
-
-    const schedule = (delay: number) => {
-      if (timer) clearTimeout(timer);
-      timer = setTimeout(() => {
-        timer = null;
-        refetchRef.current();
-      }, delay);
-    };
+    const scheduler = createRefetchScheduler(() => refetchRef.current(), debounceMs, maxWaitMs);
 
     const offEntity = realtime.bus.on(REALTIME_EVENTS.ENTITY_CHANGED, (envelope) => {
       const payload: EntityChangedPayload = envelope.payload;
       if (!payload.topics.some((t) => wanted.has(t))) return;
       if (filterRef.current && !filterRef.current(payload)) return;
-      schedule(debounceMs);
+      scheduler.event();
     });
-    const offResync = realtime.bus.onResync(() => schedule(0));
-    const offSafety = realtime.bus.onSafetyTick(() => schedule(0));
+    const offResync = realtime.bus.onResync(() => scheduler.now());
+    const offSafety = realtime.bus.onSafetyTick(() => scheduler.now());
 
     return () => {
       offEntity();
       offResync();
       offSafety();
-      if (timer) clearTimeout(timer);
+      scheduler.cancel();
     };
-  }, [topicsKey, debounceMs]);
+  }, [topicsKey, debounceMs, maxWaitMs]);
 }
 
 interface ChangeNoticeOptions {

@@ -30,7 +30,7 @@ export const productionPlanGroup: GuideGroup = {
       result: 'Biết ngay SKU nào sắp trễ, ở công đoạn nào, thiếu vật tư gì - để hối đúng bộ phận.',
       warnings: [
         'Hạn theo ngày ĐÃ LƯU (KHSX lưu ở "Sửa thời hạn") - không dùng ngày đề xuất để báo trễ. Mốc chưa lưu hiện "Chưa đặt hạn", trừ: "Mua VT khung & đan" chưa lưu thì theo hạn Khung CK; "Mua VT còn lại" chưa lưu thì theo hạn Đóng gói; không có nữa thì theo hạn lệnh. "Hạn giao" chưa lưu thì theo hạn lệnh. "Theo dõi mua hàng" hiện đúng hạn này cho từng dòng vật tư.',
-        '% Khung CK = trung bình % của 3 tổ Phôi, Hàn, Sơn (giống "Theo lệnh"). % Nhập đan tính theo số mảnh đã NHẬN về. Số "đã làm" của Hàn/Sơn tính cả phần đang chờ KCS và chưa gửi KCS. Dưới ô Phôi và ô Đóng gói có thêm "Bắt đầu dd/MM" nếu KHSX đã lưu ngày bắt đầu.',
+        '% Khung CK = trung bình % của 3 tổ Phôi, Hàn, Sơn (giống "Theo lệnh"). % Nhập đan tính theo số mảnh đã NHẬN về. Số "đã làm" của Hàn/Sơn tính cả phần đang chờ KCS chấm và đang mở (chưa chấm). Dưới ô Phôi và ô Đóng gói có thêm "Bắt đầu dd/MM" nếu KHSX đã lưu ngày bắt đầu.',
         'Mỗi sáng từ 7 giờ hệ thống gửi tin tóm tắt, mỗi người nhận 1 tin riêng: mỗi NV mua nhận "vật tư phải về hôm nay / đã trễ" chỉ gồm vật tư mình phụ trách, mỗi thủ kho nhận phần hàng về kho mình; KHSX + QLSX nhận "mốc trễ, sắp tới hạn, lệnh tới ngày Phôi mà chưa Bắt đầu". Sếp không nhận tin tóm tắt.',
         'Hạn giao còn ≤ 2 ngày (hoặc đã qua) mà chưa đóng gói đủ: KHSX, QLSX và Sếp nhận cảnh báo đỏ "nguy cơ trễ hạn giao" cho từng SKU; chỉ báo lại khi sang ngày mới, tự đóng khi đóng gói đủ hoặc lệnh Kết thúc.',
         'Bảng tự tải lại khi có nhận hàng, báo sản lượng, KCS chấm, Kết thúc lệnh... Riêng đóng thùng chưa tự cập nhật - bấm "Tải lại".',

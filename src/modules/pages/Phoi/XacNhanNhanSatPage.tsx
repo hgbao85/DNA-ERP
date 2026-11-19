@@ -198,7 +198,7 @@ function XacNhanTab({ lines, yieldIssues, recipeIssues, reviews, readOnly, refet
       {traVe > 0 && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', marginBottom: 14, borderRadius: 10, background: 'var(--red-bg, var(--bg-fef2f2))', color: 'var(--fg-b91c1c)', fontSize: 13 }}>
           <RotateCcw size={16} />
-          <span><b>{traVe}</b> đợt KCS trả về cần <b>cắt lại</b> · tổng <b>{traVeCay}</b> cây — công nhân báo bằng quét mã QR, QLSX kiểm.</span>
+          <span><b>{traVe}</b> đợt KCS trả về cần <b>cắt lại</b> · tổng <b>{traVeCay}</b> cây — công nhân báo bằng quét mã QR.</span>
         </div>
       )}
 

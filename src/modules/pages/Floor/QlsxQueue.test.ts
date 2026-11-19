@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { ApiError } from '../../../services/core/apiError'
-import { isStaleConflict, phoiAwaitingAutoClose, queueActorText } from './QlsxQueue'
+import { isStaleConflict, openBatchesNote, phoiAwaitingAutoClose, queueActorText } from './QlsxQueue'
 
 describe('isStaleConflict', () => {
   it('ApiError 409 -> true (máy chủ báo lệnh đang chạy đã đổi, phải tải lại)', () =>
@@ -36,4 +36,12 @@ describe('phoiAwaitingAutoClose', () => {
     expect(phoiAwaitingAutoClose('PHOI', null)).toBe(false)
     expect(phoiAwaitingAutoClose('PHOI', { progress: null })).toBe(false)
   })
+})
+
+describe('openBatchesNote (S4: câu của hộp / thẻ Chuyển lệnh tiếp)', () => {
+  it('có đợt đang mở -> "Còn N đợt đang mở.", không còn ý "kiểm và gửi KCS"', () => {
+    expect(openBatchesNote(3)).toBe('Còn 3 đợt đang mở.')
+    expect(openBatchesNote(1)).not.toMatch(/gửi KCS/i)
+  })
+  it('không còn đợt nào -> rỗng', () => expect(openBatchesNote(0)).toBe(''))
 })

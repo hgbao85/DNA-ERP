@@ -149,7 +149,10 @@ export function bucketLabel(bucket: string, groupBy: StatsGroupBy): string {
 export interface Tally { passed: number; failed: number }
 export interface OpTotal extends Tally { op: StatOp }
 
-/** Tỷ lệ đạt = đạt / (đạt + lỗi); null khi chưa có gì để tính. */
+/**
+ * Tỷ lệ đạt = đạt / (đạt + lỗi); null khi chưa có gì để tính. Từ P1: đạt = số công nhân báo - lỗi - thiếu; "thiếu" (KCS ghi
+ * thiếu so với số báo) không phải lỗi nên không có mặt ở cả tử lẫn mẫu.
+ */
 export function passRate(t: Tally): number | null {
   const all = t.passed + t.failed
   return all === 0 ? null : t.passed / all
@@ -284,14 +287,17 @@ export function slugName(name: string): string {
     .replace(/[^A-Za-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
 }
 
-/** "Cắt: 125 đoạn chưa gửi, 136 đoạn chờ KCS · Hàn: 13 mảnh chờ KCS" - số đã báo mà KCS chưa duyệt. Rỗng khi không có gì chờ. */
+/**
+ * "Cắt: 125 đoạn đang mở, 136 đoạn KCS đang chấm · Hàn: 13 mảnh KCS đang chấm" - số đã báo mà KCS chưa chấm xong (từ P1 KCS tự
+ * chấm, không còn bước QLSX gửi KCS). `notSent` = đợt đang mở; `awaitingQc` = KCS đã chốt, đang chấm. Rỗng khi không có gì chờ.
+ */
 export function pendingText(pending: PendingLike[]): string {
   return OP_ORDER.map((op) => pendingByOp(pending).find((p) => p.op === op))
     .filter((p): p is PendingLike => !!p && p.notSent + p.awaitingQc > 0)
     .map((p) => {
       const parts: string[] = []
-      if (p.notSent > 0) parts.push(`${fmtQty(p.notSent)} ${OP_UNIT[p.op]} chưa gửi`)
-      if (p.awaitingQc > 0) parts.push(`${fmtQty(p.awaitingQc)} ${OP_UNIT[p.op]} chờ KCS`)
+      if (p.notSent > 0) parts.push(`${fmtQty(p.notSent)} ${OP_UNIT[p.op]} đang mở`)
+      if (p.awaitingQc > 0) parts.push(`${fmtQty(p.awaitingQc)} ${OP_UNIT[p.op]} KCS đang chấm`)
       return `${OP_LABEL[p.op]}: ${parts.join(', ')}`
     })
     .join(' · ')
@@ -355,7 +361,7 @@ export function summaryAoa(rows: BeStatRow[], pending: PendingLike[]): Cell[][] 
   const wait = new Map(pendingByOp(pending).map((p) => [p.op, p]))
   const ops = OP_ORDER.filter((op) => totals.has(op) || wait.has(op))
   return [
-    ['Loại việc', 'Đơn vị', 'Đạt', 'Lỗi', 'Tỷ lệ đạt (%)', 'Đã báo, chưa gửi KCS', 'Đã gửi, chờ KCS'],
+    ['Loại việc', 'Đơn vị', 'Đạt', 'Lỗi', 'Tỷ lệ đạt (%)', 'Đã báo, đang mở', 'KCS đang chấm'],
     ...ops.map((op) => {
       const t = totals.get(op) ?? { passed: 0, failed: 0 }
       return [OP_LABEL[op], OP_UNIT[op], t.passed, t.failed, ratePct(passRate(t)) ?? '', wait.get(op)?.notSent ?? 0, wait.get(op)?.awaitingQc ?? 0]

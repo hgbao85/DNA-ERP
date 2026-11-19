@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import type { BeFloorReview, BeStageDetail } from '../../../services/floor-api'
 import { lechOf, type ProcLine } from '../../../components/sanxuat/core'
-import { abnormalities, missingText, phoiMaterialsOf, piecesOf, shortMaterials, shortPieces, summarize, syncComparable, unbalancedOrders, unmadeOf } from './piDetailModel'
+import { abnormalities, missingText, openBatchesOf, phoiMaterialsOf, piecesOf, shortMaterials, shortPieces, summarize, syncComparable, unbalancedOrders, unmadeOf } from './piDetailModel'
 
-const seg = (cutLengthMm: number, s: { required: number; done: number; failed?: number; openQty?: number; awaitingQcQty?: number }, byOrder?: { productionOrderId: string | null; required: number; done: number; failed: number; openQty?: number; awaitingQcQty?: number }[]) => ({
+const seg = (cutLengthMm: number, s: { required: number; done: number; failed?: number; openQty?: number; awaitingQcQty?: number; extraNeed?: number; shortQty?: number }, byOrder?: { productionOrderId: string | null; required: number; done: number; failed: number; openQty?: number; awaitingQcQty?: number }[]) => ({
   segmentSpecId: String(cutLengthMm), cutLengthMm, failed: 0, openQty: 0, awaitingQcQty: 0, ...s, byOrder: byOrder ?? [],
 })
 
@@ -55,7 +55,7 @@ describe('piDetailModel', () => {
     expect(s).toMatchObject({ required: 1020, reported: 779, awaiting: 60, failed: 1, percent: 76 })
   })
 
-  it('bất thường: báo vượt sắt, đợt chờ quá 4 giờ của ĐÚNG PI, lỗi KCS', () => {
+  it('bất thường: báo vượt sắt, đợt đang mở quá 4 giờ của ĐÚNG PI, lỗi KCS', () => {
     const now = Date.parse('2026-10-19T10:00:00Z')
     const review = {
       cutBundles: [
@@ -67,7 +67,7 @@ describe('piDetailModel', () => {
     } as unknown as BeFloorReview
     const ab = abnormalities(phoiMaterialsOf(phoi, null), [], review, '45', 'PHOI', now)
     expect(ab.map((a) => a.kind)).toEqual(['steel-over', 'stale', 'qc-failed'])
-    expect(ab[1].text).toBe('1 đợt chờ gửi KCS quá 4 giờ')
+    expect(ab[1].text).toBe('1 đợt chờ KCS chấm quá 4 giờ')
   })
 
   it('mảnh: chặn trần theo từng SKU rồi mới gộp (SKU báo vượt không bù SKU thiếu); lọc theo SKU', () => {
@@ -85,7 +85,7 @@ describe('piDetailModel', () => {
   })
 
   it('dòng tóm tắt còn thiếu trên thẻ PI', () => {
-    expect(missingText({ lines: 39, materials: 6, materialsNotReceived: 4, pieces: 0 }, 4)).toBe('Còn thiếu 6 loại sắt (4 chưa nhận sắt) · 4 đợt chờ gửi KCS')
+    expect(missingText({ lines: 39, materials: 6, materialsNotReceived: 4, pieces: 0 }, 4)).toBe('Còn thiếu 6 loại sắt (4 chưa nhận sắt) · 4 đợt đang mở')
     expect(missingText({ lines: 5, materials: 0, materialsNotReceived: 0, pieces: 5 }, 0)).toBe('Còn thiếu 5 mảnh')
     expect(missingText({ lines: 2, materials: 0, materialsNotReceived: 0, pieces: 0 }, 0)).toBe('Còn thiếu 2 dòng')
   })
@@ -243,6 +243,73 @@ describe('piDetailModel', () => {
       const texts = abnormalities(phoiMaterialsOf(withPat, null), piecesOf(withPat, null), null, '45', 'PHOI')
         .filter((a) => a.kind === 'qc-failed').map((a) => a.text)
       expect(texts).toEqual(['KCS chấm lỗi 5 đoạn chưa làm bù', 'KCS chấm lỗi 3 cái chưa làm bù'])
+    })
+  })
+})
+
+describe('P1: KCS ghi thiếu / cắt lại / dòng xám', () => {
+  const phoiOf = (segments: ReturnType<typeof seg>[]) => detail({ phoi: [{
+    materialId: '1', materialCode: 'HOP', materialName: 'Sắt hộp', issuedBarCount: 5, steelBalance: null,
+    segments, steps: [],
+  }] as unknown as BeStageDetail['phoi'] })
+  const qcFailedText = (d: BeStageDetail) => abnormalities(phoiMaterialsOf(d, null), piecesOf(d, null), null, '45', 'PHOI').filter((a) => a.kind === 'qc-failed').map((a) => a.text)
+
+  it('AC59 unmadeOf: thiếu KCS ghi và phần cắt lại không phải lỗi chưa bù', () => {
+    expect(unmadeOf(5, 7, 4)).toBe(3)
+    expect(unmadeOf(5, 13, 0, 10)).toBe(3)
+    expect(unmadeOf(3, 5, 0, 5)).toBe(0)
+    expect(unmadeOf(2, 3, 9)).toBe(0) // không âm
+    expect(unmadeOf(4, 10)).toBe(4) // mặc định như cũ
+  })
+
+  it('AC59 đoạn: cần 20, đã báo 22 trừ thiếu 4 = 18, lỗi 5 -> còn thiếu 7, lỗi chưa bù 3 (không phải 5)', () => {
+    const d = phoiOf([seg(471, { required: 20, done: 18, failed: 5, shortQty: 4 })])
+    expect(qcFailedText(d)).toEqual(['KCS chấm lỗi 3 đoạn chưa làm bù'])
+    const [m] = shortMaterials(phoiMaterialsOf(d, null))
+    expect(m.segments[0]).toMatchObject({ remaining: 7, failed: 5, shortQty: 4, unmade: 3 })
+  })
+
+  it('AC59 đoạn: phần cắt lại (extraNeed) nằm trong số cần nhưng không tính là lỗi chưa bù', () => {
+    const d = phoiOf([seg(471, { required: 30, done: 22, failed: 5, extraNeed: 10 })])
+    expect(qcFailedText(d)).toEqual(['KCS chấm lỗi 3 đoạn chưa làm bù'])
+    const [m] = shortMaterials(phoiMaterialsOf(d, null))
+    expect(m.segments[0]).toMatchObject({ required: 30, extraNeed: 10, shortQty: 0, remaining: 13 })
+  })
+
+  it('BE cũ chưa trả extraNeed / shortQty -> coi 0, số như cũ', () => {
+    const d = phoiOf([seg(471, { required: 100, done: 100, failed: 5 })])
+    expect(qcFailedText(d)).toEqual(['KCS chấm lỗi 5 đoạn chưa làm bù'])
+    expect(shortMaterials(phoiMaterialsOf(d, null))[0].segments[0]).toMatchObject({ extraNeed: 0, shortQty: 0, unmade: 5 })
+  })
+
+  it('AC59 mảnh: cần 60, đạt 54, lỗi 4, thiếu 4 -> còn thiếu 6, lỗi chưa bù 2', () => {
+    const d = detail({ stage: 'HAN', phoi: null, plans: { '41': plan([{ pieceId: '7', plannedQty: 60, passedQty: 54, awaitingQcQty: 0, failedQty: 4, shortQty: 4 } as never]) } })
+    expect(piecesOf(d, null)[0]).toMatchObject({ remaining: 6, failed: 4, unmade: 2 })
+    expect(qcFailedText(d)).toEqual(['KCS chấm lỗi 2 cái chưa làm bù'])
+  })
+
+  it('AC35: đạt 55, lỗi 1, thiếu 4 -> thiếu 5 cái, lỗi chưa bù 1', () => {
+    const d = detail({ stage: 'HAN', phoi: null, plans: { '41': plan([{ pieceId: '7', plannedQty: 60, passedQty: 55, awaitingQcQty: 0, failedQty: 1, shortQty: 4 } as never]) } })
+    expect(piecesOf(d, null)[0]).toMatchObject({ remaining: 5, unmade: 1 })
+  })
+
+  describe('dòng xám (blockedReason) không đếm', () => {
+    const now = Date.parse('2026-11-18T12:00:00Z')
+    const review = {
+      cutBundles: [
+        { pi: { productionInvoiceId: '45', code: 'PI-45' }, waitingSince: '2026-11-18T05:00:00Z', blockedReason: null },
+        { pi: { productionInvoiceId: '45', code: 'PI-45' }, waitingSince: '2026-11-18T04:00:00Z', blockedReason: 'LENH_DUNG' },
+      ],
+      stepGroups: [{ pi: { productionInvoiceId: '45', code: 'PI-45' }, waitingSince: '2026-11-18T03:00:00Z', blockedReason: 'CHUA_GAN_SKU' }],
+      pieceBatches: [{ pi: { productionInvoiceId: '45', code: 'PI-45' }, waitingSince: '2026-11-18T11:00:00Z' }], // BE cũ: chưa có trường
+    } as unknown as BeFloorReview
+
+    it('openBatchesOf chỉ lấy dòng chấm được', () => {
+      expect(openBatchesOf(review, '45')).toHaveLength(2)
+    })
+    it('"quá 4 giờ" bỏ qua dòng xám: 1 đợt quá hạn, không phải 3', () => {
+      const ab = abnormalities([], [], review, '45', 'PHOI', now)
+      expect(ab).toEqual([{ kind: 'stale', text: '1 đợt chờ KCS chấm quá 4 giờ' }])
     })
   })
 })

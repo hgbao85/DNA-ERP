@@ -2,8 +2,9 @@
 
 /**
  * Khối "PI đang chạy + hàng đợi" của 1 tổ (màn QLSX "Sản lượng xưởng", 2026-10-13, mục 19 plan QR):
- * mỗi tổ chạy 1 PI một lúc theo thứ tự QLSX xếp; QLSX bấm "Chuyển PI tiếp" (không tự chuyển - còn đợt chờ KCS /
- * cắt bù). Tổ báo đủ số cần thì hiện nhắc nhưng KHÔNG chặn gì.
+ * mỗi tổ chạy 1 PI một lúc theo thứ tự QLSX xếp; QLSX bấm "Chuyển lệnh tiếp" (không tự chuyển - còn đợt đang mở /
+ * cắt bù). Tổ báo đủ số cần thì hiện nhắc nhưng KHÔNG chặn gì. P1: KCS tự chấm các đợt công nhân báo, QLSX không còn
+ * "gửi KCS" - ở đây chỉ nhắc "Còn N đợt đang mở".
  */
 
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
@@ -18,6 +19,11 @@ import { missingText, openBatchesOf, phoiMaterialsOf, piecesOf, shortMaterials, 
 import { btn, card, fmtTime, input, Notice, Pill, STAGE_LABEL, STEP_LABEL, StackedProgress } from './qlsxUi'
 import LenhCode, { useLenhCodeLookup } from '../../../components/LenhCode'
 import { QueueWorkshopPicker, type QueueWorkshop } from './queueWorkshop'
+
+/** Câu "Còn N đợt đang mở." (N = đợt đang mở của lệnh, không tính dòng xám); N = 0 thì rỗng. */
+export function openBatchesNote(n: number): string {
+  return n > 0 ? `Còn ${n} đợt đang mở.` : ''
+}
 
 /** Chú thích tổ Sơn: hàng đợi Sơn theo nơi sơn, không theo xưởng làm lệnh. */
 export const SON_QUEUE_NOTE = 'Hàng đợi Sơn theo nơi sơn: lệnh của Phước An sơn ở Phú An.'
@@ -55,10 +61,10 @@ export default function QlsxQueue({ stage, entries, workshop, review, onChanged,
   entries: BeQueueEntry[]
   /** Xưởng đang xem (14/11/2026): mọi nút gửi đúng xưởng này; người không gắn xưởng chọn xưởng ở đầu khối. */
   workshop: QueueWorkshop
-  /** Danh sách "Chờ gửi KCS" của tổ - ngăn chi tiết đếm đợt chờ quá lâu của từng PI. */
+  /** Khối "Đang chờ KCS chấm" của tổ - số đợt đang mở của lệnh + ngăn chi tiết đếm đợt chờ quá lâu của từng PI. */
   review: BeFloorReview | null
   onChanged: () => void
-  /** Cuộn tới danh sách "Chờ gửi KCS" (nút ở ngăn chi tiết). */
+  /** Cuộn tới khối "Đang chờ KCS chấm" (nút ở ngăn chi tiết). */
   onGoToReview: () => void
 }) {
   const { ask, confirmModal } = useConfirm()
@@ -111,9 +117,9 @@ export default function QlsxQueue({ stage, entries, workshop, review, onChanged,
         : `Tổ ${STAGE_LABEL[stage]} chưa chạy lệnh nào.`,
       next ? `${lenhOf(next.piCode)} bắt đầu chạy.` : 'Hàng đợi hết - tổ sẽ không còn lệnh đang chạy.',
     ]
-    if (piOpenCount > 0) lines.push(`Còn ${piOpenCount} đợt chờ gửi KCS - nên gửi trước khi chuyển.`)
+    if (piOpenCount > 0) lines.push(openBatchesNote(piOpenCount))
     ask(
-      { title: 'Chuyển lệnh tiếp', message: lines.join('\n'), confirmLabel: 'Chuyển lệnh tiếp', danger: piOpenCount > 0 },
+      { title: 'Chuyển lệnh tiếp', message: lines.join('\n'), confirmLabel: 'Chuyển lệnh tiếp' },
       // Gửi id lệnh màn đang thấy (null = màn thấy tổ chưa chạy lệnh nào): máy chủ thấy khác thì 409 bắt tải lại màn.
       async () => {
         try { await floorAdmin.advance(stage, workshopId, running?.productionInvoiceId ?? null); setErr(null); onChanged() } catch (e) {
@@ -187,7 +193,7 @@ export default function QlsxQueue({ stage, entries, workshop, review, onChanged,
           <div style={{ marginTop: 10 }}>
             <Notice tone="warn">
               KCS đã đạt đủ nhưng hệ thống chưa tự chuyển lệnh - bấm “Chuyển lệnh tiếp” để đóng Phôi của {lenhOf(running.piCode)}.
-              {piOpenCount > 0 ? ` Còn ${piOpenCount} đợt chờ gửi KCS.` : ''}
+              {piOpenCount > 0 ? ` ${openBatchesNote(piOpenCount)}` : ''}
             </Notice>
           </div>
         )}
@@ -223,8 +229,8 @@ export default function QlsxQueue({ stage, entries, workshop, review, onChanged,
             <Notice tone="ok">
               Tổ đã báo đủ số cần của {lenhOf(running.piCode)}.
               {autoAdvance
-                ? (piOpenCount > 0 ? ` Còn ${piOpenCount} đợt chờ gửi KCS - kiểm và gửi, hệ thống sẽ tự chuyển lệnh khi KCS đạt.` : '')
-                : (piOpenCount > 0 ? ` Còn ${piOpenCount} đợt chờ gửi KCS - kiểm và gửi, rồi bấm “Chuyển lệnh tiếp”.` : ' Bấm “Chuyển lệnh tiếp” khi sẵn sàng.')}
+                ? (piOpenCount > 0 ? ` ${openBatchesNote(piOpenCount)} Hệ thống sẽ tự chuyển lệnh khi KCS chấm đạt.` : '')
+                : (piOpenCount > 0 ? ` ${openBatchesNote(piOpenCount)} Bấm “Chuyển lệnh tiếp” khi sẵn sàng.` : ' Bấm “Chuyển lệnh tiếp” khi sẵn sàng.')}
             </Notice>
           )}
           {running && !running.hasActiveFloor && (
@@ -333,8 +339,8 @@ function AddPi({ stage, workshopId, onAdded }: { stage: FloorStage; workshopId: 
 }
 
 /**
- * Hỏi lại khi "Chuyển PI tiếp" lúc tổ CHƯA đủ số (mục 45.4): nêu đúng thiếu gì (3 mục đầu + "và N mục khác"), số đợt chờ gửi
- * KCS của PI, và nhắc công nhân vẫn báo bù được. Nút được focus sẵn là nút an toàn "Xem còn thiếu gì"; Esc = đóng.
+ * Hỏi lại khi "Chuyển lệnh tiếp" lúc tổ CHƯA đủ số (mục 45.4): nêu đúng thiếu gì (3 mục đầu + "và N mục khác"), số đợt đang
+ * mở của PI, và nhắc công nhân vẫn báo bù được. Nút được focus sẵn là nút an toàn "Xem còn thiếu gì"; Esc = đóng.
  */
 function AdvanceShortDialog({ stage, workshopId, running, next, piOpenCount, onCancel, onShowDetail, onDone, onStale }: {
   stage: FloorStage
@@ -397,7 +403,7 @@ function AdvanceShortDialog({ stage, workshopId, running, next, piOpenCount, onC
               {more > 0 && <li>… và {more} mục khác</li>}
             </ul>
           )}
-          {piOpenCount > 0 && <div style={{ marginTop: 6 }}>Còn <b>{piOpenCount}</b> đợt chờ gửi KCS của lệnh này.</div>}
+          {piOpenCount > 0 && <div style={{ marginTop: 6 }}>Còn <b>{piOpenCount}</b> đợt đang mở của lệnh này.</div>}
           <div style={{ marginTop: 6 }}>
             Sau khi chuyển, {next ? <><b>{lenhOf(next.piCode)}</b> bắt đầu chạy; </> : 'hàng đợi hết; '}công nhân vẫn báo bù được cho {lenhOf(running.piCode)} (mục “Bù lỗi”).
           </div>

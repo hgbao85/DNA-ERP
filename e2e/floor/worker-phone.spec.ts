@@ -184,7 +184,7 @@ test.describe('Báo cắt trên điện thoại', () => {
     await expect(qtyInputs(page).first()).toHaveValue('') // ô nhập được xoá sau khi lưu
 
     await page.getByRole('tab', { name: 'Sản lượng của tôi' }).click()
-    await expect(page.getByText('Chưa gửi KCS').first()).toBeVisible()
+    await expect(page.getByText('Chờ kiểm hàng').first()).toBeVisible()
 
     const rows = await backend.outputs(w, since)
     expect(rows).toHaveLength(1)

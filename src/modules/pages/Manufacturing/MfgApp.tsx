@@ -32,6 +32,7 @@ import KcsHanPage from '../Kcs/KcsHanPage'
 import KcsSonPage from '../Kcs/KcsSonPage'
 import ThemeToggle from '../../../components/ThemeToggle'
 import QlsxFloorPage from '../Floor/QlsxFloorPage'
+import { qlsxTabForUrl, staleTotal, startPolling } from '../Floor/qlsxUi'
 import { floorAdmin } from '../../../services/floor-api'
 import { useFetch } from '../../../hooks/useFetch'
 import { useRealtimeRefetch } from '../../../realtime/hooks'
@@ -138,7 +139,9 @@ export default function MfgApp({ onBack }: MfgAppProps) {
   // module 'production' + page 'lenh-sx', xem notification-types.ts bên BE) - cùng cơ chế
   // ProductionPlanApp đã làm (mục 6.2/12 changelog notification 2026-09-25).
   const [urlTab, setUrlTab] = useUrlState('p')
-  const [tab, setTabState] = useState<TabId>(() => (isTabId(urlTab) ? urlTab : initialTab))
+  // MF1: tin KCS_BATCH_STALE trỏ ?p=kcs-<tổ> (màn của KCS); QLSX không có màn đó nên mở "Sản lượng xưởng" thay vào.
+  const wantedUrlTab = qlsxTabForUrl(urlTab, isProdMgr)
+  const [tab, setTabState] = useState<TabId>(() => (isTabId(wantedUrlTab) ? wantedUrlTab : initialTab))
   // Màn hình hẹp (< 900px): sidebar ẩn thành drawer mở qua nút ☰ - cùng idiom SalesApp/PurchasingApp/ProductionPlanApp.
   const isCompact = useIsCompact()
   const isMobile = useIsMobile()
@@ -150,7 +153,8 @@ export default function MfgApp({ onBack }: MfgAppProps) {
   // Điều hướng TỪ BÊN NGOÀI (NotificationCenter gọi router.push('/?m=production&p=...') từ sâu
   // trong cây) - đổi tab theo urlTab khi nó đổi và khác tab hiện tại.
   useEffect(() => {
-    if (isTabId(urlTab) && urlTab !== tab) setTabState(urlTab)
+    if (isTabId(wantedUrlTab) && wantedUrlTab !== tab) setTabState(wantedUrlTab)
+    if (wantedUrlTab !== urlTab) setUrlTab(wantedUrlTab) // sửa luôn ?p= trên thanh địa chỉ cho khớp màn đang mở (MF1)
   }, [urlTab])
   // Một state duy nhất cho tất cả SPEC role sub-tabs — mặc định = mục đầu tiên của role
   const [setupSubTab, setSetupSubTab] = useState<SetupSubTab>(
@@ -201,11 +205,14 @@ export default function MfgApp({ onBack }: MfgAppProps) {
   const { counts: workQueue, refresh: refreshWorkQueue } = useWorkQueue()
   // Đổi màn thì tải lại số đỏ ngay, khỏi chờ realtime/lượt poll 30-120 s (test tay 09/11 điểm 15).
   useEffect(() => { void refreshWorkQueue() }, [tab, refreshWorkQueue])
-  // Chấm số "Sản lượng xưởng" = số đợt công nhân đã báo mà QLSX chưa gửi KCS (QR tại máy, 2026-10-13).
+  // Số đỏ "Sản lượng xưởng" = Σ số đợt chờ KCS chấm QUÁ 4 giờ của 3 tổ (summary.stale, P1 18/11/2026; BE cũ chưa trả thì 0).
   const floorSummary = useFetch(() => (isProdMgr ? floorAdmin.summary() : Promise.resolve(null)), [isProdMgr])
   const { refetch: refetchFloorSummary } = floorSummary
-  useRealtimeRefetch(isProdMgr ? ['floor', 'production-batches', 'steel-issues'] : [], () => { void refetchFloorSummary() })
-  const floorOpen = floorSummary.data ? floorSummary.data.PHOI.open + floorSummary.data.HAN.open + floorSummary.data.SON.open : 0
+  // 'qc-reviews': KCS chấm xong thì số đỏ giảm ngay. Thêm hỏi lại mỗi 5 phút (bỏ qua khi tab trình duyệt ẩn) để số tự tăng
+  // khi một đợt vừa qua mốc 4 giờ mà không có sự kiện nào.
+  useRealtimeRefetch(isProdMgr ? ['floor', 'production-batches', 'steel-issues', 'qc-reviews'] : [], () => { void refetchFloorSummary() })
+  useEffect(() => (isProdMgr ? startPolling(() => { void refetchFloorSummary() }) : undefined), [isProdMgr, refetchFloorSummary])
+  const floorOpen = staleTotal(floorSummary.data)
   const badgeByTab: Partial<Record<TabId, number>> = {
     'lenh-sx': workQueue.qlsxProductionQueue,
     'ke-hoach': isProdMgr ? workQueue.qlsxAwaitingFinish : undefined,
