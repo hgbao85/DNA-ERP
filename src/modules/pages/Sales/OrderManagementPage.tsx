@@ -24,6 +24,7 @@ import { btnSecondary } from '../../../styles/buttons'
 import { pageTitle, pageSubtitle, sectionLabel } from '../../../styles/typography'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
 import { useRealtimeRefetch } from '../../../realtime/hooks'
+import { todayVn } from '../../../utils/bookingDates'
 
 /** Nhãn ô SKU: mã nhà máy trùng tên thì chỉ hiện 1 lần (test tay 09/11 điểm 11). */
 const skuLabel = (code: string, name: string) => (!code ? '' : !name || name === code ? code : `${code} — ${name}`)
@@ -49,7 +50,8 @@ type FormState = {
   items: ItemDraft[]
 }
 const emptyForm = (): FormState => ({
-  orderCode: '', customerId: '', orderDate: new Date().toISOString().slice(0, 10), note: '',
+  // FE5 19/11: ngày theo giờ VN - toISOString() là UTC, tạo đơn 00:00–06:59 sáng ra ngày hôm trước.
+  orderCode: '', customerId: '', orderDate: todayVn(), note: '',
   attachmentName: '', attachmentFile: null,
   items: [{ ...EMPTY_ITEM }],
 })
