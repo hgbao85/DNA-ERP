@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { BookOpen } from 'lucide-react';
 import { useUrlState } from '../hooks/useUrlState';
@@ -16,6 +16,7 @@ import ProductionPlanApp from '../modules/pages/ProductionPlan/ProductionPlanApp
 import BossApp from '../modules/pages/Boss/BossApp';
 import AdminApp from '../modules/pages/Admin/AdminApp';
 import { resolveDefaultModule, isDirector as checkIsDirector } from '../utils/resolveDefaultModule';
+import { moduleToAdoptFromUrl } from '../utils/urlModuleSync';
 import { useAuth } from '../context/AuthContext';
 
 function LoadingScreen() {
@@ -105,11 +106,20 @@ function MainERP() {
   // có setActiveModule trực tiếp) - đổi activeModule theo urlModule khi nó đổi và khác giá trị hiện
   // tại. Chỉ tin urlModule khi director (chọn module tự do) hoặc đúng module mà user không-director
   // đằng nào cũng chỉ có 1 cái - không cho URL tự set 1 module ngoài quyền của user.
+  // 19/11/2026: chỉ xét khi CHÍNH `m` vừa đổi (ref lần xét trước) - xem moduleToAdoptFromUrl: trước đây
+  // bấm nút về trang chọn phân hệ bị kéo lại phân hệ cũ vì URL chưa kịp bỏ `m`.
+  const lastUrlModule = useRef(urlModule);
   useEffect(() => {
-    if (!user || !urlModule || urlModule === activeModule) return;
-    if (isDirector || urlModule === resolveDefaultModule(user)) {
-      setActiveModuleState(urlModule);
-    }
+    if (!user) return;
+    const next = moduleToAdoptFromUrl({
+      prevUrlModule: lastUrlModule.current,
+      urlModule,
+      activeModule,
+      isDirector,
+      defaultModule: resolveDefaultModule(user),
+    });
+    lastUrlModule.current = urlModule;
+    if (next !== undefined) setActiveModuleState(next);
   }, [urlModule, user, isDirector, activeModule]);
 
   let content: React.ReactNode;
@@ -123,7 +133,7 @@ function MainERP() {
       />
     );
   } else if (activeModule === 'boss') {
-    content = <BossApp />;
+    content = <BossApp onBack={isDirector ? () => setActiveModule(null) : undefined} />;
   } else if (activeModule === 'admin') {
     content = <AdminApp />;
   } else if (activeModule === 'sales') {
