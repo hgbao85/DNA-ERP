@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ApiError, fallbackErrorMessage, isInvalidCredentials } from './apiError';
+import { ApiError, fallbackErrorMessage, isInvalidCredentials, isTransientApiError } from './apiError';
 
 describe('fallbackErrorMessage (phản hồi không có câu lỗi của BE)', () => {
   it('mất mạng / 5xx / mã lạ đều ra câu tiếng Việt, không lộ câu axios', () => {
@@ -28,5 +28,15 @@ describe('isInvalidCredentials', () => {
       isInvalidCredentials(new ApiError('Sai PIN - còn 2 lần thử trước khi bị khoá tạm 15 phút', 401, 'x')),
     ).toBe(false);
     expect(isInvalidCredentials(new Error('Invalid credentials'))).toBe(false);
+  });
+});
+
+describe('isTransientApiError (FE3 19/11 - lỗi tạm, không đăng xuất)', () => {
+  it('mất mạng / hết giờ chờ / 5xx / 429 là lỗi tạm', () => {
+    for (const s of [0, 429, 500, 502, 503]) expect(isTransientApiError(new ApiError('x', s, 'E'))).toBe(true);
+  });
+  it('401 / 403 / 400 và lỗi không phải ApiError thì không', () => {
+    for (const s of [400, 401, 403, 409]) expect(isTransientApiError(new ApiError('x', s, 'E'))).toBe(false);
+    expect(isTransientApiError(new Error('x'))).toBe(false);
   });
 });

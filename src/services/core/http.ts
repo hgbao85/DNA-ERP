@@ -10,7 +10,7 @@
  *   SESSION_EXPIRED_EVENT để AuthContext tự logout và điều hướng về /login.
  */
 import axios, { type AxiosError, type AxiosRequestConfig, type InternalAxiosRequestConfig } from 'axios';
-import { ApiError, fallbackErrorMessage } from './apiError';
+import { ApiError, fallbackErrorMessage, isTransientApiError } from './apiError';
 import { tokenStorage } from './tokenStorage';
 import { newUuid } from './uuid';
 
@@ -136,13 +136,26 @@ client.interceptors.response.use(undefined, async (err: AxiosError<BeEnvelope>) 
   const canRetryAfterRefresh = status === 401 && !!original && !original._retry && !NO_RETRY_PATHS.has(path);
 
   if (canRetryAfterRefresh && original) {
+    let refreshed = false;
     try {
       await refreshAccessToken();
-      original._retry = true;
-      return client.request(original);
-    } catch {
+      refreshed = true;
+    } catch (refreshErr) {
+      // FE3 19/11: chỉ đăng xuất khi BE thật sự từ chối refresh token. Mất mạng / hết giờ chờ / 5xx / 429 (BE đang khởi động
+      // lại, Wi-Fi xưởng yếu) -> giữ phiên, báo lỗi tạm thời; lần gọi sau tự thử làm mới lại.
+      if (isTransientApiError(refreshErr)) {
+        throw new ApiError(
+          'Không liên lạc được máy chủ để gia hạn phiên đăng nhập - kiểm tra mạng rồi thử lại sau giây lát',
+          (refreshErr as ApiError).statusCode,
+          'SessionRefreshUnavailable',
+        );
+      }
       notifySessionExpired();
       throw toApiError(err);
+    }
+    if (refreshed) {
+      original._retry = true;
+      return client.request(original);
     }
   }
 

@@ -6,7 +6,7 @@ import * as api from '../../../services/api'
 import { uploadDocument } from '../../../services/api'
 import { format } from 'date-fns'
 import { Plus, Trash2, X, Check, ChevronLeft, Paperclip, ClipboardList } from 'lucide-react'
-import type { SalesOrder, SalesOrderStatus, SalesCustomer } from '../../../types/sales'
+import type { SalesOrder, SalesOrderItem, SalesOrderStatus, SalesCustomer } from '../../../types/sales'
 import { SALES_ORDER_STATUS_LABEL, SALES_PRODUCTION_STAGES } from '../../../types/sales'
 import type { Sku, SkuMaterialOption } from '../../../types/sku'
 import type { SkuOrderOptions } from '../../../services/sku-api'
@@ -264,6 +264,7 @@ export default function OrderManagementPage() {
         po={detailPO}
         onBack={() => setDetailPO(null)}
         onDeleted={async () => { setDetailPO(null); await refetch() }}
+        onUpdated={(fresh) => { setDetailPO(fresh); void refetch() }}
       />
     )
   }
@@ -572,8 +573,10 @@ export default function OrderManagementPage() {
 // ── Trang chi tiết: Chi tiết sản xuất + Chi tiết xuất hàng (2 tab riêng) ─────
 type DetailTab = 'production' | 'shipping'
 
-function PODetailView({ po, onBack, onDeleted }: { po: SalesOrder; onBack: () => void; onDeleted: () => void | Promise<void> }) {
+function PODetailView({ po, onBack, onDeleted, onUpdated }: { po: SalesOrder; onBack: () => void; onDeleted: () => void | Promise<void>; onUpdated: (fresh: SalesOrder) => void }) {
   const [tab, setTab] = useState<DetailTab>('production')
+  // LS2 19/11: dòng chưa duyệt sản xuất đổi / bỏ chọn được màu dây, vải nệm (định mức đổi tick sau khi lên đơn).
+  const [choiceItem, setChoiceItem] = useState<SalesOrderItem | null>(null)
   const { ask, confirmModal } = useConfirm()
   const isMobile = useIsMobile()
 
@@ -670,6 +673,11 @@ function PODetailView({ po, onBack, onDeleted }: { po: SalesOrder; onBack: () =>
                   <MaterialChoiceTags wire={item.wireMaterial} cushion={item.cushionMaterial} />
                   <span style={{ color: 'var(--text2)' }}>SL {item.totalQty.toLocaleString()}</span>
                   <StatusBadge status={item.status} />
+                  {item.status === 'LEN_KE_HOACH' && item.mfgProductId && (
+                    <button onClick={() => setChoiceItem(item)} style={{ ...btnSecondary, padding: '3px 10px', fontSize: 11 }}>
+                      Đổi màu dây / vải nệm
+                    </button>
+                  )}
                 </div>
                 <ProductionStepper status={item.status} vertical={isMobile} />
               </div>
@@ -707,8 +715,111 @@ function PODetailView({ po, onBack, onDeleted }: { po: SalesOrder; onBack: () =>
         </div>
       )}
 
+      {choiceItem && (
+        <ItemChoiceModal
+          orderId={po.id}
+          item={choiceItem}
+          onClose={() => setChoiceItem(null)}
+          onSaved={(fresh) => { setChoiceItem(null); onUpdated(fresh) }}
+        />
+      )}
       {confirmModal}
     </div>
+  )
+}
+
+/** LS2 19/11: đổi màu dây / vải nệm của 1 dòng đơn theo bản định mức đang dùng. Loại nào bản định mức không còn
+ *  tick mà dòng vẫn đang chọn thì tự bỏ chọn khi lưu - trước đây không xoá được nên Sếp duyệt bị chặn mãi. */
+function ItemChoiceModal({ orderId, item, onClose, onSaved }: {
+  orderId: string
+  item: SalesOrderItem
+  onClose: () => void
+  onSaved: (fresh: SalesOrder) => void
+}) {
+  const isMobile = useIsMobile()
+  const [options, setOptions] = useState<SkuOrderOptions | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [wire, setWire] = useState(item.wireMaterial?.materialId ?? '')
+  const [cushion, setCushion] = useState(item.cushionMaterial?.materialId ?? '')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!item.mfgProductId) return
+    api.getSkuOrderOptions(item.mfgProductId)
+      .then((o) => {
+        setOptions(o)
+        // Lựa chọn cũ không còn trong bản định mức thì để trống cho Sales chọn lại; chỉ có 1 lựa chọn thì chọn sẵn.
+        const fit = (cur: string, list: SkuMaterialOption[]) =>
+          list.some((x) => x.materialId === cur) ? cur : list.length === 1 ? list[0].materialId : ''
+        setWire((cur) => fit(cur, o.wireOptions))
+        setCushion((cur) => fit(cur, o.cushionOptions))
+      })
+      .catch((e) => setLoadError(e instanceof Error ? e.message : 'Không tải được lựa chọn của sản phẩm'))
+  }, [item.mfgProductId])
+
+  const missing = !!options && ((options.wireOptions.length > 0 && !wire) || (options.cushionOptions.length > 0 && !cushion))
+  const dropped = options
+    ? [
+        options.wireOptions.length === 0 && item.wireMaterial && 'màu dây',
+        options.cushionOptions.length === 0 && item.cushionMaterial && 'màu vải nệm',
+      ].filter((x): x is string => !!x)
+    : []
+  const noChoiceAtAll = !!options && options.wireOptions.length === 0 && options.cushionOptions.length === 0
+
+  const save = async () => {
+    if (!options || missing) return
+    setSaving(true)
+    setError(null)
+    try {
+      const fresh = await api.updateSalesOrderItemChoice(orderId, item.id, {
+        wireMaterialId: options.wireOptions.length === 0 ? null : wire,
+        cushionMaterialId: options.cushionOptions.length === 0 ? null : cushion,
+      })
+      onSaved(fresh)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Không lưu được')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Modal open onClose={onClose} maxWidth={560}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)' }}>
+        <div style={{ fontWeight: 700, fontSize: 16 }}>Đổi màu dây / vải nệm — {item.skuCode}</div>
+        <button onClick={onClose} style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}><X size={18} /></button>
+      </div>
+      {loadError && <div style={{ color: 'var(--fg-e24b4a)', fontSize: 12, marginBottom: 10 }}>{loadError}</div>}
+      {!options && !loadError && <div style={{ fontSize: 12, color: 'var(--text3)' }}>Đang tải lựa chọn...</div>}
+      {options && (
+        <div style={{ display: 'grid', gap: 10 }}>
+          {noChoiceAtAll && (
+            <div style={{ fontSize: 12, color: 'var(--text2)' }}>Định mức hiện tại của sản phẩm không có lựa chọn màu dây / vải nệm.</div>
+          )}
+          {dropped.length > 0 && (
+            <div style={{ fontSize: 12, color: 'var(--fg-a32d2d)' }}>
+              Định mức hiện tại không còn lựa chọn {dropped.join(' và ')} - khi lưu sẽ bỏ chọn {dropped.join(' và ')} của dòng này.
+            </div>
+          )}
+          <ItemOptionPickers
+            options={options}
+            wireMaterialId={wire}
+            cushionMaterialId={cushion}
+            onChange={(p) => { if (p.wireMaterialId !== undefined) setWire(p.wireMaterialId); if (p.cushionMaterialId !== undefined) setCushion(p.cushionMaterialId) }}
+            isMobile={isMobile}
+          />
+        </div>
+      )}
+      {error && <div style={{ color: 'var(--fg-e24b4a)', fontSize: 12, marginTop: 10 }}>{error}</div>}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 'var(--space-5)' }}>
+        <button onClick={onClose} style={btnSecondary}>Hủy</button>
+        <button className="primary" onClick={save} disabled={saving || !options || missing}
+          style={saving || !options || missing ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}>
+          {saving ? 'Đang lưu...' : 'Lưu'}
+        </button>
+      </div>
+    </Modal>
   )
 }
 
