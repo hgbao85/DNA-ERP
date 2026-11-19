@@ -81,7 +81,7 @@
     <div class="stat"><div class="n" style="color:var(--mid)">16</div><div class="l">Trung bình (3 cần nghiệp vụ, 1 chỉ qua API thẳng)</div></div>
     <div class="stat"><div class="n" style="color:var(--low)">13</div><div class="l">Thấp</div></div>
     <div class="stat"><div class="n">1</div><div class="l">lỗi mới do bản sửa 18/11 (FE1)</div></div>
-    <div class="stat"><div class="n" style="color:var(--done)">26</div><div class="l">đã sửa (18/11: PH1, LS1, FE1 · 19/11: MUA1, HS1, HS3, CS3, MUA2, FE2, LS2, BM1, BM2, BM3, FE3, HS2, CS4, CS5, PH3, LS3, LS4, MUA3, MUA4, MUA5, KH2, FE4, FE5)</div></div>
+    <div class="stat"><div class="n" style="color:var(--done)">27</div><div class="l">đã sửa (18/11: PH1, LS1, FE1 · 19/11: MUA1, HS1, HS3, CS3, MUA2, FE2, LS2, BM1, BM2, BM3, FE3, HS2, CS4, CS5, PH3, LS3, LS4, MUA3, MUA4, MUA5, KH2, FE4, FE5, CS1)</div></div>
   </div>
 
   <h2>Cao</h2>
@@ -197,7 +197,8 @@
     <p class="fix"><b>Hướng sửa:</b> chỉ xoá token khi BE thật sự trả 401/403; lỗi mạng / 5xx / 429 giữ phiên, báo lỗi tạm thời.</p>
   </div>
 
-  <div class="item mid"><h3><span class="id">CS1</span>Gọi thẳng "Tính lại" lệnh gộp chưa duyệt → giữ chỗ + dòng mua mồ côi <span class="tag mid">Trung bình</span><span class="tag low">Chỉ API thẳng</span></h3>
+  <div class="item done"><h3><span class="id">CS1</span>Gọi thẳng "Tính lại" lệnh gộp chưa duyệt → giữ chỗ + dòng mua mồ côi <span class="tag mid">Trung bình</span><span class="tag low">Chỉ API thẳng</span><span class="tag done">Đã sửa 19/11</span></h3>
+    <p class="fix"><b>Đã sửa 19/11:</b> BE: tính (lại) phương án cắt cho lệnh gộp và duyệt phương án neo cả lệnh (không ghim SKU) chỉ khi mọi dòng của lệnh đã có lệnh sản xuất (Sếp đã duyệt) - cùng cổng với phương án tính trước; lệnh bị từ chối / xoá thì gỡ cả phương án neo lệnh không ghim SKU. Thử sống: lệnh gộp chưa duyệt gọi thẳng POST /production-invoices/:id/cutting-proposals → 409 "0/1 SKU đã có lệnh", không sinh phương án; chèn phương án neo lệnh không ghim SKU rồi QLSX từ chối cả lệnh → phương án SUPERSEDED, bỏ liên kết, lệnh xoá sạch. Đường lệnh đã duyệt vẫn tính được (test tự động).</p>
     <p><code>POST /production-invoices/:id/cutting-proposals</code> chỉ kiểm <code>isMerged</code>: phương án neo PI không có items nên bỏ qua cổng "đã có lệnh", tự duyệt, giữ chỗ sắt + dòng mua NEW cho lệnh Sếp chưa duyệt. Sếp từ chối cả cụm → <code>releaseForInvoice</code> không đụng phương án này → PI bị xoá (FK SET NULL) → giữ chỗ ACTIVE với <code>productionInvoiceId = null</code> trừ tồn mãi, dòng mua mất PI vẫn hiện cho người mua. Không có UI gọi.</p>
     <p class="where">BE <code>cutting-proposals.controller.ts:69-80</code>; <code>cutting-proposals.service.ts:535-600, 1259-1275, 2469-2482, 3338-3345</code>. Agent chắc về đường code.</p>
     <p class="fix"><b>Hướng sửa:</b> đòi mọi dòng PI đã có lệnh (cùng cổng poCount) ở <code>requestForInvoice</code> và <code>approve()</code>; <code>releaseForInvoice</code> gỡ cả phương án không items.</p>
