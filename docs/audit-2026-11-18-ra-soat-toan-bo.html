@@ -81,7 +81,7 @@
     <div class="stat"><div class="n" style="color:var(--mid)">16</div><div class="l">Trung bình (3 cần nghiệp vụ, 1 chỉ qua API thẳng)</div></div>
     <div class="stat"><div class="n" style="color:var(--low)">13</div><div class="l">Thấp</div></div>
     <div class="stat"><div class="n">1</div><div class="l">lỗi mới do bản sửa 18/11 (FE1)</div></div>
-    <div class="stat"><div class="n" style="color:var(--done)">15</div><div class="l">đã sửa (18/11: PH1, LS1, FE1 · 19/11: MUA1, HS1, HS3, CS3, MUA2, FE2, LS2, BM1, BM2, BM3, FE3, HS2)</div></div>
+    <div class="stat"><div class="n" style="color:var(--done)">26</div><div class="l">đã sửa (18/11: PH1, LS1, FE1 · 19/11: MUA1, HS1, HS3, CS3, MUA2, FE2, LS2, BM1, BM2, BM3, FE3, HS2, CS4, CS5, PH3, LS3, LS4, MUA3, MUA4, MUA5, KH2, FE4, FE5)</div></div>
   </div>
 
   <h2>Cao</h2>
@@ -211,40 +211,48 @@
     <p class="where">BE <code>material-yield-issues.service.ts:262-266</code>; <code>material-yield-recipe-issues.service.ts:176-180</code>. Đã kiểm.</p>
   </div>
 
-  <div class="item"><h3><span class="id">CS4</span>Mục cũ C3 sót: thẻ "Nghi treo" sau khi BE khởi động lại không xoá được <span class="tag low">Thấp</span></h3>
+  <div class="item done"><h3><span class="id">CS4</span>Mục cũ C3 sót: thẻ "Nghi treo" sau khi BE khởi động lại không xoá được <span class="tag low">Thấp</span><span class="tag done">Đã sửa 19/11</span></h3>
+    <p class="fix"><b>Đã sửa 19/11:</b> BE: lượt CALCULATING quá hạn ("Nghi treo") xoá được như DRAFT/FAILED (ghi có điều kiện theo trạng thái đã đọc); tạo lệnh xong thì dọn cả lượt CALCULATING khác cùng SKU (kết quả bộ giải về sau tự bị bỏ). Thử sống: chèn lượt CALCULATING 1 giờ trước cho SKU 112 → màn hiện "Nghi treo", Xoá → 204; lượt vừa tính 5 giây vẫn 409 "đang tính"; tính thật + tạo lệnh → lượt CALCULATING kia thành SUPERSEDED.</p>
     <p><code>discardBatchSolve</code> từ chối mọi CALCULATING kể cả đã quá hạn; <code>attachToInvoice</code> chỉ supersede DRAFT/FAILED. SKU đã gom từ lượt khác → Xoá 409, Tính lại 409, thẻ ma nằm mãi và chiếm chỗ trong <code>take: 30</code>.</p>
     <p class="where">BE <code>cutting-proposals.service.ts:882-884, 1182-1193</code>; FE <code>ProductionPlan/CuttingSolvePanel.tsx:589-607</code>. Đã kiểm.</p>
   </div>
 
-  <div class="item"><h3><span class="id">CS5</span>2 lượt tạo lệnh chung SKU cùng lúc → PI rỗng / mất SKU <span class="tag low">Thấp</span></h3>
+  <div class="item done"><h3><span class="id">CS5</span>2 lượt tạo lệnh chung SKU cùng lúc → PI rỗng / mất SKU <span class="tag low">Thấp</span><span class="tag done">Đã sửa 19/11</span></h3>
+    <p class="fix"><b>Đã sửa 19/11:</b> BE claimSolo / mergeItems ghi dòng có điều kiện (claimSolo: vẫn chưa gom; gộp: đúng PI + trạng thái duyệt đã đọc) + so count → 409 thay vì kéo SKU khỏi lệnh kia. Thử sống: phiên SQL khác khoá dòng SKU 112 và gom vào lệnh khác, bấm tạo lệnh rồi mới commit → 409, số PI không đổi (8→8), SKU vẫn thuộc lệnh kia; bỏ khoá → tạo lệnh được.</p>
     <p><code>claimSolo</code> kiểm <code>productionInvoiceId === null</code> ngoài transaction, update không điều kiện; <code>mergeItems</code> updateMany không điều kiện.</p>
     <p class="where">BE <code>production-invoices.service.ts:916-979, 1013-1060</code>. Đã kiểm.</p>
   </div>
 
-  <div class="item"><h3><span class="id">PH3</span>Bỏ PI khỏi hàng đợi xoá vô điều kiện, ngoài khoá hàng đợi <span class="tag low">Thấp</span></h3>
+  <div class="item done"><h3><span class="id">PH3</span>Bỏ PI khỏi hàng đợi xoá vô điều kiện, ngoài khoá hàng đợi <span class="tag low">Thấp</span><span class="tag done">Đã sửa 19/11</span></h3>
+    <p class="fix"><b>Đã sửa 19/11:</b> BE bỏ khỏi hàng đợi: lấy khoá hàng đợi (tổ, xưởng) rồi xoá có điều kiện QUEUED + so count. Thử sống: phiên SQL khác khoá dòng và chuyển RUNNING, bấm bỏ rồi commit → 409, dòng RUNNING còn nguyên; dòng đang chờ bỏ được.</p>
     <p>Kiểm QUEUED ngoài transaction rồi <code>delete</code> không điều kiện, không lấy <code>queueLockKey</code> → có thể xoá dòng vừa thành RUNNING/DONE.</p>
     <p class="where">BE <code>floor/floor-admin.service.ts:1158-1170</code>. Đã kiểm.</p>
   </div>
 
-  <div class="item"><h3><span class="id">LS3</span>Route thô sửa PI / thêm dòng PI không kiểm vai trò, trạng thái <span class="tag low">Thấp</span><span class="tag low">Chỉ API thẳng</span></h3>
+  <div class="item done"><h3><span class="id">LS3</span>Route thô sửa PI / thêm dòng PI không kiểm vai trò, trạng thái <span class="tag low">Thấp</span><span class="tag low">Chỉ API thẳng</span><span class="tag done">Đã sửa 19/11</span></h3>
+    <p class="fix"><b>Đã sửa 19/11:</b> Gỡ hẳn PATCH /production-invoices/:id và POST /production-invoices/:id/items (cùng 2 DTO, hàm FE không dùng updateProductionInvoice). Thử sống: cả 2 → 404.</p>
     <p><code>PATCH /production-invoices/:id</code> (thủ kho có UPDATE đổi hạn PI đã duyệt, lách luật Đợt 9) và <code>POST /production-invoices/:id/items</code> (thêm dòng vào PI đã duyệt / gộp). FE không dùng cả 2.</p>
     <p class="where">BE <code>production-invoices.controller.ts:100-104, 118-122</code>; service 559-581, 1070-1101.</p>
   </div>
 
-  <div class="item"><h3><span class="id">LS4</span>Sửa thời hạn phân loại "đã duyệt / chưa duyệt" từ dữ liệu đọc ngoài transaction <span class="tag low">Thấp</span></h3>
+  <div class="item done"><h3><span class="id">LS4</span>Sửa thời hạn phân loại "đã duyệt / chưa duyệt" từ dữ liệu đọc ngoài transaction <span class="tag low">Thấp</span><span class="tag done">Đã sửa 19/11</span></h3>
+    <p class="fix"><b>Đã sửa 19/11:</b> BE sửa thời hạn: trong transaction khoá dòng (FOR UPDATE) và kiểm lại dòng ghi thẳng vẫn chưa duyệt (có hạn chung PI thì khoá mọi dòng lệnh) - cả updateItem lẫn updateItemsDeadlines; Sếp duyệt chen giữa → 409. Thử sống: phiên SQL khác đổi dòng thành APPROVED, KHSX lưu rồi mới commit → 409, mốc không đổi; dòng chưa duyệt lưu bình thường.</p>
     <p>Lưu đúng lúc Sếp duyệt SKU → dòng xếp nhánh "chưa duyệt", ghi thẳng mốc mới lên dòng vừa APPROVED, không qua yêu cầu chờ Sếp. (L7 đã đưa kiểm khoá vào transaction nhưng phân loại vẫn từ <code>befores</code>.)</p>
     <p class="where">BE <code>production-invoices.service.ts:1164-1174, 1196-1212</code>. Khá chắc.</p>
   </div>
 
-  <div class="item"><h3><span class="id">MUA3</span>"Sếp đã duyệt" theo đơn khoá đề xuất không theo thứ tự id → có thể deadlock <span class="tag low">Thấp</span></h3>
+  <div class="item done"><h3><span class="id">MUA3</span>"Sếp đã duyệt" theo đơn khoá đề xuất không theo thứ tự id → có thể deadlock <span class="tag low">Thấp</span><span class="tag done">Đã sửa 19/11</span></h3>
+    <p class="fix"><b>Đã sửa 19/11:</b> "Sếp đã duyệt" theo đơn sắp các đề xuất theo id trước khi khoá. Kiểm bằng test tự động (thứ tự gọi 300 rồi 301); thử sống: duyệt đơn bình thường vẫn được.</p>
     <p class="where">BE <code>supplier-orders.service.ts:308-330</code> (các hàm khác đều sắp xếp). Bấm lại là được.</p>
   </div>
 
-  <div class="item"><h3><span class="id">MUA4</span>Gỡ dòng khỏi đơn chen "Sếp đã duyệt" → dòng thành "Đang mua" không thuộc đơn nào <span class="tag low">Thấp</span></h3>
+  <div class="item done"><h3><span class="id">MUA4</span>Gỡ dòng khỏi đơn chen "Sếp đã duyệt" → dòng thành "Đang mua" không thuộc đơn nào <span class="tag low">Thấp</span><span class="tag done">Đã sửa 19/11</span></h3>
+    <p class="fix"><b>Đã sửa 19/11:</b> BE applyBossApproveTx khi duyệt theo đơn thêm điều kiện dòng VẪN thuộc đơn. Thử sống: phiên SQL khác gỡ dòng 392 khỏi đơn 29, bấm duyệt rồi commit → 409, dòng vẫn NEW (không thành "Đang mua" mồ côi), đơn vẫn nháp; gắn lại → duyệt được.</p>
     <p class="where">BE <code>purchase-proposals.service.ts:544-555</code> (thiếu <code>supplierOrderId</code> trong điều kiện). Khá chắc.</p>
   </div>
 
-  <div class="item"><h3><span class="id">MUA5</span>Mục cũ MH6 sót: tính lại "đủ tồn" gỡ dòng cuối để lại đơn nháp rỗng <span class="tag low">Thấp</span></h3>
+  <div class="item done"><h3><span class="id">MUA5</span>Mục cũ MH6 sót: tính lại "đủ tồn" gỡ dòng cuối để lại đơn nháp rỗng <span class="tag low">Thấp</span><span class="tag done">Đã sửa 19/11</span></h3>
+    <p class="fix"><b>Đã sửa 19/11:</b> Hàm chung <code>cancelEmptiedDraftOrders</code> (khoá đơn FOR UPDATE, đơn nháp không còn dòng → huỷ) gọi sau khi tính lại "đủ tồn" ở cả 4 luồng (tiêu hao, vật tư TP theo định mức cắt, theo công thức, sắt). Thử sống: chạy hàm trên DB bản sao - đơn nháp rỗng bị huỷ, đơn còn dòng giữ nháp. Bản sao không có đề xuất mua ngoài sắt nào nên chưa chạy được cả luồng tính lại; phần nối vào 4 luồng chỉ kiểm bằng kiểm kiểu + test.</p>
     <p class="where">BE <code>consumable-material-purchase.service.ts:428-435</code>, <code>piece-material-yield-purchase.service.ts:347-354</code>, <code>material-yield-recipe-purchase.service.ts:256-263</code>, <code>cutting-proposals.service.ts:~2877-2881</code>.</p>
   </div>
 
@@ -254,16 +262,19 @@
     <p class="where">BE <code>users/users.service.ts:126-163</code>. Đã kiểm.</p>
   </div>
 
-  <div class="item"><h3><span class="id">KH2</span>Số phiếu XK xuất booking đã giữ không gắn người giữ <span class="tag low">Thấp</span></h3>
+  <div class="item done"><h3><span class="id">KH2</span>Số phiếu XK xuất booking đã giữ không gắn người giữ <span class="tag low">Thấp</span><span class="tag done">Đã sửa 19/11</span></h3>
+    <p class="fix"><b>Đã sửa 19/11:</b> BE xuất booking chỉ nhận số phiếu XK do chính người xuất đã in (như NK L2), báo rõ "do người khác in". Thử sống: khotp in số, Admin cùng kho dùng → 400, số vẫn chưa dùng; khotp tự dùng → xuất được.</p>
     <p>Thủ kho khác dùng được số người kia đã in; bên nhận hàng NK đã sửa đúng việc này (L2 14/11).</p>
     <p class="where">BE <code>bookings/booking-shipments.service.ts:188-191</code>. Đã kiểm.</p>
   </div>
 
-  <div class="item"><h3><span class="id">FE4</span>Danh sách đề xuất mua bị bản tải cũ đè bản mới <span class="tag low">Thấp</span></h3>
+  <div class="item done"><h3><span class="id">FE4</span>Danh sách đề xuất mua bị bản tải cũ đè bản mới <span class="tag low">Thấp</span><span class="tag done">Đã sửa 19/11</span></h3>
+    <p class="fix"><b>Đã sửa 19/11:</b> FE InspectionContext chỉ nhận kết quả của lượt tải đề xuất mới nhất (đếm lượt bằng useRef). Thử sống: trang Mua hàng tải danh sách bình thường, không lỗi console; ca 2 lượt tải về lệch thứ tự chưa dựng được trên trình duyệt.</p>
     <p class="where">FE <code>context/InspectionContext.tsx</code> (<code>loadProposals</code> không chống kết quả cũ). Khá chắc.</p>
   </div>
 
-  <div class="item"><h3><span class="id">FE5</span>Ngày đơn bán mặc định lấy theo giờ UTC <span class="tag low">Thấp</span></h3>
+  <div class="item done"><h3><span class="id">FE5</span>Ngày đơn bán mặc định lấy theo giờ UTC <span class="tag low">Thấp</span><span class="tag done">Đã sửa 19/11</span></h3>
+    <p class="fix"><b>Đã sửa 19/11:</b> FE ngày đặt mặc định dùng <code>todayVn()</code>. Thử sống: giả đồng hồ trang 01:30 sáng 20/11 giờ VN (UTC vẫn 19/11) → form tạo đơn hiện 20/11/2026.</p>
     <p>Tạo đơn 00:00–06:59 giờ VN → ô ngày mặc định là hôm trước.</p>
     <p class="where">FE <code>Sales/OrderManagementPage.tsx:52</code>.</p>
   </div>

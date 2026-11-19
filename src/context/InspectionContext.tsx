@@ -1,5 +1,5 @@
 'use client'
-import { createContext, useContext, useState, useCallback, useEffect } from 'react'
+import { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react'
 import { useRealtimeRefetch } from '../realtime/hooks'
 import type { WarehouseScope } from './AuthContext'
 import { useAuth } from './AuthContext'
@@ -283,6 +283,9 @@ export function InspectionProvider({ children }: { children: React.ReactNode }) 
   const mfgRole = user?.mfgRole
   const skipProposals = !token || (!!mfgRole && mfgRole !== 'PRODUCTION_MANAGER')
   const proposalsReady = skipProposals || loadedFor === token
+  // FE4 19/11: realtime bắn liên tiếp (duyệt / nhận hàng) gọi tải lại chồng nhau - lượt cũ về SAU đè danh sách mới. Chỉ lấy kết
+  // quả của lượt tải mới nhất.
+  const loadSeqRef = useRef(0)
   const loadProposals = useCallback(() => {
     // Ngoại lệ QLSX (PRODUCTION_MANAGER): vai này ĐÃ có PURCHASE_PROPOSAL:VIEW (role-permissions.constant.ts) và màn
     // "Tổng hợp lệnh SX" của QLSX cần đề xuất mua để tính bước "Mua hàng". Bỏ qua cả vai này (như trước 2026-10-01) làm
@@ -296,14 +299,17 @@ export function InspectionProvider({ children }: { children: React.ReactNode }) 
     // BE lọc where PURCHASED - đảm bảo không phiếu đang xử lý nào bị cắt) + `history` (hành vi cũ,
     // top-100 chấp nhận cắt cụt vì chỉ phục vụ tra cứu "Lịch sử đã mua"), rồi merge theo id (ưu
     // tiên bản ghi từ `active` - luôn mới nhất vì không cạnh tranh chỗ).
+    const seq = ++loadSeqRef.current
     Promise.all([fetchPurchaseProposals({ activeOnly: true }), fetchPurchaseProposals()])
       .then(([active, history]) => {
+        if (seq !== loadSeqRef.current) return
         const byId = new Map(history.map(p => [p.id, p]))
         for (const p of active) byId.set(p.id, p)
         setProposals([...byId.values()].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)))
         setLoadedFor(token)
       })
       .catch((err: unknown) => {
+        if (seq !== loadSeqRef.current) return
         setLoadedFor(token)
         // 403 = vai này không có PURCHASE_PROPOSAL:VIEW (Phôi/Hàn/Sơn/KCS/SPEC... - xem
         // role-permissions.constant.ts). Provider bọc TOÀN BỘ app nên request vẫn bắn cho mọi

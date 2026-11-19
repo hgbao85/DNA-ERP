@@ -263,15 +263,8 @@ export async function getProductionInvoice(id: number | string) {
   return toPI(await http.get<BeProductionInvoice>(`/production-invoices/${id}`));
 }
 
-/** Cập nhật `deadline` chung của cả PO. Mốc riêng từng SKU (materialDeadline/deliveryDeadline/
- *  stages) đi qua `updateProductionInvoiceItem` — xem LenhSXPage "Sửa thời hạn". */
-export async function updateProductionInvoice(id: number | string, data: Record<string, unknown>) {
-  return toPI(
-    await http.patch<BeProductionInvoice>(`/production-invoices/${id}`, {
-      deadline: data.deadline,
-    }),
-  );
-}
+// LS3 19/11: BE đã gỡ PATCH /production-invoices/:id (sửa hạn chung PI) - mốc sửa qua `updateProductionInvoiceItem` /
+// `updateProductionInvoiceItemsDeadlines` (LenhSXPage "Sửa thời hạn").
 
 /** Lưu thật materialDeadline/deliveryDeadline/stages riêng cho 1 SKU trong PI (LenhSXPage
  *  "Sửa thời hạn") — itemId = ProductionInvoiceItem.id thật. */
