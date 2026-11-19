@@ -15,6 +15,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { getWorkQueue } from '../services/api'
 import { useAuth } from '../context/AuthContext'
 import { useRealtimeRefetch, useRealtimeStatus } from '../realtime/hooks'
+import { WORK_QUEUE_DEBOUNCE_MS, workQueueTopics } from './workQueueTopics'
 
 /**
  * Topic nghiệp vụ làm thay đổi số việc chờ (xem WorkQueueService ở BE) - rà lại từng counter
@@ -32,20 +33,7 @@ import { useRealtimeRefetch, useRealtimeStatus } from '../realtime/hooks'
  * cùng loại lỗi với bug refetchPis() ở ThongKePagePlan.tsx (tín hiệu tới nhưng không đủ để biết
  * cần tải lại CÁI GÌ).
  */
-const WORK_QUEUE_TOPICS = [
-  'warehouse-transfers',
-  'purchase-proposals',
-  'steel-issues',
-  'production-batches',
-  'qc-reviews',
-  'stock',
-  'skus',
-  'production-invoices',
-  'cutting-proposals',
-  'sales-orders',
-  'packaging-issues',
-  'production-orders',
-] as const
+// Danh sách topic: xem workQueueTopics.ts (KCS nghe thêm 'floor' từ P1).
 
 const POLL_INTERVAL_MS = 30_000
 // Đang kết nối realtime thì badge được đẩy về ngay khi việc đổi - polling chỉ còn là lưới an toàn.
@@ -57,7 +45,7 @@ export function useWorkQueueState() {
   const [counts, setCounts] = useState<Record<string, number>>({})
   const connected = useRealtimeStatus() === 'connected'
   // Chưa đăng nhập thì không gọi API (tránh 401 vô ích lúc mount trên /login).
-  const { token } = useAuth()
+  const { token, user } = useAuth()
   // Mở app: poll lần 1 ngay khi có token, vài ms sau realtime sang 'connected' làm effect chạy lại → poll lần 2 thừa.
   // Ghi mốc lần poll gần nhất để effect bỏ qua poll tức thì đó. Chỉ chặn trong effect: realtime/refresh/interval/visibility
   // báo thay đổi thật nên vẫn gọi poll bình thường.
@@ -76,7 +64,8 @@ export function useWorkQueueState() {
     // bất đồng bộ / đăng nhập sau) nên poll luôn return sớm - số nhắc việc trên menu không bao giờ hiện, ở mọi phân hệ.
   }, [token])
 
-  useRealtimeRefetch(WORK_QUEUE_TOPICS, poll)
+  // KCS nghe thêm 'floor' (công nhân vừa báo -> số đỏ đổi); gom 3 giây cho khỏi gọi dồn.
+  useRealtimeRefetch(workQueueTopics({ mfgRole: user?.mfgRole }), poll, { debounceMs: WORK_QUEUE_DEBOUNCE_MS })
 
   useEffect(() => {
     if (!token) return

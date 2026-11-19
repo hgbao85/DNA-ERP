@@ -4,7 +4,10 @@
  * `/floor?ws=<qrToken>`; PI KHÔNG nằm trong mã - BE tự lấy PI đang chạy của tổ.
  */
 import { http } from './core/http'
-import type { BePhoiProgressItem } from './steel-issues-api'
+import type { BePhoiProgressItem, BeSteelBalance } from './steel-issues-api'
+
+/** Kiểu steelBalance dùng chung (định nghĩa ở steel-issues-api.ts) - giữ tên cũ để chỗ import cũ không vỡ. */
+export type { BeSteelBalance }
 import type { BeProductionBatchPlan } from './production-batches-api'
 import type { MaterialChoice } from '../types/sku'
 import type { SolverMachine } from '../types/admin'
@@ -38,13 +41,37 @@ export interface BeScanSegment {
   segmentSpecId: string
   cutLengthMm: number
   required: number
-  /** Số ĐƯỢC TÍNH (BE 17/11/2026): đã trừ đoạn KCS chấm lỗi - đoạn lỗi phải cắt bù. */
+  /**
+   * Số ĐƯỢC TÍNH ở màn quét / Sản lượng (P1, 18/11/2026) = thô - lỗi - thiếu (BE 17/11 là thô - lỗi).
+   * Khác `done` ở API phoi-progress (steel-issues-api.ts): ở đó done = đã báo - thiếu, vẫn gồm lỗi.
+   */
   done: number
   /** KCS chấm lỗi (BE 17/11/2026). Optional: BE cũ chưa trả. */
   failed?: number
-  /** Số công nhân đã báo (chưa trừ lỗi) = done + failed (BE 17/11/2026). Optional: BE cũ chưa trả. */
+  /** Số công nhân đã báo (số thô, chưa trừ lỗi / thiếu). Optional: BE cũ chưa trả. */
   reportedQty?: number
-  byOrder: { productionOrderId: string | null; required: number; done: number; failed?: number; reportedQty?: number }[]
+  /** Số cần theo định mức, chưa cộng phần phải cắt bù (P1). Optional: BE cũ chưa trả. */
+  baseRequired?: number
+  /** Số phải cắt thêm vì KCS chấm "Bỏ, cắt lại" ở công đoạn sau (P1). Required = baseRequired + extraNeed. */
+  extraNeed?: number
+  /** KCS ghi thiếu (P1): đã trừ, không tính lỗi, không cần làm bù. */
+  shortQty?: number
+  /** Báo thêm được tối đa bao nhiêu ngay lúc này (P1) = max(0, min(còn cần, còn đoạn thực có)); Cắt = max(0, còn cần). */
+  maxNow?: number
+  /** Số đoạn thực có chưa dùng ở công đoạn trước (P1); null / thiếu với Cắt. */
+  physicalLeft?: number | null
+  byOrder: {
+    productionOrderId: string | null
+    required: number
+    done: number
+    failed?: number
+    reportedQty?: number
+    baseRequired?: number
+    extraNeed?: number
+    shortQty?: number
+    maxNow?: number
+    physicalLeft?: number | null
+  }[]
 }
 
 export interface BeScanMaterial {
@@ -62,8 +89,14 @@ export interface BeScanPieceItem {
   plannedQty: number
   awaitingQcQty: number
   passedQty: number
-  /** Đã báo nhưng QLSX chưa gửi KCS (mọi người trong tổ). */
+  /** Đã báo, KCS chưa chấm (mọi người trong tổ). Từ P1 KCS tự chấm, không còn bước QLSX gửi KCS. */
   openQty: number
+  /** Báo thêm được tối đa (P1) = max(0, cần - đạt - chờ - mở). Optional: BE cũ chưa trả. */
+  maxNow?: number
+  /** KCS chấm lỗi cộng dồn (BE trả ở màn quét máy PIECE; passedQty đã trừ lỗi). */
+  failedQty?: number
+  /** KCS ghi thiếu cộng dồn (P1; passedQty đã trừ thiếu). */
+  shortQty?: number
 }
 
 export interface BeScanPi {
@@ -125,6 +158,11 @@ export interface BeMyOutputRow {
     segment: { cutLengthMm: number; materialCode: string } | null
     piece: { code: string; name: string } | null
   }[]
+  /** Số KCS đã chấm của cả đợt (P1). null = chưa chấm. Optional: BE cũ chưa trả. */
+  kcs?: null | { failedQty: number; shortQty: number }
+  /** Mã đợt KCS chấm ('CUT:<id>' / 'STEP:<id>' / 'BATCH:<id>', P1 19/11) - gom nhãn "KCS chấm cả đợt". null = chưa gom
+   *  đợt; optional: BE cũ chưa trả. */
+  batchKey?: string | null
 }
 
 const key = (idempotencyKey: string) => ({ headers: { 'Idempotency-Key': idempotencyKey } })
@@ -346,29 +384,40 @@ export interface BeSegmentProgress {
   cutLengthMm: number
   qty: number
   required: number
-  /** Số ĐƯỢC TÍNH của SKU (BE 17/11/2026): đã trừ đoạn KCS chấm lỗi. */
+  /** Số ĐƯỢC TÍNH của SKU (P1) = thô - lỗi - thiếu. Khác `done` của API phoi-progress (đã báo - thiếu, gồm lỗi). */
   done: number
   /** KCS chấm lỗi (BE 17/11/2026). Optional: BE cũ chưa trả. */
   failed?: number
-  /** Số công nhân đã báo (chưa trừ lỗi) (BE 17/11/2026). Optional: BE cũ chưa trả. */
+  /** Số công nhân đã báo, số thô (BE 17/11/2026). KHÔNG lấy từ done. Optional: BE cũ chưa trả. */
   reportedQty?: number
+  /** Số cần theo định mức chưa cộng phần cắt bù (P1). required = baseRequired + extraNeed. */
+  baseRequired?: number
+  /** Số phải cắt thêm vì KCS chấm "Bỏ, cắt lại" ở công đoạn sau (P1). */
+  extraNeed?: number
+  /** KCS ghi thiếu (P1). */
+  shortQty?: number
+  /** Báo thêm được tối đa lúc này (P1). */
+  maxNow?: number
   over: number
 }
 
-/** Sắt vào – đoạn ra của 1 loại sắt cả PI (mm): đoạn đã báo vượt sắt đã nhận bao nhiêu. */
-export interface BeSteelBalance {
-  receivedBarCount: number
-  usableMm: number
-  reportedMm: number
-  overMm: number
+/** Lý do dòng đang mở chưa chấm được (P1): lệnh dừng / kết thúc, hoặc dữ liệu cũ chưa gắn SKU ở PI nhiều SKU. */
+export type BeReviewBlockedReason = 'LENH_DUNG' | 'CHUA_GAN_SKU'
+
+/** Trường chung của mọi dòng trong danh sách đợt đang mở (P1). Optional: BE cũ chưa trả. */
+interface ReviewRowExtra {
+  /** PI còn SKU đang chạy (QLSX đã bấm "Bắt đầu" và chưa "Kết thúc"). */
+  piActive?: boolean
+  /** null = chấm được. */
+  blockedReason?: BeReviewBlockedReason | null
 }
 
-export interface BeReviewCutBundle extends ReviewRef {
+export interface BeReviewCutBundle extends ReviewRef, ReviewRowExtra {
   cutBundleId: string
   material: { materialId: string; code: string; name: string }
   openedByName: string | null
   createdAt: string
-  /** Lần báo còn hiệu lực đầu tiên chưa gửi KCS - "chờ bao lâu" tính từ đây. */
+  /** Lần báo còn hiệu lực đầu tiên chưa chấm - "chờ bao lâu" tính từ đây. */
   waitingSince: string
   segments: { cutLengthMm: number; qty: number }[]
   progress: BeSegmentProgress[]
@@ -376,7 +425,7 @@ export interface BeReviewCutBundle extends ReviewRef {
   reports: BeReviewReport[]
 }
 
-export interface BeReviewStepGroup extends ReviewRef {
+export interface BeReviewStepGroup extends ReviewRef, ReviewRowExtra {
   material: { materialId: string; code: string; name: string }
   step: string
   /** Công nhân của nhóm (mỗi người 1 nhóm); null = đợt cũ chưa biết người. */
@@ -388,7 +437,7 @@ export interface BeReviewStepGroup extends ReviewRef {
   reports: BeReviewReport[]
 }
 
-export interface BeReviewPieceBatch extends ReviewRef {
+export interface BeReviewPieceBatch extends ReviewRef, ReviewRowExtra {
   productionBatchId: string
   stage: FloorStage
   piece: { code: string; name: string }
@@ -397,20 +446,77 @@ export interface BeReviewPieceBatch extends ReviewRef {
   openedAt: string
   waitingSince: string
   /** Số cần / đã báo (mọi người, mọi trạng thái) của mảnh này trong SKU; required = 0: không rõ. */
-  progress: { required: number; reported: number; over: number }
+  progress: {
+    required: number
+    /** Đã tính = đạt + chờ chấm + đang mở (chưa chặn trần). */
+    reported: number
+    over: number
+    /** Báo thêm được tối đa = max(0, cần - đạt - chờ - mở) (P1). Optional: BE cũ chưa trả. */
+    maxNow?: number
+  }
   reports: BeReviewReport[]
+}
+
+/**
+ * Pat (công đoạn của mảnh) - chỉ stage = PHOI; không có sổ báo (không Hủy được từng lần) nên waitingSince = createdAt sớm nhất
+ * của dòng chưa gom (P1). pieceId nằm NGOÀI (BE: `pieceId` + `piece: { code, name }`), cần cho nút Chốt.
+ */
+export interface BeReviewPieceStepGroup extends ReviewRef, ReviewRowExtra {
+  productionOrderId: string
+  pieceId: string
+  piece: { code: string; name: string }
+  step: string
+  waitingSince: string
+  /** Σ số chưa chốt của nhóm. */
+  qty: number
+  reportedByNames: string[]
+  /** Theo đúng công đoạn này của mảnh trong SKU: done = đã báo - lỗi - thiếu; maxNow = max(0, required - done). */
+  progress: { required: number; reportedQty: number; done: number; failed: number; shortQty: number; over: number; maxNow: number }
+}
+
+/**
+ * Chân nhôm / vật tư không gắn mảnh - chỉ stage = PHOI (P1). Không có `order` (cấp PI): khoá để chốt là
+ * productionInvoiceId + recipeId + step. Không có sổ báo.
+ */
+export interface BeReviewMaterialYieldGroup extends ReviewRowExtra {
+  productionInvoiceId: string
+  recipeId: string
+  pi: ReviewRef['pi']
+  material: { materialId: string; code: string; name: string }
+  step: string
+  waitingSince: string
+  /** Σ số chưa chốt của nhóm. */
+  qty: number
+  reportedByNames: string[]
+  /** done = Σ báo - lỗi - thiếu (đã gồm cả lần đang chờ); maxNow = max(0, required - done). */
+  progress: { required: number; done: number; over: number; maxNow: number }
 }
 
 export interface BeFloorReview {
   cutBundles: BeReviewCutBundle[]
   stepGroups: BeReviewStepGroup[]
   pieceBatches: BeReviewPieceBatch[]
+  /** Chỉ khi stage = PHOI (P1); BE cũ không trả. */
+  pieceStepGroups?: BeReviewPieceStepGroup[]
+  /** Chỉ khi stage = PHOI (P1); BE cũ không trả. */
+  materialYieldGroups?: BeReviewMaterialYieldGroup[]
+  /** PI của tổ đang có đợt chờ KCS mà không còn SKU nào chạy (P1, MF2). KCS tô xám dòng AWAITING_QC của các PI này và khoá nút Chấm. BE cũ không trả. */
+  stoppedPis?: { productionInvoiceId: string; code: string }[]
+}
+
+export interface BeFloorSummaryStage {
+  /** Đợt đang mở có sổ báo, trừ dòng có blockedReason. */
+  open: number
+  /** Đợt KCS đang chấm (AWAITING_QC của 5 bảng, trừ PI dừng) - P1. Optional: BE cũ chưa trả. */
+  awaitingKcs?: number
+  /** Đợt chờ KCS chấm quá 4 giờ - P1. Optional: BE cũ chưa trả. */
+  stale?: number
 }
 
 export interface BeFloorSummary {
-  PHOI: { open: number }
-  HAN: { open: number }
-  SON: { open: number }
+  PHOI: BeFloorSummaryStage
+  HAN: BeFloorSummaryStage
+  SON: BeFloorSummaryStage
 }
 
 export interface BeFloorSettings {
@@ -578,6 +684,7 @@ export interface BeCutAllocationLog {
 
 export const floorAdmin = {
   settings: () => http.get<BeFloorSettings>('/floor/settings'),
+  /** Chỉ vai QLSX (KCS gọi sẽ 403 "cần: PRODUCTION_MANAGER"); KCS lấy số chờ từ GET /me/work-queue (kcsPhoi / kcsHan / kcsSon). */
   summary: () => http.get<BeFloorSummary>('/floor/summary'),
   review: (stage: FloorStage, productionInvoiceId?: string) =>
     http.get<BeFloorReview>(`/floor/review?stage=${stage}${productionInvoiceId ? `&productionInvoiceId=${productionInvoiceId}` : ''}`),
@@ -587,8 +694,11 @@ export const floorAdmin = {
     if (p.stage) q.set('stage', p.stage)
     return http.get<BeFloorStats>(`/floor/stats?${q.toString()}`)
   },
+  /** @deprecated Từ P1 KCS tự chấm; BE trả 403 "Từ nay KCS tự chấm ... QLSX không cần gửi KCS nữa". Chỉ giữ cho tới khi màn hình bỏ chỗ gọi. */
   sendCutBundle: (id: string) => http.post<unknown>(`/floor/review/cut-bundles/${id}/send-kcs`),
+  /** @deprecated Xem sendCutBundle. */
   sendProductionBatch: (id: string) => http.post<unknown>(`/floor/review/production-batches/${id}/send-kcs`),
+  /** @deprecated Xem sendCutBundle. */
   sendStepGroup: (g: {
     productionInvoiceId: string
     materialId: string

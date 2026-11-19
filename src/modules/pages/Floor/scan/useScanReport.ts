@@ -7,6 +7,7 @@ import {
   getScanContext, postScanReport, receiveSteelByScan, type BeScanContext, type BeSteelToReceive,
 } from '../../../../services/floor-api'
 import { useRetrySafeKey } from '../../../../hooks/useRetrySafeKey'
+import { ApiError } from '../../../../services/core/apiError'
 import { describeError, hhmm } from '../floorUi'
 import { errText } from './scanModel'
 
@@ -60,7 +61,11 @@ export function useScanReport(ws: string) {
       return true
     } catch (e) {
       retryKey.settle(e)
-      return fail(e)
+      const result = fail(e)
+      // P1: máy chủ chặn (4xx, vd báo vượt "tối đa N") thì tải lại dữ liệu máy để "còn báo được" đúng số mới; số đã nhập
+      // nằm trong state của form nên không mất, băng đỏ vẫn giữ câu của máy chủ.
+      if (e instanceof ApiError && e.statusCode >= 400 && e.statusCode < 500) void load(selectedPi)
+      return result
     }
   }
 

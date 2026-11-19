@@ -35,11 +35,11 @@ export default function QlsxPiDetail({ stage, productionInvoiceId, piCode, revie
   stage: FloorStage
   productionInvoiceId: string
   piCode: string
-  /** Danh sách "Chờ gửi KCS" của tổ - để đếm đợt chờ quá lâu của PI này (null = chưa tải). */
+  /** Danh sách "Đang chờ KCS chấm" của tổ - để đếm đợt chờ quá lâu của PI này (null = chưa tải). */
   review: BeFloorReview | null
   initialTab?: DetailTab
   onClose: () => void
-  /** Đóng ngăn và cuộn tới danh sách "Chờ gửi KCS". */
+  /** Đóng ngăn và cuộn tới khối "Đang chờ KCS chấm". */
   onGoToReview: () => void
 }) {
   const compact = useIsCompact()
@@ -196,13 +196,14 @@ function ShortList({ materials, pieces, stage }: { materials: ShortMaterial[]; p
             <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 2 }}>
               {m.steps.map((s) => `${s.label} ${fmt(s.done)}/${fmt(s.need)}`).join(' · ')}
             </div>
+            {m.steelHint && <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--amber)', marginTop: 2, overflowWrap: 'anywhere' }}>{m.steelHint}</div>}
             <ul style={{ listStyle: 'none', marginTop: 6, display: 'grid', gap: 2 }}>
               {segs.map((s) => (
-                <li key={`${s.step}-${s.cutLengthMm}`} style={{ display: 'flex', gap: 8, fontSize: 13 }}>
+                <li key={`${s.step}-${s.cutLengthMm}`} style={{ display: 'flex', gap: '2px 8px', fontSize: 13, flexWrap: 'wrap' }}>
                   <span style={{ width: 70, color: 'var(--text2)' }}>{fmt(s.cutLengthMm)} mm</span>
-                  <span style={{ flex: 1 }}>{s.label} {fmt(s.good)}/{fmt(s.required)}</span>
+                  <span style={{ flex: 1 }}>{s.label} {fmt(s.good)}/{fmt(s.required)}{s.extraNeed > 0 ? ` (+${fmt(s.extraNeed)} cắt lại)` : ''}</span>
                   <span style={{ color: 'var(--amber)', fontWeight: 600 }}>
-                    thiếu {fmt(s.remaining)}{s.failed > 0 ? ` (KCS lỗi ${fmt(s.failed)})` : ''}
+                    thiếu {fmt(s.remaining)}{s.unmade > 0 ? ` (KCS lỗi chưa bù ${fmt(s.unmade)})` : ''}
                   </span>
                 </li>
               ))}
@@ -224,8 +225,8 @@ function ShortList({ materials, pieces, stage }: { materials: ShortMaterial[]; p
               <li key={p.key} style={{ display: 'flex', gap: 8, fontSize: 13, flexWrap: 'wrap' }}>
                 <span style={{ flex: 1, minWidth: 140 }}>{p.name} <span style={{ fontSize: 11, color: 'var(--text3)' }}>{p.code}</span></span>
                 <span>{fmt(p.reported)}/{fmt(p.required)}</span>
-                {p.awaiting > 0 && <span style={{ color: 'var(--text2)' }}>chờ KCS {fmt(p.awaiting)}</span>}
-                {p.open > 0 && <span style={{ color: 'var(--text2)' }}>chưa gửi {fmt(p.open)}</span>}
+                {p.awaiting > 0 && <span style={{ color: 'var(--text2)' }}>KCS đang chấm {fmt(p.awaiting)}</span>}
+                {p.open > 0 && <span style={{ color: 'var(--text2)' }}>đang mở {fmt(p.open)}</span>}
                 {/* Mảnh / vật tư TP luôn đếm bằng "cái" (cả ở tổ Phôi); kèm số KCS chấm lỗi chưa bù để biết lỗi nằm ở mảnh nào. */}
                 <span style={{ color: 'var(--amber)', fontWeight: 600 }}>thiếu {fmt(p.remaining)} cái{p.unmade > 0 ? ` (KCS lỗi chưa bù ${fmt(p.unmade)})` : ''}</span>
               </li>
@@ -262,7 +263,8 @@ function AllBoards({ stage, materials, pieces, syncOk }: { stage: FloorStage; ma
   const materialRows = pieces.filter((p) => p.key.startsWith('m'))
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      {materials.length > 0 && <PhoiMaterialBoard materials={materials} />}
+      {/* AC51: dòng gợi ý thiếu sắt chỉ bật ở ngăn chi tiết lệnh của QLSX (Tổng hợp lệnh SX không bật) */}
+      {materials.length > 0 && <PhoiMaterialBoard materials={materials} showSteelShortHint />}
       {pieceRows.length > 0 && (
         <>
           {!syncOk && <Notice tone="info">{SYNC_HINT}</Notice>}
@@ -288,7 +290,7 @@ function AbnormalList({ items, onGoToReview, onShowAll }: { items: Abnormal[]; o
           <AlertTriangle size={16} aria-hidden />
           <span style={{ flex: 1, minWidth: 180 }}>{a.text}</span>
           {(a.kind === 'steel-over' || a.kind === 'stale')
-            ? <button type="button" onClick={onGoToReview} style={btn('secondary')}>Đến danh sách chờ gửi KCS</button>
+            ? <button type="button" onClick={onGoToReview} style={btn('secondary')}>Đến danh sách chờ KCS chấm</button>
             : <button type="button" onClick={onShowAll} style={btn('secondary')}>Xem bảng đầy đủ</button>}
         </li>
       ))}

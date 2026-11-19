@@ -8,7 +8,7 @@ import { getMyOutput, getMyStats, type BeFloorStats, type BeMyOutputRow } from '
 import { fmtRate, OP_UNIT, opTitle, outputRangeDays, passRate, pendingText, totalsByOp } from '../floorStats'
 import { outputTotals, RANGE_LABEL, rangeBounds, type OutputRange } from '../floorUi'
 import {
-  errText, fmtMm, fmtQty, groupByDay, MAX_OUTPUT_ROWS, opCaption, outputKindText, STATE_LABEL, totalsText, workerPendingText,
+  errText, fmtMm, fmtQty, groupByDay, kcsBatchLabel, kcsLabelRowIds, MAX_OUTPUT_ROWS, opCaption, outputKindText, STATE_LABEL, totalsText, workerPendingText,
 } from './scanModel'
 import { Banner } from './ScanParts'
 import { card, cardFlush, chip, chipRow, divider, hint, label, loadingText, pill, rowBetween, tabColumn } from './scanUi'
@@ -72,8 +72,9 @@ function KcsCard({ kcs, periodLabel }: { kcs: KcsResult | null; periodLabel: str
   )
 }
 
-function OutputItem({ r, index }: { r: BeMyOutputRow; index: number }) {
+function OutputItem({ r, index, showKcs }: { r: BeMyOutputRow; index: number; showKcs: boolean }) {
   const st = STATE_LABEL[r.state]
+  const kcsText = r.reversed || !showKcs ? null : kcsBatchLabel(r.kcs)
   const lineStyle = {
     display: 'flex', justifyContent: 'space-between', gap: 12, fontSize: 16, fontWeight: 600,
     textDecoration: r.reversed ? 'line-through' : 'none', color: r.reversed ? 'var(--floor-hint)' : 'var(--text)',
@@ -89,7 +90,12 @@ function OutputItem({ r, index }: { r: BeMyOutputRow; index: number }) {
           {outputKindText(r)}
           {r.workstation ? ` · ${r.workstation.name}` : ' · báo trên máy tính'}
         </div>
-        {!r.reversed && <span style={pill(st[1], st[2], 600)}>{st[0]}</span>}
+        {!r.reversed && (
+          <span style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', alignItems: 'center', gap: 6, minWidth: 0 }}>
+            {kcsText && <span style={{ ...hint, fontWeight: 600, textAlign: 'right' }}>{kcsText}</span>}
+            <span style={pill(st[1], st[2], 600)}>{st[0]}</span>
+          </span>
+        )}
       </div>
       <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 2 }}>
         {r.lines.map((l, j) => (
@@ -111,7 +117,7 @@ function OutputItem({ r, index }: { r: BeMyOutputRow; index: number }) {
   )
 }
 
-function DayGroup({ list }: { list: BeMyOutputRow[] }) {
+function DayGroup({ list, kcsIds }: { list: BeMyOutputRow[]; kcsIds: Set<string> }) {
   const totals = outputTotals(list)
   return (
     <div>
@@ -121,13 +127,14 @@ function DayGroup({ list }: { list: BeMyOutputRow[] }) {
         </div>
         {totals.length > 0 && <div style={{ fontSize: 14, fontWeight: 600, textAlign: 'right' }}>{totalsText(totals)}</div>}
       </div>
-      <div style={cardFlush}>{list.map((r, i) => <OutputItem key={r.id} r={r} index={i} />)}</div>
+      <div style={cardFlush}>{list.map((r, i) => <OutputItem key={r.id} r={r} index={i} showKcs={kcsIds.has(r.id)} />)}</div>
     </div>
   )
 }
 
 function ReportedList({ rows, periodLabel }: { rows: BeMyOutputRow[]; periodLabel: string }) {
   const totals = outputTotals(rows)
+  const kcsIds = kcsLabelRowIds(rows)
   return (
     <>
       {totals.length > 0 && (
@@ -141,7 +148,7 @@ function ReportedList({ rows, periodLabel }: { rows: BeMyOutputRow[]; periodLabe
           <div style={{ ...hint, flexBasis: '100%' }}>{rows.filter((r) => !r.reversed).length} lần báo trong {periodLabel}</div>
         </div>
       )}
-      {groupByDay(rows).map(([k, list]) => <DayGroup key={k} list={list} />)}
+      {groupByDay(rows).map(([k, list]) => <DayGroup key={k} list={list} kcsIds={kcsIds} />)}
       {rows.length >= MAX_OUTPUT_ROWS && <div style={hint}>Chỉ hiện {MAX_OUTPUT_ROWS} lần báo gần nhất trong khoảng này.</div>}
     </>
   )

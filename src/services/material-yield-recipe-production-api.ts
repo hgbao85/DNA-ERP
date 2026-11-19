@@ -139,6 +139,8 @@ export interface BeMaterialYieldStepBundleQcReview {
   id: string;
   materialYieldStepBundleId: string | null;
   failedQty: number;
+  /** KCS ghi thiếu (P1). Optional: BE cũ chưa trả. */
+  shortQty?: number;
   reviewedAt: string;
   reviewedById: string;
 }
@@ -153,7 +155,7 @@ export async function getQcReviewsForMaterialYieldStepBundles(): Promise<
 
 export async function reviewMaterialYieldStepQc(
   materialYieldStepBundleId: string,
-  data: { failedQty: number; reason?: string; defectReasonId?: string; photoUrl?: string },
+  data: { failedQty: number; shortQty?: number; reason?: string; defectReasonId?: string; photoUrl?: string },
 ): Promise<void> {
   await http.post(`/material-yield-step-bundles/${materialYieldStepBundleId}/qc-review`, data);
 }

@@ -9,7 +9,7 @@ import LenhSanXuatBoard, { type BoardColumn } from './LenhSanXuatBoard'
 import { PROCESS_STEP_LABELS } from '../../constants/processSteps'
 import type { ProcessStep } from '../../types/sku'
 import type { BePhoiProgressItem, BePhoiProgressOrderSegment } from '../../services/steel-issues-api'
-import { bucketLine, remainingQty } from '../../modules/pages/Floor/progressModel'
+import { bucketLine, remainingQty, steelShortHint } from '../../modules/pages/Floor/progressModel'
 
 // Phôi (2026-09-19, audit N3/N4): đo bằng ĐOẠN đã cắt / ĐỊNH MỨC theo từng loại sắt → cỡ đoạn - đúng nguồn
 // (getPhoiProgress) mà màn Phôi thật đang dùng - thay cho "số cây kho đã xuất" trước đây (sai khái niệm, và
@@ -18,8 +18,12 @@ import { bucketLine, remainingQty } from '../../modules/pages/Floor/progressMode
 // ở "Sản lượng xưởng"): `good` = min(Đã báo − Lỗi, Cần) = passed + awaiting + open (đã chặn trần).
 export interface PhoiSegmentView {
   cutLengthMm: number; required: number; done: number; failed: number; good: number; remaining: number
-  /** KCS đã chấm, còn được tính / đã gửi KCS chờ chấm / chưa gửi KCS - đều đã chặn trần ở `required`. */
+  /** KCS đã chấm, còn được tính / KCS đang chấm / đang mở - đều đã chặn trần ở `required`. */
   passed: number; awaiting: number; open: number
+  /** Số phải cắt thêm vì KCS chấm "Bỏ, cắt lại" ở công đoạn sau (đã nằm trong `required`). 0 khi BE cũ chưa trả (P1). */
+  extraNeed: number
+  /** KCS ghi thiếu (đã trừ khỏi `done`, không phải lỗi, không cần làm bù). 0 khi BE cũ chưa trả (P1). */
+  shortQty: number
 }
 /** Tổng các ngăn số của nhiều dòng (công đoạn / loại sắt). */
 export interface PhoiBucketTotals { passed: number; awaiting: number; open: number; failed: number }
@@ -52,6 +56,7 @@ function mapPhoiSegments(segs: BePhoiProgressItem['segments'], orderId: string |
     out.push({
       cutLengthMm: s.cutLengthMm, required: src.required, done: src.done, failed: src.failed,
       good: b.reported, remaining: remainingQty(line), passed: b.passed, awaiting: b.awaiting, open: b.open,
+      extraNeed: src.extraNeed ?? 0, shortQty: src.shortQty ?? 0,
     })
   }
   return out
@@ -98,20 +103,25 @@ export function mapPhoiProgress(items: BePhoiProgressItem[], orderId: string | n
 }
 
 
-export function PhoiMaterialBoard({ materials, title = 'Tiến độ Phôi theo loại sắt', subtitle }: {
+export function PhoiMaterialBoard({ materials, title = 'Tiến độ Phôi theo loại sắt', subtitle, showSteelShortHint = false }: {
   materials: PhoiMaterialView[]
   title?: string
   /** Bỏ trống = câu giải thích cách đọc số mặc định. */
   subtitle?: string
+  /**
+   * Dòng gợi ý thiếu sắt dưới tên loại sắt (AC51). MẶC ĐỊNH TẮT: chỉ ngăn chi tiết lệnh của QLSX (QlsxPiDetail) bật;
+   * "Tổng hợp lệnh SX" của KHSX / Sếp dùng chung bảng này nên không được hiện.
+   */
+  showSteelShortHint?: boolean
 }) {
   const n = (v: number) => v.toLocaleString('vi-VN')
-  // Số nhỏ màu nhạt khi bằng 0 để mắt chỉ dừng ở ô có số (Chưa gửi/Chờ KCS/Lỗi thường là 0).
+  // Số nhỏ màu nhạt khi bằng 0 để mắt chỉ dừng ở ô có số (Đang mở/KCS đang chấm/Lỗi thường là 0).
   const quiet = (v: number, color?: string) => <span style={{ color: v > 0 ? (color ?? 'inherit') : 'var(--text3)', fontWeight: v > 0 && color ? 700 : 400 }}>{v > 0 ? n(v) : '—'}</span>
   const remainCell = (need: number, good: number) => {
     const r = Math.max(0, need - good)
     return <span style={{ color: r > 0 ? 'var(--amber)' : 'var(--green)', fontWeight: 600 }}>{n(r)}</span>
   }
-  // 2026-10-19 (người dùng chốt mục 45.9-2: tách đủ cột) - "Đã báo" = Chưa gửi + Chờ KCS + KCS đã chấm; "Đạt" = KCS đã
+  // 2026-10-19 (người dùng chốt mục 45.9-2: tách đủ cột) - "Đã báo" = Đang mở + KCS đang chấm + KCS đã chấm; "Đạt" = KCS đã
   // chấm và còn được tính; "Còn thiếu" = Cần − (Đã báo − Lỗi). Mọi số đã chặn trần theo từng cỡ đoạn (progressModel).
   // Cột số hẹp (74px đủ cho "12.345", tiêu đề tự xuống dòng) để ở khung ~800px cột "Loại sắt" vẫn còn ≥ 130px.
   const W = { issued: 112, num: 74, failed: 58 }
@@ -122,6 +132,10 @@ export function PhoiMaterialBoard({ materials, title = 'Tiến độ Phôi theo 
         <div style={{ fontSize: 11, color: 'var(--text3)' }}>{m.materialCode}</div>
         {/* Công đoạn để dưới tên (không thành cột riêng) - bảng 8 cột vẫn đọc được ở màn ~800px */}
         <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 2 }}>{m.steps.map(st => st.label).join(' → ')}</div>
+        {/* AC51: chỉ đọc, không nút, chỉ khi QLSX bật prop (Tổng hợp lệnh SX không hiện) */}
+        {showSteelShortHint && steelShortHint(m.steelBalance) && (
+          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--amber)', marginTop: 2, overflowWrap: 'anywhere' }}>{steelShortHint(m.steelBalance)}</div>
+        )}
       </div>
     ) },
     { key: 'issued', header: 'Kho đã xuất cả lệnh (cây)', align: 'right', width: W.issued, cell: m => {
@@ -146,8 +160,8 @@ export function PhoiMaterialBoard({ materials, title = 'Tiến độ Phôi theo 
       )
     } },
     { key: 'need', header: 'Cần', align: 'right', width: W.num, cell: m => n(m.need) },
-    { key: 'open', header: 'Chưa gửi', align: 'right', width: W.num, cell: m => quiet(m.open) },
-    { key: 'awaiting', header: 'Chờ KCS', align: 'right', width: W.num, cell: m => quiet(m.awaiting) },
+    { key: 'open', header: 'Đang mở', align: 'right', width: W.num, cell: m => quiet(m.open) },
+    { key: 'awaiting', header: 'KCS đang chấm', align: 'right', width: W.num, cell: m => quiet(m.awaiting) },
     { key: 'passed', header: 'Đạt', align: 'right', width: W.num, cell: m => <span style={{ fontWeight: 700 }}>{n(m.passed)}</span> },
     { key: 'failed', header: 'Lỗi', align: 'right', width: W.failed, cell: m => quiet(m.failed, 'var(--red)') },
     { key: 'remain', header: 'Còn thiếu', align: 'right', width: W.num, cell: m => remainCell(m.need, m.done) },
@@ -157,7 +171,7 @@ export function PhoiMaterialBoard({ materials, title = 'Tiến độ Phôi theo 
   return (
     <LenhSanXuatBoard
       title={title}
-      subtitle={subtitle ?? "Phôi gồm Cắt và các công đoạn phụ (Uốn, Dập…) tùy loại sắt; mỗi đoạn tính 1 lần cho mỗi công đoạn nó phải qua. Đã báo = Chưa gửi KCS + Chờ KCS + KCS đã chấm; “Đạt” = KCS đã chấm đạt; Còn thiếu = Cần − (Đã báo − Lỗi). Chi tiết từng công đoạn và cỡ đoạn hiện bên dưới mỗi loại sắt"}
+      subtitle={subtitle ?? "Phôi gồm Cắt và các công đoạn phụ (Uốn, Dập…) tùy loại sắt; mỗi đoạn tính 1 lần cho mỗi công đoạn nó phải qua. Đã báo = Đang mở + KCS đang chấm + KCS đã chấm; “Đạt” = KCS đã chấm đạt; Còn thiếu = Cần − (Đã báo − Lỗi). Chi tiết từng công đoạn và cỡ đoạn hiện bên dưới mỗi loại sắt"}
       columns={cols} rows={materials} rowKey={m => m.materialId} fixedLayout fullHeight
       expandedRow={m => (
         <div style={{ padding: '4px 14px 14px', background: 'var(--surface2)' }}>
@@ -175,7 +189,7 @@ export function PhoiMaterialBoard({ materials, title = 'Tiến độ Phôi theo 
                 <thead>
                   <tr>
                     <th style={{ ...th, textAlign: 'left' }}>Cỡ đoạn</th><th style={th} />
-                    <th style={th}>Cần</th><th style={th}>Chưa gửi</th><th style={th}>Chờ KCS</th><th style={th}>Đạt</th><th style={th}>Lỗi</th><th style={th}>Còn thiếu</th>
+                    <th style={th}>Cần</th><th style={th}>Đang mở</th><th style={th}>KCS đang chấm</th><th style={th}>Đạt</th><th style={th}>Lỗi</th><th style={th}>Còn thiếu</th>
                   </tr>
                 </thead>
                 <tbody>

@@ -5,8 +5,8 @@
  * Đã nối BE thật (M3, đợt 2): TwoTierScreen tự fetch PO/Piece thật qua production-batches-api.ts
  * khi có `stage`.
  *
- * Từ đợt QR: màn này luôn CHỈ XEM — số mảnh do công nhân báo bằng quét mã QR tại máy, QLSX kiểm
- * rồi gửi KCS ở "Sản lượng xưởng". Prop `readOnly` giữ lại để không vỡ chỗ gọi.
+ * Từ đợt QR: màn này luôn CHỈ XEM — số mảnh do công nhân báo bằng quét mã QR tại máy, KCS tự chấm
+ * (QLSX chỉ hủy lần báo sai ở "Sản lượng xưởng"). Prop `readOnly` giữ lại để không vỡ chỗ gọi.
  */
 
 import { TwoTierScreen, HAN_CFG } from '../../../components/sanxuat/core'
@@ -19,7 +19,7 @@ export default function LenhSanXuatHan(_props: { readOnly?: boolean }) {
   return (
     <div>
       <LegacyReportNotice>
-        Báo số mảnh làm bằng quét mã QR tại máy. QLSX kiểm rồi gửi KCS ở &quot;Sản lượng xưởng&quot;.
+        Báo sản lượng Hàn / Sơn làm bằng quét mã QR tại máy. KCS tự chấm; QLSX hủy lần báo sai ở &quot;Sản lượng xưởng&quot;.
       </LegacyReportNotice>
       <TwoTierScreen cfg={CFG} readOnly stage="HAN" />
     </div>

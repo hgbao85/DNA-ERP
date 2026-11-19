@@ -857,7 +857,7 @@ function MaterialGroupDetail({
       </div>
 
       <LegacyReportNotice>
-        Báo cắt và công đoạn phụ làm bằng quét mã QR tại máy. QLSX kiểm, hủy lần báo sai và gửi KCS ở &quot;Sản lượng xưởng&quot;.
+        Báo cắt và công đoạn phụ làm bằng quét mã QR tại máy. KCS tự chấm; QLSX hủy lần báo sai ở &quot;Sản lượng xưởng&quot;.
       </LegacyReportNotice>
 
       {/* Chọn SKU áp dụng cho MỌI công đoạn của Phôi (Cắt lẫn Uốn/Dập/...) - mỗi đợt ghi là của đúng 1 SKU. */}
@@ -1206,7 +1206,7 @@ function StepBundleForm({ productionInvoiceId, materialId, step, canAssign, step
 
       <div style={{ marginTop: 14 }}>
         <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text3)', marginBottom: 8 }}>Các đợt đã gửi KCS ({sorted.length})</div>
-        <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 8 }}>Số &quot;Đã làm&quot; ở bảng trên gồm cả phần công nhân đã báo nhưng QLSX chưa gửi KCS.</div>
+        <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 8 }}>Số &quot;Đã làm&quot; ở bảng trên gồm cả phần công nhân đã báo nhưng KCS chưa chấm.</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {sorted.map(sb => (
             <StepBundleHistoryCard

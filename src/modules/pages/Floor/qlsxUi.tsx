@@ -3,7 +3,7 @@
 /** Style + phần tử nhỏ dùng chung cho màn QLSX "Sản lượng xưởng" - xem QlsxFloorPage. */
 
 import type { CSSProperties, ReactNode } from 'react'
-import type { BeWorkstation } from '../../../services/floor-api'
+import type { BeFloorSummary, BeFloorSummaryStage, BeReviewBlockedReason, BeWorkstation, FloorStage } from '../../../services/floor-api'
 import { MACHINE_LABEL } from '../../../utils/cutMachine'
 import { STAGE_LABEL, STEP_LABEL } from './floorUi'
 
@@ -145,27 +145,98 @@ export function ageText(iso: string, now = Date.now()): string {
 /** Đợt chờ quá lâu (>= 4 giờ) thì tô màu để QLSX không bỏ sót. */
 export const isStale = (iso: string, now = Date.now()) => now - new Date(iso).getTime() >= 4 * 3600 * 1000
 
+// ─── Số đếm của màn QLSX (P1: KCS tự chấm, QLSX chỉ theo dõi + hủy lần báo sai) ───────────────────────
+
+/** Chữ dòng xám "chưa chấm được" (cùng chữ màn KCS). null = chấm được. */
+export const BLOCKED_TEXT: Record<BeReviewBlockedReason, string> = {
+  LENH_DUNG: 'Lệnh đang tạm dừng / đã kết thúc - chưa chấm được',
+  CHUA_GAN_SKU: 'Dữ liệu cũ chưa gắn SKU - chưa chấm được, báo IT',
+}
+
+/**
+ * Lý do dòng chưa chấm được. BE mới trả `blockedReason` (null = chấm được); chỉ khi BE cũ CHƯA có trường này (undefined)
+ * mới suy từ `legacyUnassigned` (nhóm công đoạn có order = null).
+ */
+export function blockedTextOf(blockedReason: BeReviewBlockedReason | null | undefined, legacyUnassigned = false): string | null {
+  if (blockedReason === undefined) return legacyUnassigned ? BLOCKED_TEXT.CHUA_GAN_SKU : null
+  return blockedReason ? BLOCKED_TEXT[blockedReason] : null
+}
+
+/** Số đợt tính vào số đếm = các dòng KHÔNG xám. Cùng nghĩa `summary.open` của BE (pill tab và số đầu khối dùng 1 cách đếm). */
+export const countedOf = <T extends { blocked: string | null }>(rows: T[]): T[] => rows.filter((r) => !r.blocked)
+
+type SummaryStageLike = Pick<BeFloorSummaryStage, 'open'> & Partial<Pick<BeFloorSummaryStage, 'awaitingKcs' | 'stale'>>
+
+/** Pill của tab tổ: "N đang mở · K KCS đang chấm · M quá 4 giờ" - chỉ ghi phần khác 0; rỗng = không hiện pill. */
+export function summaryPillText(s: SummaryStageLike | null | undefined): string {
+  if (!s) return ''
+  const parts: string[] = []
+  if (s.open > 0) parts.push(`${s.open} đang mở`)
+  if ((s.awaitingKcs ?? 0) > 0) parts.push(`${s.awaitingKcs} KCS đang chấm`)
+  if ((s.stale ?? 0) > 0) parts.push(`${s.stale} quá 4 giờ`)
+  return parts.join(' · ')
+}
+
+/** Số đỏ menu "Sản lượng xưởng" = Σ stale của 3 tổ (BE cũ chưa trả stale thì tính 0). */
+export function staleTotal(s: Pick<BeFloorSummary, 'PHOI' | 'HAN' | 'SON'> | null | undefined): number {
+  if (!s) return 0
+  return (s.PHOI?.stale ?? 0) + (s.HAN?.stale ?? 0) + (s.SON?.stale ?? 0)
+}
+
+/**
+ * MF1: tin KCS_BATCH_STALE trỏ tới ?p=kcs-<tổ>; QLSX không có màn KCS nên mở "Sản lượng xưởng" thay vào.
+ * Trả giá trị `p` cần dùng (giữ nguyên nếu không phải trường hợp này).
+ */
+export function qlsxTabForUrl(p: string | null, isProdMgr: boolean): string | null {
+  return isProdMgr && p !== null && p.startsWith('kcs-') ? 'san-luong-xuong' : p
+}
+
+/**
+ * Tin KCS_BATCH_STALE mang focus "FLOOR_STAGE:<tổ>:<xưởng>" (P1, 19/11): QLSX bấm tin thì "Sản lượng xưởng" mở đúng tab tổ đó
+ * (Hàn / Sơn) thay vì tab đang nhớ. Không khớp mẫu -> null (giữ tab cũ).
+ */
+export function qlsxStageFromFocus(focus: string | null): FloorStage | null {
+  const m = focus?.match(/^FLOOR_STAGE:(PHOI|HAN|SON)(?::|$)/)
+  return m ? (m[1] as FloorStage) : null
+}
+
+/** Hỏi lại số đếm mỗi 5 phút để pill / số đỏ "quá 4 giờ" tự tăng khi không có sự kiện nào. */
+export const SUMMARY_POLL_MS = 5 * 60_000
+
+/**
+ * Chạy `run` mỗi `intervalMs`, BỎ QUA lượt khi tab trình duyệt đang ẩn (document.hidden). Trả hàm dừng.
+ * `isHidden` tách ra để test bằng giờ giả.
+ */
+export function startPolling(
+  run: () => void,
+  opts: { intervalMs?: number; isHidden?: () => boolean } = {},
+): () => void {
+  const isHidden = opts.isHidden ?? (() => typeof document !== 'undefined' && document.hidden)
+  const t = setInterval(() => { if (!isHidden()) run() }, opts.intervalMs ?? SUMMARY_POLL_MS)
+  return () => clearInterval(t)
+}
+
 /** Ngăn số của tiến độ (cùng định nghĩa progressModel / BE floor-progress.util). */
 export interface ProgressParts { required: number; passed: number; awaiting: number; open: number; failed?: number }
 
 /**
- * Thanh tiến độ xếp chồng 3 ngăn: KCS đạt / chờ KCS / chưa gửi KCS. Màu kèm chú giải bằng chữ (không
+ * Thanh tiến độ xếp chồng 3 ngăn: KCS đạt / KCS đang chấm / đang mở. Màu kèm chú giải bằng chữ (không
  * chỉ dựa vào màu); `percent` lấy từ BE/progressModel để khớp số ở màn khác.
  */
 export function StackedProgress({ parts, percent, legend = true }: { parts: ProgressParts; percent: number; legend?: boolean }) {
   const w = (n: number) => (parts.required > 0 ? `${(Math.min(n, parts.required) / parts.required) * 100}%` : '0%')
   const segs = [
     { key: 'passed', n: parts.passed, color: 'var(--green)', label: 'Đạt KCS' },
-    { key: 'awaiting', n: parts.awaiting, color: 'var(--amber)', label: 'Chờ KCS' },
-    { key: 'open', n: parts.open, color: 'var(--blue)', label: 'Chưa gửi KCS' },
+    { key: 'awaiting', n: parts.awaiting, color: 'var(--amber)', label: 'KCS đang chấm' },
+    { key: 'open', n: parts.open, color: 'var(--blue)', label: 'Đang mở' },
   ]
   const fmt = (n: number) => n.toLocaleString('vi-VN')
   const missing = Math.max(0, parts.required - parts.passed - parts.awaiting - parts.open)
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <div role="img" aria-label={`${percent}%: đạt ${fmt(parts.passed)}, chờ KCS ${fmt(parts.awaiting)}, ` +
-          `chưa gửi ${fmt(parts.open)}, còn thiếu ${fmt(missing)} trên ${fmt(parts.required)}`}
+        <div role="img" aria-label={`${percent}%: đạt ${fmt(parts.passed)}, KCS đang chấm ${fmt(parts.awaiting)}, ` +
+          `đang mở ${fmt(parts.open)}, còn thiếu ${fmt(missing)} trên ${fmt(parts.required)}`}
           style={{ flex: 1, height: 10, background: 'var(--border)', borderRadius: 5, overflow: 'hidden', display: 'flex' }}>
           {segs.map((s) => s.n > 0 && <div key={s.key} style={{ width: w(s.n), background: s.color }} />)}
         </div>

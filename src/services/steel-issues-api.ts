@@ -295,15 +295,6 @@ export async function recordCutBatch(
   return http.post<BeCutBundle>(`/steel-issues/${id}/cut-batches`, data, keyHeader(idempotencyKey));
 }
 
-/** Hoàn tác ĐÚNG lần recordCutBatch() gần nhất (2026-09-07) - gửi lại chính xác `segments` vừa
- *  submit để trừ đối xứng lại. Chỉ 1 cấp duy nhất, chỉ hoạt động khi đợt còn CUTTING. */
-export async function undoLastCutBatch(
-  cutBundleId: string,
-  segments: { segmentSpecId: string; qty: number }[],
-): Promise<void> {
-  await http.post(`/cut-bundles/${cutBundleId}/undo-last-batch`, { segments });
-}
-
 export interface BePhoiProgressSegment {
   segmentSpecId: string;
   cutLengthMm: number;
@@ -311,13 +302,29 @@ export interface BePhoiProgressSegment {
   required: number;
   /** Đã báo cắt (đoạn) - Σ tất cả các đợt recordCutBatch. BẤT BIẾN theo lỗi KCS - đây là việc ĐÃ
    *  XẢY RA rồi, không rút lại được (2026-08-24, sửa lỗi ERP: trước trừ thẳng lỗi vào đây làm mâu
-   *  thuẫn với "Lịch sử đợt đã nhập"). */
+   *  thuẫn với "Lịch sử đợt đã nhập").
+   *  P1 (18/11/2026): ở API NÀY done = đã báo - thiếu (KCS ghi thiếu thì đoạn đó coi như chưa làm; vẫn GỒM lỗi).
+   *  Ở floor/review và floor/scan, done = đã tính = thô - lỗi - thiếu. 2 nghĩa khác nhau, đừng lẫn. */
   done: number;
   /** Σ đoạn KCS đã chấm KHÔNG ĐẠT, CỘNG DỒN LỊCH SỬ (2026-09-07 lần 2 - không tự giảm, bỏ hẳn cơ
    *  chế report-done/recheck). "Còn lại" tự tính = required - (done - failed), KHÔNG lấy thẳng từ
    *  BE - tự đúng khi Phôi làm thêm rồi gửi KCS như đợt mới (done tăng), KHÔNG cần "failed" giảm. */
   failed: number;
-  /** Phần của `done` CHƯA gửi KCS (đợt cắt CUTTING / dòng công đoạn phụ chưa vào đợt) - 2026-10-16. */
+  /** Số cần theo định mức chưa cộng phần cắt bù (P1). Optional: BE cũ chưa trả. */
+  baseRequired?: number;
+  /** Số phải cắt thêm vì KCS chấm "Bỏ, cắt lại" (P1). `required` = baseRequired + extraNeed. */
+  extraNeed?: number;
+  /** Σ KCS ghi thiếu (P1): đã trừ khỏi `done`, không tính lỗi, không cần làm bù. */
+  shortQty?: number;
+  /** Σ số bỏ (cắt lại) - công đoạn phụ: số bỏ ở chính công đoạn đó (P1). */
+  scrapQty?: number;
+  /** Số công nhân đã báo, số thô (P1). */
+  reportedQty?: number;
+  /** Báo thêm được tối đa lúc này (P1) = max(0, min(còn cần, còn đoạn thực có)); Cắt = max(0, còn cần). */
+  maxNow?: number;
+  /** Số đoạn thực có chưa dùng ở công đoạn phụ (P1); null với Cắt. */
+  physicalLeft?: number | null;
+  /** Phần của `done` CHƯA chấm (đợt cắt CUTTING / dòng công đoạn phụ chưa vào đợt) - 2026-10-16. */
   openQty?: number;
   /** Phần của `done` đã gửi KCS, đang chờ chấm - 2026-10-16. */
   awaitingQcQty?: number;
@@ -331,8 +338,36 @@ export interface BePhoiProgressOrderSegment {
   required: number;
   done: number;
   failed: number;
+  baseRequired?: number;
+  extraNeed?: number;
+  shortQty?: number;
+  scrapQty?: number;
+  reportedQty?: number;
+  maxNow?: number;
+  physicalLeft?: number | null;
   openQty?: number;
   awaitingQcQty?: number;
+}
+
+/** Sắt vào - đoạn ra của 1 loại sắt cả PI (mm): đoạn đã báo vượt sắt đã nhận bao nhiêu. Dùng chung cho
+ *  phoi-progress và floor/review (gộp 2 kiểu cũ, P1). Trường từ `remainingSegments` trở xuống là mới: BE cũ chưa trả. */
+export interface BeSteelBalance {
+  receivedBarCount: number;
+  usableMm: number;
+  reportedMm: number;
+  overMm: number;
+  /** Số đoạn còn phải cắt (P1). */
+  remainingSegments?: number;
+  /** Trong đó số đoạn phải cắt lại vì KCS chấm "Bỏ" (P1). */
+  recutSegments?: number;
+  /** Chiều dài còn cần cắt (mm) (P1). */
+  remainingNeedMm?: number;
+  /** Sắt đã nhận còn dư = max(0, usableMm - reportedMm) (P1). */
+  leftoverReceivedMm?: number;
+  /** Sắt còn xuất được theo giữ chỗ (mm); null = không rõ chiều dài cây (P1). */
+  issuableMm?: number | null;
+  /** Thiếu sắt (mm) = max(0, remainingNeedMm - leftoverReceivedMm - (issuableMm ?? 0)) (P1). */
+  shortMm?: number;
 }
 
 /** Tiến độ cắt theo (loại sắt -> cỡ đoạn) cho cả 1 PI - nguồn dữ liệu bảng "Cần / Đã cắt / Còn
@@ -348,7 +383,7 @@ export interface BePhoiProgressItem {
   steps?: { step: ProcessStep; segments: BePhoiProgressSegment[] }[];
   /** Đối chiếu sắt vào - đoạn ra cả PI (2026-10-12). overMm > 0 = đoạn đã báo vượt sắt đã nhận (chỉ
    *  cảnh báo - có thể do cắt bù bằng sắt thừa dưới xưởng). null = chưa nhận đợt nào. */
-  steelBalance?: { receivedBarCount: number; usableMm: number; reportedMm: number; overMm: number } | null;
+  steelBalance?: BeSteelBalance | null;
 }
 
 export async function getPhoiProgress(productionInvoiceId: string): Promise<BePhoiProgressItem[]> {
@@ -457,20 +492,39 @@ export async function getPiOrderSummary(productionInvoiceId: string): Promise<Be
 export interface BeQcReviewSegment {
   segmentSpecId: string;
   cutLengthMm: number;
+  /** Lỗi (P1: CHỈ lỗi, không gồm thiếu). Cắt: toàn bộ phải cắt lại; công đoạn phụ = scrapQty (bỏ, cắt lại) + phần làm lại. */
   failedQty: number;
+  /** KCS ghi thiếu (P1): đã trừ, không tính lỗi, không cần làm bù. Optional: BE cũ chưa trả. */
+  shortQty?: number;
+  /** Trong failedQty, phần BỎ phải cắt lại (P1, công đoạn phụ). Phần còn lại là làm lại. Optional: BE cũ chưa trả. */
+  scrapQty?: number;
+}
+
+/** Dòng kết quả chấm gửi lên (P1). */
+export interface QcReviewSegmentInput {
+  segmentSpecId: string;
+  failedQty: number;
+  shortQty?: number;
+  scrapQty?: number;
+}
+
+/** Trả về sau khi chấm (P1): `notes` là câu cảnh báo (vd công đoạn sau đã báo nhiều hơn số đoạn cắt thực có). Luôn là mảng; BE cũ không trả thì coi []. */
+export interface QcReviewResult {
+  notes: string[];
 }
 
 /** KCS chấm 1 ĐỢT CẮT (2026-09-05) - thay route chấm cả lô cũ (FE gỡ hàm gọi 17/11; BE chặn khi lô đã chia đợt). */
 export async function reviewCutBundleQc(
   cutBundleId: string,
   data: {
-    segments: { segmentSpecId: string; failedQty: number }[];
+    segments: QcReviewSegmentInput[];
     reason?: string;
     defectReasonId?: string;
     photoUrl?: string;
   },
-): Promise<void> {
-  await http.post(`/cut-bundles/${cutBundleId}/qc-review`, data);
+): Promise<QcReviewResult> {
+  const res = await http.post<Partial<QcReviewResult> | null>(`/cut-bundles/${cutBundleId}/qc-review`, data);
+  return { notes: res?.notes ?? [] };
 }
 
 /** KCS chấm 1 "đợt gửi KCS" công đoạn PHỤ (2026-09-07) - cùng khuôn tham số reviewCutBundleQc,
@@ -478,13 +532,14 @@ export async function reviewCutBundleQc(
 export async function reviewStepBundleQc(
   stepBundleId: string,
   data: {
-    segments: { segmentSpecId: string; failedQty: number }[];
+    segments: QcReviewSegmentInput[];
     reason?: string;
     defectReasonId?: string;
     photoUrl?: string;
   },
-): Promise<void> {
-  await http.post(`/step-bundles/${stepBundleId}/qc-review`, data);
+): Promise<QcReviewResult> {
+  const res = await http.post<Partial<QcReviewResult> | null>(`/step-bundles/${stepBundleId}/qc-review`, data);
+  return { notes: res?.notes ?? [] };
 }
 
 /** 1 dòng qc_reviews (nhánh Phôi - steelIssueId != null HOẶC stepBundleId != null) — dùng để
@@ -505,6 +560,11 @@ export interface BeQcReview {
    *  BIẾN mọi nhánh - số lịch sử cộng dồn (2026-09-08 lần 2, xem changelog "Bù đủ dồn về bảng
    *  tổng") - không còn scrapQty/resolvedQty/phoiReportedAt/phoiReportedQty ở đâu cả. */
   failedQty: number;
+  /** Đợt gửi KCS vật tư không gắn mảnh (chân nhôm...) được chấm - null với mọi nhánh khác. */
+  materialYieldStepBundleId?: string | null;
+  /** KCS ghi thiếu (P1) - ghi riêng, không cộng vào failedQty. Optional: BE cũ chưa trả. */
+  shortQty?: number;
+  /** (Số bỏ chỉ có theo từng cỡ ở segments[].scrapQty; BE không trả tổng ở cấp phiếu.) */
   defectReasonId: string | null;
   defectReasonLabel: string | null;
   reason: string | null;
@@ -512,6 +572,8 @@ export interface BeQcReview {
   reviewedAt: string;
   reviewedById: string;
   segments: BeQcReviewSegment[];
+  /** Chỉ route chấm Cắt có thiếu mới có câu; mọi loại khác (và danh sách GET /qc-reviews) = []. BE cũ không trả. */
+  notes?: string[];
 }
 
 /** Tải HẾT các trang (2026-10-09) - BE giới hạn limit tối đa 100 và sắp mới nhất trước; trước đây chỉ
