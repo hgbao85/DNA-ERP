@@ -89,6 +89,7 @@ function toSalesOrder(o: BeSalesOrder): SalesOrder {
 function toSalesOrderItem(it: BeSalesOrderItem): SalesOrderItem {
   return {
     id: it.id,
+    mfgProductId: it.mfgProductId,
     skuCode: it.factoryCode,
     skuName: it.skuName ?? undefined,
     totalQty: it.totalQty,
@@ -165,6 +166,17 @@ export async function updateSalesOrder(id: number | string, data: Record<string,
 
   const updated = await http.get<BeSalesOrder>(`/sales-orders/${id}`);
   return toSalesOrder(updated);
+}
+
+/** LS2 19/11: đổi / bỏ chọn màu dây, vải nệm của 1 dòng đơn chưa được Sếp duyệt sản xuất. null = bỏ chọn
+ *  (bản định mức mới không còn tick loại đó); undefined = giữ nguyên. Trả lại đơn đã tải lại. */
+export async function updateSalesOrderItemChoice(
+  orderId: number | string,
+  itemId: number | string,
+  choice: { wireMaterialId?: string | null; cushionMaterialId?: string | null },
+): Promise<SalesOrder> {
+  await http.patch(`/sales-orders/${orderId}/items/${itemId}`, choice);
+  return toSalesOrder(await http.get<BeSalesOrder>(`/sales-orders/${orderId}`));
 }
 
 export async function deleteSalesOrder(id: string): Promise<void> {

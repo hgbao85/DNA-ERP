@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getProfile, logoutUser } from '../services/api';
 import { SESSION_EXPIRED_EVENT } from '../services/core/http';
+import { isTransientApiError } from '../services/core/apiError';
 import { tokenStorage } from '../services/core/tokenStorage';
 import { normalizeUser } from '../utils/normalizeUser';
 
@@ -100,6 +101,13 @@ export async function restoreSession(): Promise<{ token: string; user: User } | 
     tokenStorage.setUser(freshUser);
     return { token: storedToken, user: freshUser };
   } catch (e) {
+    // FE3 19/11: không liên lạc được máy chủ (mạng chập chờn, BE đang khởi động lại) KHÔNG có nghĩa phiên hết hạn - giữ token
+    // và mở lại bằng thông tin người dùng đã lưu; các lời gọi sau tự thử lại. Chỉ BE từ chối thật mới xoá phiên.
+    if (isTransientApiError(e)) {
+      const cached = tokenStorage.getUser<User>();
+      console.warn('Chưa liên lạc được máy chủ - giữ phiên đăng nhập đã lưu', e);
+      return cached ? { token: storedToken, user: cached } : null;
+    }
     console.error('Không thể khôi phục phiên đăng nhập', e);
     tokenStorage.clear();
     return null;

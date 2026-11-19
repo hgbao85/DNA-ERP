@@ -36,6 +36,15 @@ export function fallbackErrorMessage(status: number): string {
   return `Yêu cầu không thành công (mã ${status}). Thử lại; vẫn lỗi thì báo quản trị hệ thống.`;
 }
 
+/**
+ * FE3 19/11: lỗi "không liên lạc được / máy chủ tạm lỗi" (mất mạng, hết giờ chờ, 5xx lúc BE khởi động lại, 429) - KHÁC với BE
+ * thật sự từ chối phiên (401/403). Gặp loại này thì giữ phiên, không đăng xuất (trước đây F5 đúng lúc deploy là về /login,
+ * mất dữ liệu đang nhập).
+ */
+export function isTransientApiError(e: unknown): boolean {
+  return e instanceof ApiError && (e.statusCode === 0 || e.statusCode === 429 || e.statusCode >= 500);
+}
+
 /** Câu BE trả khi sai tên đăng nhập/mật khẩu: bản cũ tiếng Anh + bản tiếng Việt (FE và BE có thể không lên cùng lúc). */
 const INVALID_CREDENTIAL_MESSAGES = new Set(['Invalid credentials', 'Tên đăng nhập hoặc mật khẩu không đúng']);
 

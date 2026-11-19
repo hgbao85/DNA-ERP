@@ -9,12 +9,14 @@ vi.mock('../services/core/http', () => ({
 vi.mock('../services/core/tokenStorage', () => ({
   tokenStorage: {
     getAccessToken: vi.fn(),
+    getUser: vi.fn(),
     setUser: vi.fn(),
     clear: vi.fn(),
   },
 }));
 
 import { getProfile } from '../services/api';
+import { ApiError } from '../services/core/apiError';
 import { tokenStorage } from '../services/core/tokenStorage';
 import { restoreSession } from './AuthContext';
 
@@ -38,6 +40,24 @@ describe('restoreSession', () => {
     const session = await restoreSession();
 
     expect(session).toBeNull();
+    expect(clear).toHaveBeenCalled();
+  });
+
+  it('FE3: không liên lạc được máy chủ (mất mạng / 502 lúc BE khởi động lại) -> giữ phiên đã lưu, không xoá token', async () => {
+    getAccessToken.mockReturnValue('saved-token');
+    (tokenStorage.getUser as ReturnType<typeof vi.fn>).mockReturnValue({ id: '1', role: 'QLSX' });
+    for (const status of [0, 502, 429]) {
+      getProfileMock.mockRejectedValueOnce(new ApiError('tạm lỗi', status, 'Error'));
+      const session = await restoreSession();
+      expect(session).toEqual({ token: 'saved-token', user: { id: '1', role: 'QLSX' } });
+    }
+    expect(clear).not.toHaveBeenCalled();
+  });
+
+  it('FE3: BE từ chối thật (401) -> vẫn xoá phiên', async () => {
+    getAccessToken.mockReturnValue('saved-token');
+    getProfileMock.mockRejectedValue(new ApiError('hết hạn', 401, 'Unauthorized'));
+    expect(await restoreSession()).toBeNull();
     expect(clear).toHaveBeenCalled();
   });
 

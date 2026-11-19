@@ -16,6 +16,8 @@ export type SalesOrderStatus = 'LEN_KE_HOACH' | 'MUA_HANG' | 'KHUNG_CO_KHI' | 'D
 export interface SalesOrderItem {
   /** bigint-as-string thật từ BE (SalesOrderItem.id) — KHÔNG ép Number(), có thể vượt Number.MAX_SAFE_INTEGER. */
   id: string;
+  /** Sản phẩm của dòng (khoá thật, skuCode có thể trùng giữa 2 khách) - dùng nạp lựa chọn dây/nệm. */
+  mfgProductId?: string;
   skuCode: string;
   skuName?: string;
   totalQty: number;
