@@ -31,6 +31,10 @@ interface Group {
   first: PurchaseProposalItem
   purchaseQty: number
   receivedQty: number
+  /** MUA2 rà soát 18/11: số CÒN CHỜ NHẬN chỉ trên dòng đang chờ (purchasing) - đúng công thức BE dùng để đòi lý do nhận vượt.
+   *  Không lấy purchaseQty − receivedQty của cả allLines: dòng đã "Đóng phần thiếu" (purchased, nhận chưa đủ) sẽ bị cộng phần
+   *  thiếu vào "còn chờ" -> FE không hiện ô lý do nhưng BE đòi -> thủ kho không nhận được. */
+  pendingQty: number
   deadline: string | null
 }
 
@@ -79,6 +83,7 @@ export default function NhapKhoNhanHang({ lockedGroup }: { lockedGroup?: string 
           first: lines[0].item,
           purchaseQty: round4(allLines.reduce((s, l) => s + l.item.purchaseQty, 0)),
           receivedQty: round4(allLines.reduce((s, l) => s + (l.item.receivedQty ?? 0), 0)),
+          pendingQty: round4(lines.reduce((s, l) => s + Math.max(0, l.item.purchaseQty - (l.item.receivedQty ?? 0)), 0)),
           deadline: lines.map(lineDeadline).filter((d): d is string => !!d).sort()[0] ?? null,
         }
       })
@@ -294,7 +299,7 @@ function ReceiveDetail({ group, onBack }: { group: Group; onBack: () => void }) 
     approvalExisting.length === 0 && approvalFiles.length === 0 && 'phiếu đề xuất Giám đốc ký',
     it.isSteel && weighSlips.length === 0 && 'phiếu cân xe',
   ].filter(Boolean) as string[]
-  const remaining = round4(group.purchaseQty - group.receivedQty)
+  const remaining = group.pendingQty
   // Vượt tổng số còn lại của đơn (BE tính lại sau khoá theo số đã nhận mới nhất, cùng công thức).
   const overQty = round4(Math.max(0, total - remaining))
   const overReasonMissing = overQty > 0 && overReason.trim() === ''

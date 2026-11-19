@@ -81,7 +81,7 @@
     <div class="stat"><div class="n" style="color:var(--mid)">16</div><div class="l">Trung bình (3 cần nghiệp vụ, 1 chỉ qua API thẳng)</div></div>
     <div class="stat"><div class="n" style="color:var(--low)">13</div><div class="l">Thấp</div></div>
     <div class="stat"><div class="n">1</div><div class="l">lỗi mới do bản sửa 18/11 (FE1)</div></div>
-    <div class="stat"><div class="n" style="color:var(--done)">3</div><div class="l">đã sửa 18/11 (PH1, LS1, FE1)</div></div>
+    <div class="stat"><div class="n" style="color:var(--done)">9</div><div class="l">đã sửa (18/11: PH1, LS1, FE1 · 19/11: MUA1, HS1, HS3, CS3, MUA2, FE2)</div></div>
   </div>
 
   <h2>Cao</h2>
@@ -95,13 +95,15 @@
 
   <h2>Trung bình</h2>
 
-  <div class="item mid"><h3><span class="id">MUA1</span>Duyệt lại phương án cắt sau khi đã nhận sắt: hàng đã nhận bị trừ 2 lần <span class="tag mid">Trung bình–Cao</span></h3>
+  <div class="item done"><h3><span class="id">MUA1</span>Duyệt lại phương án cắt sau khi đã nhận sắt: hàng đã nhận bị trừ 2 lần <span class="tag mid">Trung bình–Cao</span><span class="tag done">Đã sửa 19/11</span></h3>
+    <p class="fix"><b>Đã sửa 19/11:</b> BE <code>creditPool</code> luôn cộng hàng nhận vào dòng "thuộc về cả PI" (PRODUCTION_INVOICE), không cộng vào dòng phương án cắt; chưa có thì tạo / mở lại dòng PI cùng ngăn chiều dài. Thử sống: nhận 1 cây SAT-001 qua đủ luồng (đơn NCC → Sếp duyệt → phiếu NK) khi pool chỉ có dòng phương án - hàng vào dòng PI mới (ngăn 6000), dòng phương án không đổi; nhả dòng phương án (như thay phương án) thì PI vẫn giữ đủ cây vừa nhận.</p>
     <p><code>creditPool</code> cộng hàng nhận vào dòng giữ chỗ ưu tiên đầu - có thể là dòng của phương án cắt (CUTTING_PROPOSAL). KHSX "Tính lại" rồi duyệt tay phương án mới → <code>releaseByRef</code> nhả cả phần vừa nhận → phần đó vừa tính là tồn khả dụng vừa nằm trong "đã ký" (receivedQty). Ví dụ: tồn 30, mua 70, nhận đủ; tính lại nhu cầu 150 → hệ thống mua 0 thay vì 50 → Phôi thiếu sắt. Biến thể: báo "nhu cầu giảm dưới số đã ký" sai cho người mua + Giám đốc.</p>
     <p class="where">BE <code>stock/stock-reservations.service.ts:461-469</code>; <code>cutting-proposals.service.ts:2640-2650, 2717-2736, 3680-3700</code>. Đã kiểm <code>pool[0]</code>; phần còn lại khá chắc (chưa chạy).</p>
     <p class="fix"><b>Hướng sửa:</b> <code>creditPool</code> luôn cộng vào dòng PRODUCTION_INVOICE, hoặc khi thay phương án thì chuyển phần đã cộng sang dòng PRODUCTION_INVOICE thay vì nhả.</p>
   </div>
 
-  <div class="item mid"><h3><span class="id">HS1</span>Xuất theo công thức (thanh nhôm → chân nhôm) không trả giữ chỗ — mục cũ MH1 sót <span class="tag mid">Trung bình</span></h3>
+  <div class="item done"><h3><span class="id">HS1</span>Xuất theo công thức (thanh nhôm → chân nhôm) không trả giữ chỗ — mục cũ MH1 sót <span class="tag mid">Trung bình</span><span class="tag done">Đã sửa 19/11</span></h3>
+    <p class="fix"><b>Đã sửa 19/11:</b> BE xuất theo công thức kiểm tồn khả dụng (trừ giữ chỗ của PI khác) và trả giữ chỗ của chính PI (<code>drainPoolBestEffort</code>) như các luồng xuất khác. Thử sống: Admin "Tạo lại" PI 75 → nguồn mua công thức giữ 1 thanh SAT-015; xuất 1 thanh qua phiếu XK → giữ chỗ PI 75 đã tiêu 0 → 1, tồn 10 → 9. Phép chặn "lấy phần PI khác giữ" có test tự động (bản sao không có PI thứ 2 phát sinh giữ chỗ).</p>
     <p>Nguồn mua công thức giữ chỗ thật (<code>reserveOrAdjust</code>), nhưng phiếu xuất theo công thức không gọi <code>drainPool</code> (4 luồng xuất khác đều gọi). Tồn 20, PI A giữ 10, xuất 10 → giữ chỗ A vẫn ACTIVE 10 → PI B duyệt sau thấy khả dụng 0, mua 10 thanh dù kho còn 10; Admin "Tạo lại" cho A mua lại đúng 10 thanh đã xuất. Ngược lại xuất cho B so tồn thô, lấy được hàng đang giữ cho A. Comment "CHƯA nối … bổ sung sau" (01/10) đã lỗi thời. 2 agent độc lập cùng tìm ra.</p>
     <p class="where">BE <code>material-yield-recipes/material-yield-recipe-issues.service.ts:59-69, 146-205</code>; <code>production-invoices/material-yield-recipe-purchase.service.ts:154-209</code>. Đã kiểm.</p>
     <p class="fix"><b>Hướng sửa:</b> <code>createInTx</code> làm như <code>material-yield-issues</code>: <code>getAvailableQty(…, ownPi)</code> + <code>drainPoolBestEffort</code>.</p>
@@ -113,7 +115,8 @@
     <p class="fix"><b>Hướng sửa:</b> trong <code>assertPieceCapInTx</code> khoá <code>stock_quant</code> (kho xuất, mảnh) FOR UPDATE, chặn khi vượt tồn − phần trên phiếu chờ ký khác.</p>
   </div>
 
-  <div class="item mid"><h3><span class="id">CS3</span>Duyệt phương án cắt tính trước lỗi sau khi Sếp duyệt: im lặng <span class="tag mid">Trung bình</span></h3>
+  <div class="item done"><h3><span class="id">CS3</span>Duyệt phương án cắt tính trước lỗi sau khi Sếp duyệt: im lặng <span class="tag mid">Trung bình</span><span class="tag done">Đã sửa 19/11</span></h3>
+    <p class="fix"><b>Đã sửa 19/11:</b> BE: duyệt phương án tính trước lỗi sau khi Sếp duyệt → thông báo Admin <code>PRESOLVED_CUTTING_APPROVE_FAILED</code> ("phương án cắt chưa duyệt được… bấm Tạo lại"), tự đóng khi duyệt lại được (lúc Sếp duyệt hoặc Admin "Tạo lại"). FE: nút Admin đổi nhãn "Tạo lại dòng mua / phương án cắt". Chưa đổi trạng thái hiển thị phương án sang "Cần xử lý" (cần truy vấn thêm trong hàm danh sách - thông báo đã đủ để Admin biết). Có test tự động; không dựng được lỗi duyệt thật trên bản sao.</p>
     <p>Sếp duyệt xong (đã tạo lệnh, PI PRODUCING) mà <code>approve()</code> phương án tính trước lỗi (vd transaction quá giờ khi chờ khoá lúc đang nhận hàng) → chỉ <code>logger.error</code>: phương án vẫn DRAFT, không giữ chỗ, không dòng mua sắt, Phôi bị chặn xuất sắt. Không thông báo nào (lỗi tạo lệnh và lỗi mua ngoài sắt đều có thông báo); màn vẫn hiện "Đã tính xong / OK"; nút cứu Admin "Tạo lại" ghi là "dòng mua ngoài sắt" nên không ai biết bấm.</p>
     <p class="where">BE <code>production-invoices.service.ts:2639-2653</code>; <code>cutting-proposals.service.ts:4973, 5052-5060</code>; FE <code>Admin/businessData/ProductionInvoicesPage.tsx:33-58</code>. Đã kiểm.</p>
     <p class="fix"><b>Hướng sửa:</b> catch bắn thông báo Admin (kiểu NON_STEEL_PURCHASE_FAILED); "DRAFT tính trước + PI đã có lệnh" hiện NEEDS_ACTION; sửa nhãn nút.</p>
@@ -144,7 +147,8 @@
     <p class="fix"><b>Hướng sửa:</b> BE nhận <code>null</code> để xoá; FE thêm ô chọn màu cho dòng đơn chưa có lệnh.</p>
   </div>
 
-  <div class="item mid"><h3><span class="id">MUA2</span>Màn Nhập kho tính "còn chờ" gồm dòng đã Đóng phần thiếu → thủ kho kẹt <span class="tag mid">Trung bình</span></h3>
+  <div class="item done"><h3><span class="id">MUA2</span>Màn Nhập kho tính "còn chờ" gồm dòng đã Đóng phần thiếu → thủ kho kẹt <span class="tag mid">Trung bình</span><span class="tag done">Đã sửa 19/11</span></h3>
+    <p class="fix"><b>Đã sửa 19/11:</b> FE "còn chờ nhận" và nhận vượt chỉ tính trên dòng đang chờ (cùng công thức BE). Thử sống: đơn gộp 3 lệnh SAT-002, nhận 1, đóng phần thiếu 1 lệnh → màn hiện "Còn chờ nhận 1 cây" (trước là 2); giao 2 cây → hiện "Nhận vượt 1 cây… Bắt buộc ghi lý do".</p>
     <p>FE cộng <code>purchaseQty</code>/<code>receivedQty</code> trên cả dòng đã đóng phần thiếu (cùng đơn), BE chỉ cộng dòng còn PURCHASING. Đơn gộp A/B/C mỗi lệnh 10, đã nhận 15, đóng phần thiếu B: FE còn chờ 15, BE 10. NCC giao 12 → FE không hiện ô lý do nhận vượt, BE trả 400 "bắt buộc ghi lý do" → thủ kho không nhận được, chỉ còn Từ chối. Ngược lại FE đòi lý do oan.</p>
     <p class="where">FE <code>Manufacturing/NhapKhoNhanHang.tsx:63-81, 297-300, 331, 501</code>; BE <code>purchase-receipts.service.ts:196-209</code>. Đã kiểm.</p>
     <p class="fix"><b>Hướng sửa:</b> FE tính "còn chờ" và nhận vượt chỉ trên dòng PURCHASING như BE.</p>
@@ -175,7 +179,8 @@
     <p class="fix"><b>Hướng sửa:</b> làm tròn 4 số lẻ trước khi gửi.</p>
   </div>
 
-  <div class="item mid"><h3><span class="id">FE2</span>Không xuất được phần lẻ vật tư tiêu hao Hàn/Sơn theo lệnh <span class="tag mid">Trung bình</span></h3>
+  <div class="item done"><h3><span class="id">FE2</span>Không xuất được phần lẻ vật tư tiêu hao Hàn/Sơn theo lệnh <span class="tag mid">Trung bình</span><span class="tag done">Đã sửa 19/11</span></h3>
+    <p class="fix"><b>Đã sửa 19/11:</b> FE bỏ <code>Math.floor</code>, làm tròn 4 số lẻ, ô nhập cho gõ số lẻ. Thử sống: Sơn bột 0,05 kg/ghế, lệnh 1 ghế - "Thêm vào phiếu" thêm đúng 0.05 (trước thành 0, nút không làm gì); tạo phiếu XK 0,05 kg → BE nhận (XK-261119-002).</p>
     <p><code>Math.floor</code> ở số thêm vào phiếu và ô nhập. Que hàn 0,05 kg × 30 ghế = 1,5 kg: chỉ thêm được 1 kg, còn 0,5 kg nút không làm gì, gõ 0.5 thành 0. Dòng không bao giờ "đã xuất đủ"; muốn xuất nốt phải đi "Dùng chung", mất gắn lệnh. Sót từ bản mock; cùng loại "XacNhanVatTu phần lẻ" đã sửa 16/11.</p>
     <p class="where">FE <code>InboundWarehouse/XuatVatTuTieuHaoPage.tsx:74-75, 167</code>. Đã kiểm.</p>
     <p class="fix"><b>Hướng sửa:</b> bỏ <code>Math.floor</code>, làm tròn 4 số lẻ (như <code>KhoVatTuKemDanPage</code>).</p>
@@ -195,7 +200,8 @@
 
   <h2>Thấp</h2>
 
-  <div class="item"><h3><span class="id">HS3</span>Mục cũ K1 sót ở 2 luồng xuất <span class="tag low">Thấp</span></h3>
+  <div class="item done"><h3><span class="id">HS3</span>Mục cũ K1 sót ở 2 luồng xuất <span class="tag low">Thấp</span><span class="tag done">Đã sửa 19/11</span></h3>
+    <p class="fix"><b>Đã sửa 19/11:</b> Thêm <code>"stockLengthMm" = 0 AND "spec" = ''</code> vào 2 câu khoá tồn (vật tư thành phẩm, công thức).</p>
     <p>Xuất vật tư thành phẩm và xuất theo công thức khoá <code>stock_quant</code> không lọc <code>"stockLengthMm" = 0 AND "spec" = ''</code> (bút toán luôn ghi ô 0/''). Vật tư có ô 6000 = 50, ô 0 = 0: kiểm thấy 50, cho xuất, ô 0 âm.</p>
     <p class="where">BE <code>material-yield-issues.service.ts:262-266</code>; <code>material-yield-recipe-issues.service.ts:176-180</code>. Đã kiểm.</p>
   </div>
