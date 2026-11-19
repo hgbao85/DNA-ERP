@@ -117,7 +117,9 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
     if (isFamilyScope(scope, 'phoi-son-han')) return ALL_TABS.filter(t => ['materials','nhap-kho','xuat-kho', ...(warehouseKindOf(scope) === 'PHOI' ? ['chuyen-tu-do'] : []),'lich-su-kho','xuat-sat','ton-doan','vat-tu-van-phong','vat-tu-can-ve'].includes(t.id))
     if (isThanhPhamScope(scope)) return ALL_TABS.filter(t => ['materials','nhap-kho','xuat-kho','chuyen-tu-do','lich-su-kho','chuyen-kiem','dong-goi','nhap-dan','vat-tu-van-phong','vat-tu-can-ve'].includes(t.id))
     if (scope) return ALL_TABS.filter(t => t.id !== 'materials')
-    return ALL_TABS
+    // 19/11/2026: tổng kho / Giám đốc (scope null) không có kho cụ thể -> bỏ 2 tab chỉ vẽ được với kho thành phẩm / vật tư TP
+    // (trước đây hiện mục nhưng bấm vào trang trắng). Link ?p=nhap-dan|diem-dan không thuộc TABS -> isValidTab false -> về tab mặc định.
+    return ALL_TABS.filter(t => t.id !== 'nhap-dan' && t.id !== 'diem-dan')
   })()
 
   const defaultTab: TabId = isFamilyScope(scope, 'vat-tu-tp') || isFamilyScope(scope, 'phoi-son-han') || isThanhPhamScope(scope) ? 'materials' : scope ? 'warehouses' : 'materials'
@@ -268,12 +270,12 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
         )}
         {tab === 'warehouses' && <MfgWarehousesPage groupKey={scope} />}
         {tab === 'nhap-kho'   && <NhapKhoPage lockedGroup={scope} />}
-        {/* scope luôn có giá trị ở đây trên thực tế (2026-08-28): form tạo tài khoản Admin bắt buộc
-            chọn "Kho phụ trách" cho mọi nhân viên loại Kho (UsersPage.tsx validate 'Chọn kho phụ
-            trách'), và tài khoản BOSS (scope null) không có đường điều hướng nào tới phân hệ Kho
-            đầu vào (BossApp.tsx không nhận onBack). Giữ nhánh scope null ở đây chỉ để không vỡ kiểu
-            dữ liệu - trước đây render XuatKhoPage, 1 màn "xuất kho" giả chỉ setState cục bộ, không
-            hề gọi API (đã xoá, xem audit-2026-08-26-mua-hang-kho-toan-dien.html Vấn đề #2). */}
+        {/* Thủ kho luôn có scope (2026-08-28): form tạo tài khoản Admin bắt buộc chọn "Kho phụ trách"
+            cho mọi nhân viên loại Kho (UsersPage.tsx validate 'Chọn kho phụ trách'). Riêng Giám đốc
+            (scope null) vào được phân hệ này qua thẻ "Kho đầu vào" ở trang chọn phân hệ (BossApp có
+            nút về từ 19/11/2026) nên nhánh scope null ở đây là thật: hiện thông báo thay vì "xuất kho"
+            giả - trước đây render XuatKhoPage, 1 màn chỉ setState cục bộ, không hề gọi API (đã xoá,
+            xem audit-2026-08-26-mua-hang-kho-toan-dien.html Vấn đề #2). */}
         {tab === 'xuat-kho'   && (scope
           ? <WarehouseXuatPage scope={scope} />
           : <div style={{ padding: 48, textAlign: 'center', color: 'var(--text3)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, fontSize: 14 }}>

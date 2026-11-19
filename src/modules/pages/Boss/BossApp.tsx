@@ -1,7 +1,7 @@
 'use client'
 import { useCloseNavOnNotification } from '../../../hooks/useCloseNavOnNotification'
 import { useEffect, useState, useCallback } from 'react'
-import { LayoutDashboard, Package, LogOut, CalendarClock, Warehouse, ClipboardCheck, Menu, X } from 'lucide-react'
+import { Grid, LayoutDashboard, Package, LogOut, CalendarClock, Warehouse, ClipboardCheck, Menu, X } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import { useIsCompact, useIsMobile } from '../../../hooks/useMediaQuery'
 import { useUrlState, useUrlParamValue } from '../../../hooks/useUrlState'
@@ -109,7 +109,7 @@ const NAV_ITEMS: { id: Page; label: string; icon: React.ReactNode }[] = [
   { id: 'kho',       label: 'Tổng hợp kho',        icon: <Warehouse       size={16} /> },
 ]
 
-export default function BossApp() {
+export default function BossApp({ onBack }: { onBack?: () => void } = {}) {
   const { user, logout } = useAuth()
   // `p` trong query string - cho NotificationCenter mở đúng tab (vd SKU_SENT_TO_BOSS trỏ tới
   // module 'boss' + page 'cho-duyet', xem notification-types.ts bên BE) - cùng cơ chế
@@ -139,6 +139,17 @@ export default function BossApp() {
   const sidebar = (
       <div style={{ width: 210, flexShrink: 0, height: '100%', background: 'var(--surface)', borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column' }}>
         <div style={{ padding: '16px 16px 12px', display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+          {/* 19/11/2026: nút về trang chọn phân hệ (cùng mẫu MfgApp) - trước đây Giám đốc không có đường về. */}
+          {onBack && (
+            <button
+              onClick={onBack}
+              style={{ padding: 6, background: 'var(--surface2)', border: 'none', borderRadius: 'var(--radius)', display: 'flex', cursor: 'pointer' }}
+              title="Trở về trang chọn phân hệ"
+              aria-label="Trở về trang chọn phân hệ"
+            >
+              <Grid size={16} color="var(--text)" />
+            </button>
+          )}
           <div style={{ flex: 1 }}>
             <div style={{ fontWeight: 700, fontSize: 14 }}>Giám đốc</div>
             <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>Đông Nam Á Corp</div>

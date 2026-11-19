@@ -23,11 +23,12 @@ export const bossGroup: GuideGroup = {
         'Duyệt cuối cùng công thức sản phẩm (SKU/định mức) ở tab "Tổng hợp chờ duyệt".',
         'Duyệt cuối cùng lệnh sản xuất (bấm là xưởng chạy ngay) ở cùng tab "Tổng hợp chờ duyệt".',
         'Xem tiến độ, tồn kho, danh sách kho ở các tab còn lại — thuần tra cứu.',
+        'Muốn sang phân hệ khác (Bán hàng, Kế hoạch SX, Mua hàng, Kho đầu vào, Sản xuất): bấm nút ô lưới ở góc trên bên trái thanh menu (trên điện thoại: mở menu ☰ trước) để về trang chọn phân hệ, rồi bấm thẻ cần mở. Từ phân hệ đó bấm nút ô lưới lần nữa để về, chọn thẻ "Giám đốc" để quay lại màn hình này.',
       ],
       result: 'Nắm quyền kiểm soát 2 cổng duyệt quan trọng nhất hệ thống, đồng thời có cái nhìn tổng thể toàn bộ hoạt động.',
       warnings: [
         'Từ 27/08/2026, Giám đốc KHÔNG còn duyệt báo giá/chọn nhà cung cấp qua phần mềm — việc này thực hiện bằng ký tay trên phiếu giấy/Excel ngoài hệ thống. Phần mềm chỉ giữ lại ảnh/PDF phiếu đã ký làm bằng chứng (Mua hàng tải lên ở màn "Lệnh mua vật tư").',
-        'Tài khoản Giám đốc cũng có thể vào các module nghiệp vụ khác (Bán hàng, Sản xuất, Mua hàng, Kho, Kế hoạch SX) với quyền cao nhất — xem các nhóm tương ứng trong sidebar để biết chi tiết thao tác ở đó.',
+        'Tài khoản Giám đốc cũng có thể vào các module nghiệp vụ khác (Bán hàng, Sản xuất, Mua hàng, Kho, Kế hoạch SX) qua trang chọn phân hệ (nút ô lưới) — xem các nhóm tương ứng trong sidebar để biết chi tiết thao tác ở đó. Ở Kho đầu vào, Giám đốc không có mục "Theo dõi nhập đan" và "Quản lý điểm đan" (2 mục này gắn với kho cụ thể của thủ kho).',
       ],
       tags: ['tổng quan giám đốc', 'boss app'],
       sourceRefs: ['src/modules/pages/Boss/BossApp.tsx'],

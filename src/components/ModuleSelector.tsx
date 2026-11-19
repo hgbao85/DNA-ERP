@@ -1,7 +1,10 @@
-import { LayoutDashboard, Users, Package, ShoppingCart, Truck, Factory, DollarSign, Wallet, CheckSquare, LogOut } from 'lucide-react'
+import { LayoutDashboard, Users, Package, ShoppingCart, Truck, Factory, DollarSign, Wallet, CheckSquare, LogOut, Briefcase } from 'lucide-react'
 import ThemeToggle from './ThemeToggle'
+import { isModuleAccessible, isModuleImplemented } from './moduleSelectorAccess'
 
 const ALL_MODULES = [
+  // 19/11/2026: thẻ Giám đốc - để Giám đốc từ phân hệ khác bấm quay lại (chỉ bấm được khi isDirector).
+  { id: 'boss', name: 'Giám đốc', desc: 'Tổng hợp chờ duyệt, lệnh SX, SKU, kho', icon: <Briefcase size={32} />, color: 'var(--bg-e3f2fd)', textColor: 'var(--fg-1565c0)' },
   { id: 'sales', name: 'Bán hàng', desc: 'Quản lý đơn hàng, quản lý khách hàng', icon: <Users size={32} />, color: 'var(--bg-e8f5e9)', textColor: 'var(--fg-2e7d32)' },
   { id: 'production_plan', name: 'Kế hoạch SX', desc: 'Tổng nhu cầu NVL, lệnh sản xuất', icon: <LayoutDashboard size={32} />, color: 'var(--bg-e8f5e9)', textColor: 'var(--fg-2e7d32)' },
   { id: 'purchasing', name: 'Mua hàng', desc: 'RFQ, so sánh giá, PO, gửi NCC', icon: <ShoppingCart size={32} />, color: 'var(--bg-ede7f6)', textColor: 'var(--fg-4527a0)' },
@@ -62,21 +65,9 @@ export default function ModuleSelector({ user, onLogout, onSelectModule }: Modul
         
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: 20 }}>
           {ALL_MODULES.map(mod => {
-            const isImplemented = mod.id === 'sales' || mod.id === 'production' || mod.id === 'purchasing' || mod.id === 'inbound_warehouse' || mod.id === 'production_plan';
-
-            // Quyền truy cập theo role
-            const isAccessible = (() => {
-              if (!isImplemented) return false;
-              if (mod.id === 'sales')      return (user?.role === 'BOSS' && !user?.mfgRole) || !!user?.isSale;
-              if (mod.id === 'production') return user?.role === 'BOSS' || !!user?.mfgRole;
-              if (mod.id === 'purchasing') return (user?.role === 'BOSS' && !user?.mfgRole) || !!user?.isPurchaser;
-              if (mod.id === 'inbound_warehouse') {
-                if (user?.mfgRole || user?.isProductPlanner || user?.isPurchaser || user?.isSale) return false;
-                return user?.role === 'WAREHOUSE_STAFF' || user?.role === 'BOSS';
-              }
-              if (mod.id === 'production_plan') return (user?.role === 'BOSS' && !user?.mfgRole) || !!user?.isProductPlanner;
-              return false;
-            })();
+            // Luật truy cập tách ra moduleSelectorAccess.ts (19/11/2026) để test.
+            const isImplemented = isModuleImplemented(mod.id);
+            const isAccessible = isModuleAccessible(mod.id, user);
 
             const clickable = isAccessible;
             const badge = !isImplemented ? 'SẮP RA MẮT' : (!isAccessible ? 'KHÔNG CÓ QUYỀN' : null);
