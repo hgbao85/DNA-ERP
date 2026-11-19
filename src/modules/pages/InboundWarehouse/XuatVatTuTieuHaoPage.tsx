@@ -71,8 +71,11 @@ export default function XuatVatTuTieuHaoPage({ stage, desc }: { stage: MaterialI
   const [msgs, setMsgs] = useState<Record<string, string>>({})
   const cart = useIssueSlipCart()
 
+  // FE2 rà soát 18/11: vật tư tiêu hao (que hàn, sơn...) tính theo kg / lon có số lẻ (vd 0,05 kg × 30 ghế = 1,5 kg) - làm tròn
+  // 4 số lẻ như BE, KHÔNG làm tròn xuống số nguyên (trước đây Math.floor: 1,5 chỉ thêm được 1, phần 0,5 không bao giờ xuất được).
+  const round4 = (v: number) => Math.round(v * 1e4) / 1e4
   const clampN = (d: BeMaterialIssuePlanItem) =>
-    Math.max(0, Math.min(d.remainingToIssue, Math.floor(Number(qty[d.materialId] ?? d.remainingToIssue) || 0)))
+    Math.max(0, Math.min(d.remainingToIssue, round4(Number(qty[d.materialId] ?? d.remainingToIssue) || 0)))
 
   const xuat = async (d: BeMaterialIssuePlanItem) => {
     const n = clampN(d)
@@ -159,13 +162,15 @@ export default function XuatVatTuTieuHaoPage({ stage, desc }: { stage: MaterialI
                         ) : (
                           <div>
                             <div style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
-                              <input type="number" min={1} max={d.remainingToIssue}
+                              <input type="number" min={0} step="any" max={d.remainingToIssue}
                                 value={qty[d.materialId] ?? String(d.remainingToIssue)}
                                 onChange={e => {
                                   const raw = e.target.value
                                   if (raw === '') { setQty(q => ({ ...q, [d.materialId]: '' })); return }
-                                  const v = Math.max(0, Math.min(d.remainingToIssue, Math.floor(Number(raw) || 0)))
-                                  setQty(q => ({ ...q, [d.materialId]: String(v) }))
+                                  // FE2: giữ nguyên chuỗi đang gõ (vd "0." / "0,5") - chỉ chặn quá 4 số lẻ và kẹp trần còn lại.
+                                  if (!/^\d*\.?\d{0,4}$/.test(raw)) return
+                                  const v = Number(raw)
+                                  setQty(q => ({ ...q, [d.materialId]: v > d.remainingToIssue ? String(d.remainingToIssue) : raw }))
                                 }}
                                 style={{ width: 70, padding: '4px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, textAlign: 'right', background: 'var(--surface)', color: 'var(--text)' }} />
                               <button onClick={() => xuat(d)} disabled={busy === d.materialId}

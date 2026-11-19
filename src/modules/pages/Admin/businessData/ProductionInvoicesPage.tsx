@@ -52,7 +52,7 @@ function RecomputeNonSteelButton({ pi }: { pi: ProductionInvoice }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-start' }}>
       <button onClick={e => { e.stopPropagation(); void run() }} disabled={busy}
-        title="Chạy lại bước tạo dòng mua vật tư tiêu hao, pat, chân nhôm cho cả lệnh - không tạo dòng trùng"
+        title="Chạy lại bước sau khi Sếp duyệt cho cả lệnh: duyệt phương án cắt tính trước (nếu còn chưa duyệt) + tạo dòng mua vật tư tiêu hao, pat, chân nhôm - không tạo dòng trùng"
         style={{ padding: '4px 10px', fontSize: 12, fontWeight: 600, border: '1px solid var(--border)', borderRadius: 6, background: 'var(--surface)', color: busy ? 'var(--text3)' : 'var(--text)', cursor: busy ? 'not-allowed' : 'pointer' }}>
         {busy ? 'Đang tạo…' : 'Tạo lại'}
       </button>
@@ -78,7 +78,8 @@ export default function ProductionInvoicesPage() {
       { key: 'deadline', label: 'Deadline', render: (p) => fmtDate(p.deadline) },
       { key: 'status', label: 'Trạng thái', render: (p) => STATUS_LABEL[p.status] ?? p.status },
       { key: 'createdBy', label: 'Người tạo', render: (p) => p.createdBy?.name ?? '—' },
-      { key: 'nonSteelPurchase', label: 'Dòng mua ngoài sắt', render: (p) => <RecomputeNonSteelButton pi={p} /> },
+      // CS3 rà soát 18/11: cùng nút chạy lại cả phần duyệt phương án cắt tính trước bị lỗi (BE retryProductionOrder).
+      { key: 'nonSteelPurchase', label: 'Tạo lại dòng mua / phương án cắt', render: (p) => <RecomputeNonSteelButton pi={p} /> },
     ],
     filters: [
       { key: 'PLANNING', label: 'Lên kế hoạch', predicate: (p) => p.status === 'PLANNING' },
