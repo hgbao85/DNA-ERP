@@ -360,7 +360,7 @@ export const warehouseGroup: GuideGroup = {
         'Đá cắt dùng ở cả kho Phôi và kho Hàn: mua về nhập kho Phôi; cần dùng ở Hàn thì thủ kho Phôi tạo phiếu chuyển sang kho Hàn, thủ kho Hàn xác nhận ở "Nhập kho > Nhập nội bộ", rồi xuất cho tổ Hàn bằng dòng "Dùng chung" trên phiếu xuất. Phần đá cắt đã giữ cho một lệnh thì không chuyển được.',
         'Kho nhận đếm và ghi số thực nhận; nhận thiếu thì phần thiếu vẫn ở kho bạn — tạo phiếu mới để giao bù.',
         'Nếu vật tư có tồn kho chia theo từng loại chiều dài cây (đặc thù của sắt), tab này KHÔNG hỗ trợ — phải dùng đúng luồng "Phân phối nội bộ > Xuất sắt".',
-        'Nếu giữa lúc mở form và lúc bấm tạo phiếu, một phiếu khác đã giữ chỗ trước một phần số lượng, hệ thống tự động GIẢM (clamp) số lượng thực tạo — kiểm tra lại thông báo sau khi tạo để biết số thực tế đã chuyển.',
+        'Nếu giữa lúc mở form và lúc bấm tạo phiếu, một phiếu khác đã giữ chỗ trước một phần số lượng, hệ thống báo không đủ tồn khả dụng (kèm số còn lại) và KHÔNG lập phiếu — sửa lại số rồi tạo lại.',
       ],
       commonErrors: [
         { issue: '"... là kho ảo ... - không dùng được cho chuyển kho tự do"', cause: 'Chọn nhầm một kho ảo (điểm ghi sổ kỹ thuật) làm kho đích.', fix: 'Chỉ chọn kho vật lý thật.' },
