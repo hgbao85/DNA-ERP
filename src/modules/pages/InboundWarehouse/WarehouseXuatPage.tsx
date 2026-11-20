@@ -285,13 +285,17 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
     const order = orders.find(o => o.id === orderId)
     const line = order?.lines.find(l => l.id === lineId)
     if (!order || !line) return
-    const raw = Math.max(0, Number(line.inputQty) || 0)
-    if (raw <= 0) return
-    const qty = Math.min(raw, line.availableQty)
+    const qty = Math.max(0, Number(line.inputQty) || 0)
     if (qty <= 0) return
+    // 19/11 (việc nhận từ Sang): nhập vượt số được chuyển thì báo trên dòng, không tự hạ về mức tối đa rồi lập phiếu ít hơn
+    // số đã nhập (BE cũng chặn và báo, không còn cắt bớt).
+    if (qty > line.availableQty) {
+      setTransferErrors(prev => ({ ...prev, [lineId]: `Nhập ${qty} vượt số được chuyển (${line.availableQty}) - sửa lại số` }))
+      return
+    }
 
-    // Chặng phoi-son-han: tạo phiếu chuyển kho piece-only thật (mảnh/vật tư TP theo PO), số lượng
-    // đã được BE tự clamp theo kế hoạch (đã qua KCS trừ đã chuyển trước đó) tại thời điểm tạo.
+    // Chặng phoi-son-han: tạo phiếu chuyển kho piece-only thật (mảnh/vật tư TP theo PO), BE kiểm lại số đã qua KCS (trừ đã
+    // chuyển) và tồn mảnh thật ở kho gửi tại thời điểm tạo - vượt thì báo lỗi, không cắt bớt.
     // Kho đích là kho vat-tu-tp Thủ kho đã chọn ở dropdown (pieceDestWh) - không còn tự động theo
     // 1 cặp cố định (2026-09-03).
     const pieceDestWh = pieceDestFor(order)

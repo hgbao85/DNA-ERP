@@ -106,9 +106,7 @@ export default function ChuyenKhoTuDoPage({ scope }: { scope: string | null }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [successCode, setSuccessCode] = useState('')
-  // Số lượng THỰC được tạo có thể thấp hơn số đã nhập - BE âm thầm clamp xuống đúng phần còn khả
-  // dụng nếu 1 phiếu khác đã giữ chỗ trước (xem comment ở materialOptions). null = không bị giảm.
-  const [clampedInfo, setClampedInfo] = useState<{ requested: number; actual: number; unit: string } | null>(null)
+  // 19/11: BE không còn âm thầm cắt bớt - xin vượt khả dụng (vd phiếu khác vừa giữ chỗ trước) thì BE báo lỗi rõ, phiếu không lập.
 
   const { data: pendingData, refetch: refetchPending } = useFetch(
     () => api.getWarehouseTransfers('PENDING'), []
@@ -130,7 +128,6 @@ export default function ChuyenKhoTuDoPage({ scope }: { scope: string | null }) {
     setBusy(true)
     setError('')
     setSuccessCode('')
-    setClampedInfo(null)
     try {
       const created = await api.createWarehouseTransfer({
         fromWarehouseId: fromWarehouse.id,
@@ -139,14 +136,6 @@ export default function ChuyenKhoTuDoPage({ scope }: { scope: string | null }) {
         items: [{ materialId: material.id, materialName: material.name, unit: material.unit, quantity: qtyNum, spec: material.spec || undefined }],
       })
       setSuccessCode(created.code)
-      // Phiếu tạo thành công KHÔNG đồng nghĩa đủ số lượng đã nhập - nếu 1 phiếu khác giành mất
-      // phần tồn khả dụng giữa lúc mở form và lúc bấm "Tạo phiếu", BE tự clamp xuống đúng phần còn
-      // lại thay vì báo lỗi. Phải đối chiếu items[0].quantity thật (createWarehouseTransfer() đã
-      // fetch lại chi tiết) với số đã nhập để không im lặng bỏ qua chênh lệch này.
-      const actualQty = created.items[0]?.quantity ?? 0
-      if (actualQty < qtyNum) {
-        setClampedInfo({ requested: qtyNum, actual: actualQty, unit: material.unit })
-      }
       resetLine()
       refetchStock()
       refetchPending()
@@ -244,13 +233,8 @@ export default function ChuyenKhoTuDoPage({ scope }: { scope: string | null }) {
         </div>
 
         {error && <div style={{ marginBottom: 12, fontSize: 12, color: 'var(--fg-dc2626)' }}>{error}</div>}
-        {successCode && !clampedInfo && (
+        {successCode && (
           <div style={{ marginBottom: 12, fontSize: 12, color: 'var(--fg-16a34a)' }}>Đã tạo phiếu {successCode}, chờ kho đích xác nhận.</div>
-        )}
-        {successCode && clampedInfo && (
-          <div style={{ marginBottom: 12, padding: '8px 12px', background: 'var(--bg-fff3e0)', border: '1px solid var(--fg-ffcc80)', borderRadius: 6, fontSize: 12, color: 'var(--fg-92400e)' }}>
-            Đã tạo phiếu {successCode}, nhưng chỉ chuyển được <strong>{clampedInfo.actual.toLocaleString('vi-VN')}</strong> / {clampedInfo.requested.toLocaleString('vi-VN')} {clampedInfo.unit} đã nhập — phần còn lại đang bị 1 phiếu khác giữ chỗ trước. Chờ kho đích xác nhận.
-          </div>
         )}
 
         <button
