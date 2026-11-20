@@ -25,6 +25,8 @@ import { pageTitle, pageSubtitle, sectionLabel } from '../../../styles/typograph
 import { useIsMobile } from '../../../hooks/useMediaQuery'
 import { useRealtimeRefetch } from '../../../realtime/hooks'
 import { todayVn } from '../../../utils/bookingDates'
+import { useAuth } from '../../../context/AuthContext'
+import { canWriteSalesOrders } from '../../../utils/salesAccess'
 
 /** Nhãn ô SKU: mã nhà máy trùng tên thì chỉ hiện 1 lần (test tay 09/11 điểm 11). */
 const skuLabel = (code: string, name: string) => (!code ? '' : !name || name === code ? code : `${code} — ${name}`)
@@ -69,6 +71,9 @@ export default function OrderManagementPage() {
   const [formError, setFormError] = useState<string | null>(null)
   const [depositError, setDepositError] = useState<string | null>(null)
   const isMobile = useIsMobile()
+  // E2E-4 (20/11/2026): Giám đốc chỉ xem - ẩn nút ghi theo luật BE (SALES_STAFF, ADMIN).
+  const { user } = useAuth()
+  const canWrite = canWriteSalesOrders(user)
   // Loại dây/nệm Sales được chọn theo từng sản phẩm (định mức ACTIVE) - nạp 1 lần/sản phẩm khi SKU
   // xuất hiện trên form. Chưa có key = đang nạp (chặn lưu cho tới khi biết SKU có bắt chọn không).
   const [optionsByProduct, setOptionsByProduct] = useState<Map<string, SkuOrderOptions>>(new Map())
@@ -247,6 +252,7 @@ export default function OrderManagementPage() {
 
   const toggleDeposit = async (e: React.MouseEvent, po: SalesOrder) => {
     e.stopPropagation()
+    if (!canWrite) return
     setDepositError(null)
     try {
       await api.updateSalesOrder(po.id, { depositConfirmed: !po.depositConfirmed })
@@ -267,6 +273,7 @@ export default function OrderManagementPage() {
         onBack={() => setDetailPO(null)}
         onDeleted={async () => { setDetailPO(null); await refetch() }}
         onUpdated={(fresh) => { setDetailPO(fresh); void refetch() }}
+        canWrite={canWrite}
       />
     )
   }
@@ -276,11 +283,13 @@ export default function OrderManagementPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: isMobile ? 'var(--space-4)' : 'var(--space-6)' }}>
         <div>
           <div style={pageTitle}>Quản lí đơn hàng</div>
-          <div style={pageSubtitle}>{pos?.length ?? 0} PO</div>
+          <div style={pageSubtitle}>{pos?.length ?? 0} PO{canWrite ? '' : ' · chỉ xem'}</div>
         </div>
-        <button className="primary" onClick={openNew} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <Plus size={14} /> Tạo PO
-        </button>
+        {canWrite && (
+          <button className="primary" onClick={openNew} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Plus size={14} /> Tạo PO
+          </button>
+        )}
       </div>
       {depositError && (
         <div role="alert" style={{ color: 'var(--fg-c62828)', fontSize: 13, marginBottom: 12 }}>{depositError}</div>
@@ -299,10 +308,12 @@ export default function OrderManagementPage() {
                     <div style={{ fontWeight: 700, color: 'var(--blue)', wordBreak: 'break-word' }}>{po.orderCode}</div>
                     <div style={{ fontSize: 13, marginTop: 2, wordBreak: 'break-word' }}>{po.customerName}</div>
                   </div>
+                  {/* E2E-4: Giám đốc chỉ xem -> nhãn không bấm được. */}
                   <button
                     onClick={(e) => toggleDeposit(e, po)}
+                    disabled={!canWrite}
                     style={{
-                      flexShrink: 0, fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 20, cursor: 'pointer', border: 'none',
+                      flexShrink: 0, fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 20, cursor: canWrite ? 'pointer' : 'default', border: 'none',
                       background: po.depositConfirmed ? 'var(--bg-dcfce7)' : 'var(--bg-fef3c7)',
                       color: po.depositConfirmed ? 'var(--fg-15803d)' : 'var(--fg-b45309)',
                     }}
@@ -364,8 +375,9 @@ export default function OrderManagementPage() {
                   <td style={{ padding: '10px 12px' }}>
                     <button
                       onClick={(e) => toggleDeposit(e, po)}
+                      disabled={!canWrite}
                       style={{
-                        whiteSpace: 'nowrap', fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, cursor: 'pointer', border: 'none',
+                        whiteSpace: 'nowrap', fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, cursor: canWrite ? 'pointer' : 'default', border: 'none',
                         background: po.depositConfirmed ? 'var(--bg-dcfce7)' : 'var(--bg-fef3c7)',
                         color: po.depositConfirmed ? 'var(--fg-15803d)' : 'var(--fg-b45309)',
                       }}
@@ -575,7 +587,7 @@ export default function OrderManagementPage() {
 // ── Trang chi tiết: Chi tiết sản xuất + Chi tiết xuất hàng (2 tab riêng) ─────
 type DetailTab = 'production' | 'shipping'
 
-function PODetailView({ po, onBack, onDeleted, onUpdated }: { po: SalesOrder; onBack: () => void; onDeleted: () => void | Promise<void>; onUpdated: (fresh: SalesOrder) => void }) {
+function PODetailView({ po, onBack, onDeleted, onUpdated, canWrite }: { po: SalesOrder; onBack: () => void; onDeleted: () => void | Promise<void>; onUpdated: (fresh: SalesOrder) => void; canWrite: boolean }) {
   const [tab, setTab] = useState<DetailTab>('production')
   // LS2 19/11: dòng chưa duyệt sản xuất đổi / bỏ chọn được màu dây, vải nệm (định mức đổi tick sau khi lên đơn).
   const [choiceItem, setChoiceItem] = useState<SalesOrderItem | null>(null)
@@ -614,6 +626,7 @@ function PODetailView({ po, onBack, onDeleted, onUpdated }: { po: SalesOrder; on
         >
           <ChevronLeft size={13} /> Danh sách đơn hàng
         </button>
+        {canWrite && (
         <button
           onClick={handleDelete}
           disabled={!!po.deleteBlockedReason}
@@ -628,6 +641,7 @@ function PODetailView({ po, onBack, onDeleted, onUpdated }: { po: SalesOrder; on
         >
           <Trash2 size={13} /> Xoá đơn hàng
         </button>
+        )}
       </div>
 
       <div style={{ marginBottom: 'var(--space-4)' }}>
@@ -675,7 +689,7 @@ function PODetailView({ po, onBack, onDeleted, onUpdated }: { po: SalesOrder; on
                   <MaterialChoiceTags wire={item.wireMaterial} cushion={item.cushionMaterial} />
                   <span style={{ color: 'var(--text2)' }}>SL {item.totalQty.toLocaleString()}</span>
                   <StatusBadge status={item.status} />
-                  {item.status === 'LEN_KE_HOACH' && item.mfgProductId && (
+                  {canWrite && item.status === 'LEN_KE_HOACH' && item.mfgProductId && (
                     <button onClick={() => setChoiceItem(item)} style={{ ...btnSecondary, padding: '3px 10px', fontSize: 11 }}>
                       Đổi màu dây / vải nệm
                     </button>

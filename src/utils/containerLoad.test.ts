@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { computeContainerLoad, contEquivalent, fmtCont, fmtM3, type ContainerLoadInput } from './containerLoad'
+import { computeContainerLoad, contEquivalent, contHintText, fmtCont, fmtM3, type ContainerLoadInput } from './containerLoad'
 
 const input = (l: number | null, w: number | null, h: number | null, boxesPerSet = 1, loadContManual: number | null = null): ContainerLoadInput => ({
   boxLengthCm: l, boxWidthCm: w, boxHeightCm: h, boxesPerSet, loadContManual,
@@ -59,9 +59,19 @@ describe('contEquivalent / định dạng', () => {
     expect(contEquivalent(200, 0)).toBeNull()
   })
 
-  it('fmtCont dùng dấu phẩy, 1 số lẻ', () => {
+  it('fmtCont dùng dấu phẩy, tối đa 2 số lẻ, số nhỏ không hiện thành 0', () => {
     expect(fmtCont(2.5)).toBe('2,5')
     expect(fmtCont(3)).toBe('3')
+    expect(fmtCont(20 / 477)).toBe('0,04')
+    expect(fmtCont(1 / 477)).toBe('< 0,01')
+    expect(fmtCont(4 / 3)).toBe('1,33')
+    expect(fmtCont(0.096)).toBe('0,1')
+  })
+
+  it('contHintText: "≈ N cont", số rất nhỏ thì "< 0,01 cont"', () => {
+    expect(contHintText(20 / 477)).toBe('≈ 0,04 cont')
+    expect(contHintText(1 / 477)).toBe('< 0,01 cont')
+    expect(contHintText(2.5)).toBe('≈ 2,5 cont')
   })
 
   it('fmtM3 dùng dấu phẩy, tối đa 4 số lẻ', () => {

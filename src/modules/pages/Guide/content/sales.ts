@@ -42,7 +42,7 @@ export const salesGroup: GuideGroup = {
         'Đơn hàng được tạo; hệ thống tự sinh hồ sơ lệnh sản xuất tương ứng phía sau cho từng dòng SKU (chưa gộp lệnh sản xuất) — Kế hoạch sản xuất sẽ xử lý tiếp từ đây.',
       warnings: [
         'Nút "Lưu" chỉ bật khi đã nhập Mã đơn hàng, chọn Khách hàng, có ít nhất một dòng SKU, và MỌI dòng SKU đều có Hạn giao + Tổng số lớn hơn 0 — thiếu thì ngay dưới bảng SKU có dòng nhắc "Nhập Hạn giao ... cho mọi dòng SKU thì mới lưu được". Dòng SKU có hiện ô "Màu dây"/"Màu vải nệm" thì phải chọn đủ các ô đó nữa, nếu không dưới bảng có dòng nhắc "chọn đủ Màu dây và Màu vải nệm cho từng dòng".',
-        'Màu dây và màu vải nệm chọn xong đi theo xuống lệnh sản xuất và được CHỐT khi Giám đốc duyệt lệnh — mua hàng và xuất đan chỉ tính đúng màu này. Giao diện hiện chưa có chỗ sửa màu của một đơn đã tạo: chọn nhầm thì xoá đơn (nếu còn xoá được, xem bài "Xoá đơn hàng") rồi tạo lại.',
+        'Màu dây và màu vải nệm chọn xong đi theo xuống lệnh sản xuất và được CHỐT khi Giám đốc duyệt lệnh — mua hàng và xuất đan chỉ tính đúng màu này. Chọn nhầm màu thì mở chi tiết đơn, tab "Chi tiết sản xuất", bấm "Đổi màu dây / vải nệm" ở dòng SKU — chỉ đổi được khi dòng đó còn ở bước "Lên kế hoạch" (Giám đốc chưa duyệt lệnh sản xuất). Quá bước đó thì xoá đơn (nếu còn xoá được, xem bài "Xoá đơn hàng") rồi tạo lại.',
         'Hạn giao nhập theo TỪNG dòng SKU của TỪNG đơn và được chép xuống lệnh sản xuất của đúng đơn đó (hai đơn cùng đặt một mẫu vẫn có hạn riêng). Cột "Hạn giao" của cả đơn = hạn xa nhất trong các dòng.',
         'File đính kèm chỉ thực sự tải lên khi bấm "Lưu" thành công — không tạo rác nếu đóng form giữa chừng.',
       ],
@@ -68,7 +68,7 @@ export const salesGroup: GuideGroup = {
         buttons: ['Tạo PO'],
       },
       steps: [
-        'Ở danh sách đơn hàng, bấm nút pill "Đã xác nhận cọc"/"Chưa xác nhận" trên mỗi dòng để đánh dấu đã nhận cọc. Cột "Trạng thái" cho biết bao nhiêu SKU của đơn đã xong / chưa xong.',
+        'Ở danh sách đơn hàng, bấm nút pill "Đã xác nhận cọc"/"Chưa xác nhận" trên mỗi dòng để đánh dấu đã nhận cọc (tài khoản Giám đốc chỉ xem: nhãn này không bấm được, và không có nút "Tạo PO"). Cột "Trạng thái" cho biết bao nhiêu SKU của đơn đã xong / chưa xong.',
         'Mở chi tiết một PO để xem 2 tab: "Chi tiết sản xuất" (dải bước tiến độ: Lên kế hoạch → Mua hàng → Khung cơ khí → Đan → Chuyền kiểm → Đóng gói → Hoàn thành) và "Chi tiết xuất hàng" (Tổng số lượng/Đã xuất/Còn lại từng dòng).',
       ],
       result: 'Nắm được đơn nào đã nhận cọc, đơn nào đang ở giai đoạn nào của sản xuất.',
@@ -100,6 +100,8 @@ export const salesGroup: GuideGroup = {
       warnings: ['Đây là xoá cứng (hard delete), không phải chuyển vào thùng rác — không có chức năng khôi phục.'],
       commonErrors: [
         { issue: 'Nút "Xoá đơn hàng" bị mờ/khoá, có tooltip giải thích', cause: 'Đơn đã được KHSX gộp vào Phiếu sản xuất (nhà máy có thể đang sản xuất theo đơn này), hoặc đã giao hàng một phần cho một dòng SKU.', fix: 'Không xoá được nữa trong các trường hợp này — liên hệ KHSX/Admin nếu thực sự cần xử lý.' },
+        { issue: 'Nút "Xoá đơn hàng" bị mờ, tooltip ghi đơn có dòng đang nằm trong lượt tính phương án cắt chưa dùng', cause: 'KHSX đã bấm tính phương án cắt sắt gộp có dòng của đơn này, lượt tính chưa dùng để tạo lệnh.', fix: 'Nhờ KHSX vào màn "Tối ưu cắt sắt" xoá lượt tính đó, rồi xoá đơn. Lượt tính cũ đã bị thay bằng lượt "Tính lại" thì không còn cản nữa.' },
+        { issue: 'Báo "... đang được dùng ở chứng từ khác - không xoá được"', cause: 'Vừa có người gộp đơn vào phiếu sản xuất hoặc tính phương án cắt cho đơn này.', fix: 'Không xoá được đơn này; xem đơn đã gộp vào phiếu sản xuất hoặc phương án cắt nào rồi xử lý ở đó trước.' },
       ],
       tags: ['xoá đơn hàng', 'delete order'],
       sourceRefs: ['src/modules/pages/Sales/OrderManagementPage.tsx', 'DNA-ERP-BE/src/modules/sales-orders/sales-orders.service.ts'],
@@ -123,10 +125,11 @@ export const salesGroup: GuideGroup = {
       ],
       result: 'Danh mục khách hàng được cập nhật, dùng ngay khi tạo đơn hàng mới.',
       warnings: [
-        'Xoá khách hàng KHÔNG bị chặn dù khách đó đang có đơn hàng liên kết — hệ thống không cảnh báo gì thêm ngoài hộp thoại xác nhận chung. Cân nhắc kỹ trước khi xoá một khách hàng đã từng có đơn hàng.',
+        'Khách hàng đã từng có đơn hàng hoặc booking (kể cả booking đã huỷ) thì KHÔNG xoá được: hệ thống báo rõ khách có bao nhiêu đơn hàng, bao nhiêu booking. Booking không có chức năng xoá, nên khách loại này được giữ lại để không mất lịch sử.',
       ],
       commonErrors: [
         { issue: 'Nút "Lưu" không bấm được khi thêm/sửa khách hàng', cause: 'Chưa nhập Mã khách hàng hoặc Số điện thoại — hai trường này bắt buộc.', fix: 'Điền đầy đủ 2 trường bắt buộc rồi thử lại.' },
+        { issue: 'Xoá khách báo "Khách hàng ... đang có N đơn hàng, M booking - không xoá được"', cause: 'Khách vẫn còn đơn hàng hoặc booking.', fix: 'Không xoá khách này; giữ lại vì khách còn đơn hàng / booking (booking không xoá được).' },
       ],
       tags: ['khách hàng', 'customer'],
       sourceRefs: ['src/modules/pages/Sales/CustomerManagementPage.tsx'],

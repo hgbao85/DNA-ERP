@@ -783,7 +783,7 @@ export const manufacturingGroup: GuideGroup = {
       id: 'mfg-container-load',
       title: 'Load cont của SKU — thùng bao nhiêu bộ thì đầy một cont',
       roles: ['spec_detail', 'khsx'],
-      purpose: 'Load cont là số bộ của một SKU xếp vừa trong một container 40HC. Kế hoạch dùng số này để đổi số bộ của đơn/lệnh sản xuất ra "cont tương đương" (ví dụ 200 bộ, load cont 80 thì khoảng 2,5 cont).',
+      purpose: 'Load cont là số bộ của một SKU xếp vừa trong một container 40HC. Kế hoạch dùng số này để đổi số bộ của đơn/lệnh sản xuất ra "cont tương đương" (ví dụ 200 bộ, load cont 80 thì khoảng 2,5 cont). Số cont hiện tối đa 2 số lẻ; đơn rất ít so với load cont thì hiện "< 0,01 cont" chứ không hiện 0.',
       preconditions: ['SKU đã có. Chuyên viên định mức chi tiết nhập kích thước thùng khi nhập định mức bao bì; SKU cũ chưa có thì KHSX nhập.'],
       steps: [
         'Chuyên viên định mức chi tiết: mở "Quản lý định mức" > "Định mức mới", chọn SKU, ở khối "Thùng & load cont" nhập Dài / Rộng / Cao của thùng (cm) và "Số thùng / bộ" (bộ có 2 thùng thì nhập 2).',

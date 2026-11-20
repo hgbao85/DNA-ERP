@@ -54,9 +54,19 @@ export function contEquivalent(qty: number, loadCont: number | null | undefined)
   return qty / loadCont
 }
 
-/** "2,5" - cont tương đương làm tròn 1 chữ số thập phân, dấu phẩy kiểu VN. */
+/**
+ * "2,5" - cont tương đương làm tròn tối đa 2 số lẻ, dấu phẩy kiểu VN. 20/11/2026 (E2E-3): số khác 0 không hiện thành "0" -
+ * rất nhỏ (dưới 0,005) thì ghi "< 0,01".
+ */
 export function fmtCont(cont: number): string {
-  return (Math.round(cont * 10) / 10).toLocaleString('vi-VN', { maximumFractionDigits: 1 })
+  if (cont > 0 && cont < 0.005) return '< 0,01'
+  return (Math.round(cont * 100) / 100).toLocaleString('vi-VN', { maximumFractionDigits: 2 })
+}
+
+/** "≈ 0,04 cont"; số rất nhỏ thì "< 0,01 cont". */
+export function contHintText(cont: number): string {
+  const text = fmtCont(cont)
+  return text.startsWith('<') ? `${text} cont` : `≈ ${text} cont`
 }
 
 /** "0,8438" - thể tích m³ kiểu VN, tối đa 4 số lẻ. */
