@@ -16,6 +16,9 @@ import * as XLSX from 'xlsx';
 import type { CuttingPatternMachineGroup, CuttingProposalLine, CuttingProposalPieceSummary, PatternBundles } from '../services/cutting-proposals-api';
 import { fmtBundles, fmtBundleSummary, lineMachine, machineClassSummaryText, machineLabel, patternMachineText } from './cutMachine';
 import { fmtBars, fmtMm, fmtNum, fmtPct } from './numberFormat';
+import { stockLengthBreakdown, type LineWithPatternLengths } from './stockLengthBreakdown';
+
+export { stockLengthBreakdown };
 
 export interface CuttingGuideRow {
   patternIndex: number;
@@ -26,6 +29,23 @@ export interface CuttingGuideRow {
   bundles: PatternBundles | null;
   /** Nhóm cây theo lớp máy (13/11/2026); null = chưa phân loại -> không có cột Máy. Định dạng chữ: patternMachineText(). */
   machineGroups: CuttingPatternMachineGroup[] | null;
+  /** CS2 (20/11/2026): chiều dài cây của kiểu cắt (cây lẻ kho Phôi hoặc cây mua); null = dòng không có chiều dài. */
+  stockLengthMm: number | null;
+}
+
+export function hasLeftoverBars(line: LineWithPatternLengths): boolean {
+  return stockLengthBreakdown(line).some((e) => e.leftover);
+}
+
+/** "Mua 6000 mm × 4 cây" - có cây lẻ thì "Cây lẻ kho Phôi 5800 mm × 1 cây · Mua 6000 mm × 3 cây" (đủ cây lẻ thì không có phần Mua). */
+export function barsLineText(line: LineWithPatternLengths): string {
+  const parts = stockLengthBreakdown(line);
+  if (!parts.some((e) => e.leftover)) {
+    return `Mua ${fmtMm(line.bestStockLengthMm)} × ${line.totalBars != null ? fmtBars(line.totalBars) : '—'}`;
+  }
+  return parts
+    .map((e) => `${e.leftover ? 'Cây lẻ kho Phôi' : 'Mua'} ${fmtMm(e.lengthMm)} × ${fmtBars(e.bars)}`)
+    .join(' · ');
 }
 
 /** cột = mọi cỡ đoạn xuất hiện trong bất kỳ kiểu cắt nào (dài trước, khớp thứ tự thợ nên cắt: cỡ
@@ -52,6 +72,7 @@ export function buildCuttingGuideTable(
       wastePerBarMm: p.wastePerBarMm,
       bundles: p.bundles ?? null,
       machineGroups: p.machineGroups && p.machineGroups.length > 0 ? p.machineGroups : null,
+      stockLengthMm: p.stockLengthMm ?? line.bestStockLengthMm ?? null,
     };
   });
   return { columns, columnLabels, rows };
@@ -114,10 +135,13 @@ export function buildSheetAoa(line: CuttingProposalLine, laserAllowed = true): (
   const hasBundles = rows.some((r) => fmtBundles(r.bundles) !== null);
   const hasMachine = hasMachineColumn(rows);
   const machineText = cutMachineLineText(line, laserAllowed);
-  const header = ['STT', ...(hasMachine ? ['Máy'] : []), ...columnLabels, 'HH/cây (mm)', 'Số cây', ...(hasBundles ? ['Cách cắt theo bó cây'] : [])];
+  // CS2 (20/11): có cây lẻ kho Phôi thì thêm cột "Dài cây" - thợ phải lấy đúng cây cho từng kiểu cắt.
+  const hasLen = hasLeftoverBars(line);
+  const header = ['STT', ...(hasMachine ? ['Máy'] : []), ...(hasLen ? ['Dài cây (mm)'] : []), ...columnLabels, 'HH/cây (mm)', 'Số cây', ...(hasBundles ? ['Cách cắt theo bó cây'] : [])];
   const dataRows = rows.map((r, i) => [
     i + 1,
     ...(hasMachine ? [patternMachineText(r.machineGroups, laserAllowed)] : []),
+    ...(hasLen ? [r.stockLengthMm ?? ''] : []),
     ...r.counts.map((c) => (c > 0 ? c : '')),
     r.wastePerBarMm ?? '',
     r.barCount,
@@ -125,7 +149,7 @@ export function buildSheetAoa(line: CuttingProposalLine, laserAllowed = true): (
   ]);
   return [
     [`${line.materialCode} — ${line.materialName}`],
-    [`Mua ${fmtMm(line.bestStockLengthMm)} × ${line.totalBars != null ? fmtBars(line.totalBars) : '—'}, hao hụt ${fmtPct(line.wastePercentage)}`],
+    [`${barsLineText(line)}, hao hụt ${fmtPct(line.wastePercentage)}`],
     ...(machineText ? [[`Máy cắt: ${machineText}`]] : []),
     // Cỡ đặt riêng (auto_scan mở lại 2026-08-26) - phải in rõ trên giấy, thợ/Mua hàng không được
     // tưởng nhầm đây là cây chuẩn 6000mm.
@@ -165,11 +189,13 @@ export function buildPrintSectionHtml(line: CuttingProposalLine, pageBreakBefore
     .join('');
   const hasBundles = rows.some((r) => fmtBundles(r.bundles) !== null);
   const hasMachine = hasMachineColumn(rows);
+  const hasLen = hasLeftoverBars(line);
   const detailRows = rows
     .map((r, i) => {
       const counts = r.counts.map((c) => `<td>${c > 0 ? fmtNum(c) : ''}</td>`).join('');
       return `<tr><td>${i + 1}</td>` +
         (hasMachine ? `<td class="l">${escapeHtml(patternMachineText(r.machineGroups, laserAllowed))}</td>` : '') +
+        (hasLen ? `<td><b>${fmtNum(r.stockLengthMm)}</b></td>` : '') +
         `${counts}` +
         `<td>${fmtNum(r.wastePerBarMm)}</td><td>${fmtNum(r.barCount)}</td>` +
         (hasBundles ? `<td class="l">${escapeHtml(fmtBundles(r.bundles, 'bó cây') ?? '')}</td>` : '') +
@@ -179,12 +205,12 @@ export function buildPrintSectionHtml(line: CuttingProposalLine, pageBreakBefore
   // Bản in dùng table-layout: fixed (các cột chia đều) -> có cột "Cách cắt theo bó cây" thì cho nó ~18% để chữ không bị bẻ vụn.
   const machineText = cutMachineLineText(line, laserAllowed);
   const colgroup = hasBundles || hasMachine
-    ? `<colgroup><col style="width:5%">${hasMachine ? '<col style="width:18%">' : ''}${columnLabels.map(() => '<col>').join('')}<col style="width:8%"><col style="width:8%">${hasBundles ? '<col style="width:18%">' : ''}</colgroup>`
+    ? `<colgroup><col style="width:5%">${hasMachine ? '<col style="width:18%">' : ''}${hasLen ? '<col style="width:8%">' : ''}${columnLabels.map(() => '<col>').join('')}<col style="width:8%"><col style="width:8%">${hasBundles ? '<col style="width:18%">' : ''}</colgroup>`
     : '';
   return `
     <div${pageBreakBefore ? ' style="page-break-before: always"' : ''}>
       <h3>${escapeHtml(line.materialCode)} — ${escapeHtml(line.materialName)}</h3>
-      <p>Mua <b>${fmtMm(line.bestStockLengthMm)}</b> × <b>${line.totalBars != null ? fmtBars(line.totalBars) : '—'}</b>
+      <p>${hasLen ? `<b>${escapeHtml(barsLineText(line))}</b>` : `Mua <b>${fmtMm(line.bestStockLengthMm)}</b> × <b>${line.totalBars != null ? fmtBars(line.totalBars) : '—'}</b>`}
         ${line.wastePercentage != null ? `· hao hụt ${fmtPct(line.wastePercentage)}` : ''}</p>
       ${machineText ? `<p>Máy cắt: <b>${escapeHtml(machineText)}</b></p>` : ''}
       ${line.lengthSource === 'scan'
@@ -194,7 +220,7 @@ export function buildPrintSectionHtml(line: CuttingProposalLine, pageBreakBefore
       <table><thead><tr><th class="l">Tên sắt</th><th>Đoạn (mm)</th><th>SL cần</th><th>SL cắt</th></tr></thead>
         <tbody>${summaryRows}</tbody></table>
       <h4>KẾ HOẠCH CẮT CHI TIẾT</h4>
-      <table>${colgroup}<thead><tr><th>STT</th>${hasMachine ? '<th class="l">Máy</th>' : ''}${columnLabels.map((l) => `<th>${escapeHtml(l)}</th>`).join('')}` +
+      <table>${colgroup}<thead><tr><th>STT</th>${hasMachine ? '<th class="l">Máy</th>' : ''}${hasLen ? '<th>Dài cây</th>' : ''}${columnLabels.map((l) => `<th>${escapeHtml(l)}</th>`).join('')}` +
         `<th>HH/cây</th><th>Số cây</th>${hasBundles ? '<th class="l">Cách cắt theo bó cây</th>' : ''}</tr></thead>
         <tbody>${detailRows}</tbody></table>
     </div>`;

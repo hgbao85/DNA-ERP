@@ -148,6 +148,15 @@ export interface BeSteelIssuePlanItem {
   remainingToIssue: number | null;
   /** Tồn vật lý thật trong kho lúc xem màn hình — null nếu vật tư chưa gán Kho. */
   physicalStockQty: number | null;
+  /** CS2 (20/11/2026): số cây theo TỪNG chiều dài cây của phương án — cây lẻ có sẵn ở kho Phôi (dùng trước) và cây chiều
+   *  dài mua (= bestStockLengthMm). Tăng dần theo chiều dài; phương án 1 chiều dài thì 1 phần tử. Máy chủ chặn xuất quá số
+   *  cây từng chiều dài khi có hơn 1 chiều dài. */
+  lengths?: Array<{
+    lengthMm: number;
+    requiredBars: number;
+    issuedBars: number;
+    physicalStockQty: number | null;
+  }>;
 }
 
 function unwrap<T>(res: T[] | { data: T[] }): T[] {

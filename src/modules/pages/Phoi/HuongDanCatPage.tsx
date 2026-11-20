@@ -24,7 +24,7 @@ import {
   getCuttingProposalsForInvoice, getCuttingProposal,
   type CuttingProposal, type CuttingProposalLine,
 } from '../../../services/cutting-proposals-api'
-import { buildCuttingGuideTable, buildPieceSummary, cutMachineLineText, exportCuttingGuideExcel, exportCuttingGuideExcelAll, hasMachineColumn, printCuttingGuide } from '../../../utils/cuttingGuide'
+import { barsLineText, buildCuttingGuideTable, buildPieceSummary, cutMachineLineText, exportCuttingGuideExcel, exportCuttingGuideExcelAll, hasLeftoverBars, hasMachineColumn, printCuttingGuide } from '../../../utils/cuttingGuide'
 import { fmtBundles } from '../../../utils/cutMachine'
 import { fmtBars, fmtMm, fmtNum, fmtPct } from '../../../utils/numberFormat'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
@@ -203,13 +203,15 @@ function MaterialGuide({ poNumber, line, laserAllowed }: { poNumber: string; lin
   const bundleFirst = hasBundles
   // Cột "Máy" (13/11/2026) ngay sau STT: lớp máy của từng nhóm cây + đoạn dập. Không có machineGroups thì không hiện cột, bảng như cũ.
   const hasMachine = hasMachineColumn(rows)
+  // CS2 (20/11/2026): có cây lẻ kho Phôi thì mỗi kiểu cắt ghi rõ dài cây - thợ lấy đúng cây lẻ cho đúng kiểu.
+  const hasLen = hasLeftoverBars(line)
   return (
     <div style={card}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1px solid var(--border)', flexWrap: 'wrap', gap: 8 }}>
         <div>
           <div style={{ fontWeight: 700, fontSize: 14 }}>{line.materialCode} — {line.materialName}</div>
           <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>
-            Mua {fmtMm(line.bestStockLengthMm)} × {line.totalBars != null ? fmtBars(line.totalBars) : '—'}
+            {barsLineText(line)}
             {line.wastePercentage != null && <> · hao hụt {fmtPct(line.wastePercentage)}</>}
           </div>
           {machineText && (
@@ -269,7 +271,7 @@ function MaterialGuide({ poNumber, line, laserAllowed }: { poNumber: string; lin
             return (
               <div key={r.patternIndex} style={{ padding: '12px 16px', borderTop: i > 0 ? '1px solid var(--border)' : undefined, display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
-                  <span style={{ fontSize: 13, fontWeight: 600 }}>Kiểu {i + 1}</span>
+                  <span style={{ fontSize: 13, fontWeight: 600 }}>Kiểu {i + 1}{hasLen && r.stockLengthMm != null && <> · cây {fmtMm(r.stockLengthMm)}</>}</span>
                   <span style={{ fontSize: 18, fontWeight: 800 }}>{fmtBars(r.barCount)}</span>
                 </div>
                 {hasMachine && <PatternMachineCell groups={r.machineGroups} laserAllowed={laserAllowed} />}
@@ -289,6 +291,7 @@ function MaterialGuide({ poNumber, line, laserAllowed }: { poNumber: string; lin
             <tr style={{ background: 'var(--surface)' }}>
               <th style={{ ...th, width: 40 }}>STT</th>
               {hasMachine && <th style={th}>Máy</th>}
+              {hasLen && <th style={thR}>Dài cây</th>}
               {bundleFirst && <th style={th}>Cách cắt theo bó cây</th>}
               {/* Tiêu đề cỡ đoạn dài ("Tay trái, Tay phải (445mm)") được xuống dòng - để nowrap thì 1 loại nhiều cỡ đã rộng hơn màn hình. */}
               {columnLabels.map((label, i) => <th key={columns[i]} style={{ ...thR, whiteSpace: 'normal', minWidth: 72 }}>{label}</th>)}
@@ -302,6 +305,7 @@ function MaterialGuide({ poNumber, line, laserAllowed }: { poNumber: string; lin
               <tr key={r.patternIndex} style={{ borderTop: '1px solid var(--border)' }}>
                 <td style={{ ...td, fontWeight: 600 }}>{i + 1}</td>
                 {hasMachine && <td style={td}><PatternMachineCell groups={r.machineGroups} laserAllowed={laserAllowed} /></td>}
+                {hasLen && <td style={{ ...tdR, fontWeight: 700 }}>{fmtNum(r.stockLengthMm)}</td>}
                 {bundleFirst && <td style={{ ...td, minWidth: 150 }}>{fmtBundles(r.bundles, 'bó cây') ?? <span style={{ color: 'var(--text3)' }}>—</span>}</td>}
                 {r.counts.map((c, ci) => (
                   <td key={columns[ci]} style={{ ...tdR, fontWeight: c > 0 ? 700 : 400, color: c > 0 ? 'var(--text)' : 'var(--text3)' }}>{c > 0 ? c : '—'}</td>
