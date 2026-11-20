@@ -68,6 +68,8 @@ export default function SKUListPage({ readOnly = false }: { readOnly?: boolean }
       refetch()
       exitDeleteMode()
     } catch (e: unknown) {
+      // 20/11/2026: xoá nhiều SKU có thể xoá được một phần -> tải lại danh sách cả khi có lỗi để không còn hiện SKU đã xoá.
+      refetch()
       setDeleteError(e instanceof Error ? e.message : 'Không thể xóa')
     } finally {
       setDeleting(false)

@@ -371,8 +371,18 @@ export async function createSku(payload: CreateSkuPayload): Promise<Sku> {
   return toSku(created);
 }
 
+/**
+ * Xoá nhiều SKU. 20/11/2026 (XOA-SKU): chạy hết cả danh sách (Promise.allSettled) - trước đây Promise.all dừng ở lỗi đầu tiên
+ * nên người dùng không biết SKU nào đã xoá. Có SKU không xoá được thì ném lỗi "Đã xoá x/y SKU" kèm câu của BE từng SKU.
+ */
 export async function deleteSkus(ids: (number | string)[]): Promise<void> {
-  await Promise.all(ids.map((id) => http.del(`/skus/${id}`)));
+  const results = await Promise.allSettled(ids.map((id) => http.del(`/skus/${id}`)));
+  const reasons = results
+    .filter((r): r is PromiseRejectedResult => r.status === 'rejected')
+    .map((r) => (r.reason instanceof Error ? r.reason.message : 'Không xoá được'));
+  if (reasons.length === 0) return;
+  const uniq = [...new Set(reasons)];
+  throw new Error(`Đã xoá ${ids.length - reasons.length}/${ids.length} SKU. ${uniq.join(' · ')}`);
 }
 
 /** Sửa tên/mã SKU (MfgProduct.factoryCode/name) và/hoặc khách hàng — chỉ BE cho phép khi SKU

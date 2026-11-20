@@ -143,13 +143,17 @@ export async function archiveNotification(id: string): Promise<void> {
 
 /** Admin tạo thông báo chung (ANNOUNCEMENT) - giữ nguyên payload cũ, BE tự bỏ qua createdBy gửi
  *  lên (server lấy từ JWT). */
-export async function createNotification(data: Record<string, unknown>): Promise<Notification> {
+export async function createNotification(data: Record<string, unknown>, idempotencyKey?: string): Promise<Notification> {
   const audience = data.audience as NonNullable<Notification['audience']>;
-  const created = await http.post<BeNotification>('/notifications', {
+  // 20/11/2026 (T1-9): có khoá thì gửi header Idempotency-Key để bấm lại không phát 2 thông báo; BE coi khoá là tuỳ chọn.
+  const body = {
     title: data.title,
     message: data.message,
     audience: toBeAudience[audience] ?? 'ALL',
-  });
+  };
+  const created = idempotencyKey
+    ? await http.post<BeNotification>('/notifications', body, { headers: { 'Idempotency-Key': idempotencyKey } })
+    : await http.post<BeNotification>('/notifications', body);
   return toNotification(created);
 }
 

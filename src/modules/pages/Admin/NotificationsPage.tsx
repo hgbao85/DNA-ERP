@@ -10,6 +10,7 @@
  * thay vì isRead của 1 người) và BE vẫn chỉ có create + list — không update/delete.
  */
 import { useMemo, useState } from 'react'
+import { useRetrySafeKey } from '../../../hooks/useRetrySafeKey'
 import { Bell, Plus, X } from 'lucide-react'
 import { useFetch } from '../../../hooks/useFetch'
 import { getSentAnnouncements, createNotification } from '../../../services/api'
@@ -50,6 +51,8 @@ function CreateAnnouncementModal({ open, onClose, onCreated }: { open: boolean; 
   const [audience, setAudience] = useState('all')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  // 20/11/2026 (T1-9): giữ khoá khi mất mạng / đang xử lý để bấm lại không phát 2 thông báo; nội dung đổi hoặc gửi xong thì khoá mới.
+  const retryKey = useRetrySafeKey()
 
   const reset = () => { setTitle(''); setMessage(''); setAudience('all'); setError('') }
   const close = () => { reset(); onClose() }
@@ -59,7 +62,9 @@ function CreateAnnouncementModal({ open, onClose, onCreated }: { open: boolean; 
     setSaving(true)
     setError('')
     try {
-      const created = await createNotification({ title: title.trim(), message: message.trim(), audience })
+      const payload = { title: title.trim(), message: message.trim(), audience }
+      const created = await createNotification(payload, retryKey.take(payload))
+      retryKey.settle()
       onCreated({
         id: created.id, title: created.title, message: created.message,
         audience: created.audience ?? null, createdBy: created.createdBy ?? null,
@@ -67,6 +72,7 @@ function CreateAnnouncementModal({ open, onClose, onCreated }: { open: boolean; 
       })
       close()
     } catch (e) {
+      retryKey.settle(e)
       setError(e instanceof Error ? e.message : 'Tạo thông báo thất bại.')
     } finally {
       setSaving(false)

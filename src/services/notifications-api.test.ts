@@ -185,6 +185,20 @@ describe('createNotification', () => {
   });
 });
 
+describe('createNotification - Idempotency-Key', () => {
+  it('có khoá thì gắn header Idempotency-Key', async () => {
+    post.mockResolvedValue(beNotification({ category: 'ANNOUNCEMENT', audience: 'ALL' }));
+
+    await createNotification({ title: 'x', message: 'y', audience: 'all' }, 'key-1');
+
+    expect(post).toHaveBeenCalledWith(
+      '/notifications',
+      { title: 'x', message: 'y', audience: 'ALL' },
+      { headers: { 'Idempotency-Key': 'key-1' } },
+    );
+  });
+});
+
 describe('getSentAnnouncements', () => {
   it('gọi /notifications/sent với page/limit và map đúng shape Announcement', async () => {
     get.mockResolvedValue({
