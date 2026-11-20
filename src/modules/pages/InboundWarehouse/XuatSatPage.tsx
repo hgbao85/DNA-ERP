@@ -116,12 +116,36 @@ export default function XuatSatPage({ embedded = false }: { embedded?: boolean }
   // được vì kho vật lý có thể đang có cây dài khác. Fallback 6000mm (chuẩn duy nhất đang dùng) khi
   // vật tư không còn phương án hiệu lực (bestStockLengthMm=null, chỉ còn lịch sử đã xuất).
   const DEFAULT_BAR_LENGTH_MM = 6000
-  const suggestedBarLen = (item: BeSteelIssuePlanItem) => item.bestStockLengthMm ?? DEFAULT_BAR_LENGTH_MM
 
   const [barLen, setBarLen] = useState<Record<string, string>>({})
   const [barCount, setBarCount] = useState<Record<string, string>>({})
   const [msgs, setMsgs] = useState<Record<string, string>>({})
   const cart = useIssueSlipCart()
+
+  // CS2 (anh Nhân 20/11/2026): phương án có thể dùng cây lẻ đang có ở kho Phôi (dùng trước) cùng cây chiều dài mua — mỗi
+  // chiều dài có số cây riêng. Hiện theo từng chiều dài khi có hơn 1 chiều dài HOẶC có cây lẻ (kể cả loại sắt chỉ cắt cây lẻ);
+  // chỉ 1 chiều dài mua thì giữ hiển thị/kiểm tra như cũ.
+  const multiLen = (item: BeSteelIssuePlanItem) =>
+    (item.lengths?.length ?? 0) > 1 || (item.lengths ?? []).some(e => e.lengthMm !== item.bestStockLengthMm)
+  const cartQtyAtLen = (materialId: string, len: number) =>
+    cart.lines
+      .filter(l => l.kind === 'STEEL' && l.materialId === materialId && l.productionInvoiceId === selPiId && l.barLengthMm === len)
+      .reduce((s, l) => s + l.qty, 0)
+  const leftAtLen = (item: BeSteelIssuePlanItem, len: number) => {
+    const e = item.lengths?.find(x => x.lengthMm === len)
+    return e ? e.requiredBars - e.issuedBars : 0
+  }
+  // Gợi ý: chiều dài còn phải xuất, cây lẻ trước (khác chiều dài mua), rồi tới cây mua.
+  const suggestedBarLen = (item: BeSteelIssuePlanItem) => {
+    if (multiLen(item)) {
+      const open = (item.lengths ?? []).filter(e => e.requiredBars - e.issuedBars - cartQtyAtLen(item.materialId, e.lengthMm) > 0)
+      const pick = open.find(e => e.lengthMm !== item.bestStockLengthMm) ?? open[0]
+      if (pick) return pick.lengthMm
+      // Đã xuất đủ: vẫn gợi ý 1 chiều dài CÓ trong phương án (loại chỉ cắt cây lẻ không có chiều dài mua để gợi ý).
+      if (!item.lengths?.some(e => e.lengthMm === item.bestStockLengthMm)) return item.lengths![0].lengthMm
+    }
+    return item.bestStockLengthMm ?? DEFAULT_BAR_LENGTH_MM
+  }
 
   const issuedForMaterial = (materialId: string) =>
     history.filter(h => h.materialId === materialId).reduce((s, h) => s + h.barCount, 0)
@@ -144,6 +168,18 @@ export default function XuatSatPage({ embedded = false }: { embedded?: boolean }
     // Chặn sớm vượt "Còn được xuất" (test tay 09/11 điểm 30) - trước đây tới bước "Xác nhận xuất" máy chủ mới chặn, cả phiếu kẹt.
     // Giỏ gộp theo (vật tư, lệnh, chiều dài): thêm lại cùng chiều dài thì THAY số cũ, nên chỉ cộng các dòng chiều dài khác.
     const inCart = cartQtyOther(item.materialId, len)
+    if (multiLen(item)) {
+      const lens = (item.lengths ?? []).map(e => `${e.lengthMm}mm`).join(' / ')
+      if (!item.lengths?.some(e => e.lengthMm === len)) {
+        setMsgs(p => ({ ...p, [key]: `Phương án cắt chỉ dùng cây ${lens}` }))
+        return
+      }
+      const left = leftAtLen(item, len)
+      if (n > left) {
+        setMsgs(p => ({ ...p, [key]: `Cây ${len}mm chỉ còn xuất được ${Math.max(0, left)} cây theo phương án cắt` }))
+        return
+      }
+    }
     if (item.remainingToIssue != null && n + inCart > item.remainingToIssue) {
       setMsgs(p => ({ ...p, [key]: `Vượt số còn được xuất (${item.remainingToIssue} cây)${inCart > 0 ? ` - trong phiếu đang lập đã có ${inCart} cây` : ''}` }))
       return
@@ -210,7 +246,14 @@ export default function XuatSatPage({ embedded = false }: { embedded?: boolean }
                       <td style={{ ...tdStyle, fontWeight: 600 }}>{item.materialName}</td>
                       <td style={{ ...tdStyle, textAlign: 'right' }}>
                         {item.requiredBars} cây
-                        {item.bestStockLengthMm != null && (
+                        {multiLen(item) ? (
+                          (item.lengths ?? []).map(e => (
+                            <div key={e.lengthMm} style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 400, whiteSpace: 'nowrap' }}>
+                              {e.requiredBars} cây {e.lengthMm}mm{e.lengthMm !== item.bestStockLengthMm ? ' (cây lẻ)' : ''}
+                              {e.issuedBars > 0 && ` · đã xuất ${e.issuedBars}`}
+                            </div>
+                          ))
+                        ) : item.bestStockLengthMm != null && (
                           <div style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 400 }}>
                             {item.bestStockLengthMm}mm
                           </div>
@@ -227,14 +270,25 @@ export default function XuatSatPage({ embedded = false }: { embedded?: boolean }
                           </div>
                         )}
                       </td>
-                      <td style={{ ...tdStyle, textAlign: 'right' }}>{item.physicalStockQty ?? '—'}</td>
+                      <td style={{ ...tdStyle, textAlign: 'right' }}>
+                        {multiLen(item) ? (
+                          (item.lengths ?? []).map(e => (
+                            <div key={e.lengthMm} style={{ whiteSpace: 'nowrap' }}>
+                              {e.physicalStockQty ?? '—'}
+                              <span style={{ fontSize: 11, color: 'var(--text3)' }}> · {e.lengthMm}mm</span>
+                            </div>
+                          ))
+                        ) : (item.physicalStockQty ?? '—')}
+                      </td>
                       <td style={{ ...tdStyle, textAlign: 'center' }}>
                         <div style={{ display: 'inline-flex', gap: 6, alignItems: 'flex-end' }}>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                             <span style={{ fontSize: 10, color: 'var(--text3)', textAlign: 'center' }}>Dài cây (mm)</span>
                             <input
                               type="number" min={1}
-                              title={`Mặc định cây chuẩn ${suggested}mm theo phương án cắt đã duyệt — sửa lại nếu kho đang có cây dài khác`}
+                              title={multiLen(item)
+                                ? `Phương án dùng cây ${(item.lengths ?? []).map(e => `${e.lengthMm}mm`).join(' / ')} — gợi ý chiều dài còn phải xuất (cây lẻ trước)`
+                                : `Mặc định cây chuẩn ${suggested}mm theo phương án cắt đã duyệt — sửa lại nếu kho đang có cây dài khác`}
                               value={barLen[key] ?? String(suggested)}
                               onChange={e => setBarLen(p => ({ ...p, [key]: e.target.value }))}
                               style={{ width: 80, padding: '5px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, textAlign: 'right', background: 'var(--surface)', color: 'var(--text)' }}

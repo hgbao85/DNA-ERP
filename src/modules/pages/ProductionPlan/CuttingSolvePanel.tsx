@@ -22,7 +22,8 @@ import type { CuttingMachineContext, CuttingPatternMachineGroup } from '../../..
 import {
   fmtBundles, fmtBundleSummary, groupHint, lineMachine, linesMachine, machineLabel, patternGroupColors, patternGroupLabel, punchedSegmentsText,
 } from '../../../utils/cutMachine'
-import { fmtMm, fmtNum, fmtPercent } from '../../../utils/numberFormat'
+import { fmtBars, fmtMm, fmtNum, fmtPercent } from '../../../utils/numberFormat'
+import { stockLengthBreakdown } from '../../../utils/stockLengthBreakdown'
 
 const TH: React.CSSProperties = {
   textAlign: 'left', fontSize: 11, fontWeight: 700, letterSpacing: '.04em',
@@ -182,6 +183,8 @@ function LineDetail({ line, laserAllowed }: { line: SolveLineLike; laserAllowed:
   const hasBundles = patterns.some((pt) => fmtBundles(pt.bundles) !== null)
   // Cột Máy chỉ có khi phương án chi tiết trả nhóm máy (Lệnh SX); kết quả tính của KHSX không có -> giữ bảng như cũ.
   const hasMachine = patterns.some((pt) => (pt.machineGroups?.length ?? 0) > 0)
+  // CS2 (20/11/2026): có cây lẻ kho Phôi thì ghi dài cây của từng kiểu cắt.
+  const hasLen = stockLengthBreakdown(line).some((e) => e.leftover)
   if (sizes.length === 0 && patterns.length === 0) {
     return <div style={{ fontSize: 12.5, color: 'var(--text3)' }}>Phương án này chưa lưu chi tiết các đoạn cắt. Bấm “Tính lại” để có.</div>
   }
@@ -229,6 +232,7 @@ function LineDetail({ line, laserAllowed }: { line: SolveLineLike; laserAllowed:
                   <th style={TH}>Kiểu</th>
                   <th style={{ ...TH, textAlign: 'right' }}>Số cây</th>
                   {hasMachine && <th style={TH}>Máy</th>}
+                  {hasLen && <th style={TH}>Dài cây</th>}
                   <th style={TH}>Các đoạn trên 1 cây</th>
                   <th style={{ ...TH, textAlign: 'right' }}>Phần thừa/cây</th>
                   {hasBundles && <th style={TH}>Cách cắt theo bó</th>}
@@ -240,6 +244,14 @@ function LineDetail({ line, laserAllowed }: { line: SolveLineLike; laserAllowed:
                     <td style={{ ...TD, color: 'var(--text2)' }}>{i + 1}</td>
                     <td style={NUM}><b>{pt.barCount}</b></td>
                     {hasMachine && <td style={TD}><PatternMachineCell groups={pt.machineGroups} laserAllowed={laserAllowed} /></td>}
+                    {hasLen && (
+                      <td style={{ ...TD, whiteSpace: 'nowrap' }}>
+                        {fmtMm(pt.stockLengthMm ?? line.bestStockLengthMm)}
+                        {(pt.stockLengthMm ?? line.bestStockLengthMm) !== line.bestStockLengthMm && (
+                          <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 600, color: 'var(--fg-166534)' }}>cây lẻ</span>
+                        )}
+                      </td>
+                    )}
                     <td style={TD}>
                       {[...pt.segments]
                         .filter((sg) => sg.countPerBar > 0)
@@ -281,10 +293,21 @@ export function SolveLinesTable({
   const mixedMachines = new Set(lines.map((l) => lineMachine(l)).filter((m) => m != null)).size > 1
   const laserAllowed = machineContext?.laserAllowed !== false
 
+  // CS2 (anh Nhân 20/11/2026): cây lẻ có sẵn ở kho Phôi được cắt trước, không phải mua -> cột "Số cây mua" và dòng Tổng trừ ra.
+  const leftoverBarsOf = (l: SolveLineLike) =>
+    stockLengthBreakdown(l).filter(e => e.leftover).reduce((s, e) => s + e.bars, 0)
+  const totalLeftover = lines.reduce((s, l) => s + (l.feasible ? leftoverBarsOf(l) : 0), 0)
+  const totalBuyAll = totalBarsAll != null ? totalBarsAll - totalLeftover : null
+
   // ── Nội dung từng ô, dùng chung cho bảng (máy tính) và thẻ (điện thoại) ──
   const barsCell = (l: SolveLineLike) => (
     <>
-      {l.feasible && l.totalBars != null ? <b>{fmtNum(l.totalBars)}</b> : '—'}
+      {l.feasible && l.totalBars != null ? <b>{fmtNum(l.totalBars - leftoverBarsOf(l))}</b> : '—'}
+      {l.feasible && l.totalBars != null && leftoverBarsOf(l) > 0 && (
+        <div style={{ fontSize: 12, color: 'var(--text2)', whiteSpace: isMobile ? 'normal' : 'nowrap' }}>
+          cắt {fmtNum(l.totalBars)} cây, {fmtNum(leftoverBarsOf(l))} cây lẻ có sẵn
+        </div>
+      )}
       {/* MC Tự động: cây cắt theo bó + cây cắt tay = số lần cắt máy phải làm. */}
       {l.feasible && l.machine === 'tu_dong' && fmtBundleSummary(l.bundleSummary) && (
         <div style={{ fontSize: 12, color: 'var(--text2)', whiteSpace: isMobile ? 'normal' : 'nowrap'}}>{fmtBundleSummary(l.bundleSummary)}</div>
@@ -306,6 +329,12 @@ export function SolveLinesTable({
             có trong kho
           </span>
         )}
+        {/* CS2 (anh Nhân 20/11/2026): cây lẻ đang có ở kho Phôi của xưởng làm lệnh được dùng trước; chiều dài trên là chiều dài mua. */}
+        {stockLengthBreakdown(l).filter(e => e.leftover).map(e => (
+          <div key={e.lengthMm} style={{ fontSize: 11, fontWeight: 600, color: 'var(--fg-166534)', whiteSpace: 'nowrap' }} title="Cây lẻ đang có ở kho Phôi của xưởng làm lệnh - dùng trước, không mua">
+            + {fmtBars(e.bars)} lẻ {fmtMm(e.lengthMm)} kho Phôi
+          </div>
+        ))}
       </>
     ) : '—'
   )
@@ -392,7 +421,7 @@ export function SolveLinesTable({
         })}
         {totalBarsAll != null && (
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', fontSize: 13, fontWeight: 700, padding: '2px 4px' }}>
-            <span>Tổng: {fmtNum(totalBarsAll)} cây{wastePercentage != null ? ` · hao hụt ${fmtPercent(wastePercentage)}%` : ''}</span>
+            <span>Tổng: {fmtNum(totalBuyAll)} cây mua{totalLeftover > 0 ? ` + ${fmtNum(totalLeftover)} cây lẻ` : ''}{wastePercentage != null ? ` · hao hụt ${fmtPercent(wastePercentage)}%` : ''}</span>
             {totalText && <span style={{ fontSize: 11.5, fontWeight: 400, color: 'var(--text3)' }}>{totalText}</span>}
           </div>
         )}
@@ -447,7 +476,12 @@ export function SolveLinesTable({
           <tfoot>
             <tr>
               <td style={{ ...TD, fontWeight: 700 }}>Tổng</td>
-              <td style={{ ...NUM, fontWeight: 700 }}>{fmtNum(totalBarsAll)}</td>
+              <td style={{ ...NUM, fontWeight: 700 }}>
+                {fmtNum(totalBuyAll)}
+                {totalLeftover > 0 && (
+                  <div style={{ fontSize: 12, fontWeight: 400, color: 'var(--text2)' }}>+ {fmtNum(totalLeftover)} cây lẻ</div>
+                )}
+              </td>
               <td style={TD} />
               <td style={{ ...NUM, fontWeight: 700 }}>
                 {wastePercentage != null ? `${fmtPercent(wastePercentage)}%` : '—'}

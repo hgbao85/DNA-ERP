@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { buildCuttingGuideTable, buildPieceSummary, buildPrintSectionHtml, buildSheetAoa, cutMachineLineText, machineSummaryText, printCuttingGuide } from './cuttingGuide';
+import { barsLineText, buildCuttingGuideTable, buildPieceSummary, buildPrintSectionHtml, buildSheetAoa, stockLengthBreakdown, cutMachineLineText, machineSummaryText, printCuttingGuide } from './cuttingGuide';
 import type { CuttingProposalLine } from '../services/cutting-proposals-api';
 
 // Fixture tối giản khớp số liệu ví dụ "500 bộ J55" đã đối chiếu với MC Laser
@@ -73,8 +73,8 @@ describe('buildCuttingGuideTable — cột theo cỡ đoạn, dài trước (kh�
   it('dựng đúng số ô theo cỡ cho từng kiểu cắt', () => {
     const { rows } = buildCuttingGuideTable(makeLine());
     expect(rows).toEqual([
-      { patternIndex: 0, counts: [4, 1], barCount: 200, wastePerBarMm: 10, bundles: null, machineGroups: null },
-      { patternIndex: 1, counts: [0, 6], barCount: 67, wastePerBarMm: 15, bundles: null, machineGroups: null },
+      { patternIndex: 0, counts: [4, 1], barCount: 200, wastePerBarMm: 10, bundles: null, machineGroups: null, stockLengthMm: 6000 },
+      { patternIndex: 1, counts: [0, 6], barCount: 67, wastePerBarMm: 15, bundles: null, machineGroups: null, stockLengthMm: 6000 },
     ]);
   });
 
@@ -303,5 +303,49 @@ describe('Ghi số thống nhất (dấu chấm nghìn, dấu phẩy thập phâ
     const header = aoa.find((r) => r[0] === 'STT')!;
     const row = aoa[aoa.indexOf(header) + 1];
     expect(typeof row[row.length - 1]).toBe('number');
+  });
+});
+
+describe('CS2 20/11 - cây lẻ kho Phôi + cây chiều dài mua', () => {
+  const withLeftover = () => {
+    const base = makeLine({ totalBars: 4 });
+    return makeLine({
+      totalBars: 4,
+      patterns: [
+        { ...base.patterns![0], barCount: 1, stockLengthMm: 5800 },
+        { ...base.patterns![1], barCount: 3, stockLengthMm: 6000 },
+      ],
+    });
+  };
+
+  it('phương án không có cây lẻ: chữ "Mua" như cũ, không thêm cột Dài cây', () => {
+    const line = makeLine();
+    expect(barsLineText(line)).toMatch(/^Mua 6.000 mm × /);
+    const header = buildSheetAoa(line).find((r) => r[0] === 'STT')!;
+    expect(header).not.toContain('Dài cây (mm)');
+  });
+
+  it('tách số cây theo chiều dài, ghi rõ cây lẻ kho Phôi và phần mua', () => {
+    const line = withLeftover();
+    expect(stockLengthBreakdown(line)).toEqual([
+      { lengthMm: 5800, bars: 1, leftover: true },
+      { lengthMm: 6000, bars: 3, leftover: false },
+    ]);
+    expect(barsLineText(line)).toContain('Cây lẻ kho Phôi 5.800 mm × 1');
+    expect(barsLineText(line)).toContain('Mua 6.000 mm × 3');
+  });
+
+  it('bản Excel và bản in có cột Dài cây theo từng kiểu cắt', () => {
+    const line = withLeftover();
+    const aoa = buildSheetAoa(line);
+    const header = aoa.find((r) => r[0] === 'STT')!;
+    const col = header.indexOf('Dài cây (mm)');
+    expect(col).toBeGreaterThan(0);
+    const first = aoa[aoa.indexOf(header) + 1];
+    const second = aoa[aoa.indexOf(header) + 2];
+    expect([first[col], second[col]]).toEqual([5800, 6000]);
+    const html = buildPrintSectionHtml(line, false);
+    expect(html).toContain('<th>Dài cây</th>');
+    expect(html).toContain('Cây lẻ kho Phôi');
   });
 });

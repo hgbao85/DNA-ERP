@@ -61,6 +61,9 @@ export interface CuttingProposalPattern {
   patternIndex: number;
   barCount: number;
   wastePerBarMm: number | null;
+  /** CS2 (20/11/2026): chiều dài cây của kiểu cắt này - cây lẻ có sẵn ở kho Phôi (khác bestStockLengthMm của dòng) hoặc cây
+   *  chiều dài mua. Phương án cũ thì bằng bestStockLengthMm; thiếu = máy chủ cũ. */
+  stockLengthMm?: number | null;
   segments: CuttingProposalSegment[];
   /** Có khi tính bằng MC Tự động; null/thiếu = cắt từng cây (MC Laser) hoặc phương án cũ -> hiện như cũ. */
   bundles?: PatternBundles | null;

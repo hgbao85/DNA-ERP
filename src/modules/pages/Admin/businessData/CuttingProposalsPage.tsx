@@ -463,7 +463,7 @@ export default function CuttingProposalsPage() {
                                     }}
                                   >
                                     <div style={{ fontSize: 12, marginBottom: 6 }}>
-                                      Thanh <b>{fmtMm(l.bestStockLengthMm)}</b> × <b>{fmtNum(r.barCount)} cây</b>
+                                      Thanh <b>{fmtMm(r.stockLengthMm ?? l.bestStockLengthMm)}</b>{r.stockLengthMm != null && r.stockLengthMm !== l.bestStockLengthMm && <span style={{ color: 'var(--fg-166534)', fontWeight: 600 }}> (cây lẻ kho Phôi)</span>} × <b>{fmtNum(r.barCount)} cây</b>
                                       <span style={{ color: 'var(--text3)' }}> · phần thừa {fmtMm(r.wastePerBarMm)}/cây</span>
                                     </div>
                                     {/* Lớp máy của kiểu cắt (13/11/2026): huy hiệu + số cây mỗi nhóm khi kiểu có nhiều nhóm. */}
