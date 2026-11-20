@@ -189,7 +189,7 @@ export async function createWarehouseTransfer(data: {
   // từ chối (400) dòng nào thiếu materialId, không còn kiểu "ghi tự do" chỉ có materialName gõ tay.
   /** `spec` = quy cách của bucket tồn muốn lấy (nệm có nhiều quy cách cùng 1 vật tư); bỏ trống = bucket "không quy cách". */
   items: Array<{ materialId: string | number; materialName: string; unit: string; quantity: number; note?: string; spec?: string }>;
-}): Promise<WarehouseTransfer> {
+}, idempotencyKey?: string): Promise<WarehouseTransfer> {
   const created = await http.post<BeWarehouseTransfer>(
     '/warehouse-transfers',
     {
@@ -205,11 +205,12 @@ export async function createWarehouseTransfer(data: {
         spec: it.spec || undefined,
       })),
     },
-    // Vấn đề #11 audit 26/08 (phần còn thiếu) - BE giờ bắt buộc header này.
-    withIdempotencyKey(),
+    // BE bắt buộc header này. 20/11: màn hình truyền khoá giữ qua lần mất mạng (useRetrySafeKey) - bấm lại cùng khoá thì BE
+    // trả phiếu cũ, không lập phiếu thứ hai; không truyền thì tạo khoá mới như cũ.
+    idempotencyKey ? { headers: { 'Idempotency-Key': idempotencyKey } } : withIdempotencyKey(),
   );
-  // Phiếu vừa tạo có thể đã bị clamp số lượng theo tồn khả dụng (xem BE WarehouseTransfersService)
-  // — fetch lại chi tiết để trả đúng số lượng/items thật thay vì echo nguyên request.
+  // Đọc lại chi tiết (kèm tên, quy cách) để trả đủ dữ liệu phiếu. BE không còn cắt bớt số lượng (19/11): xin vượt khả dụng thì
+  // báo lỗi, không lập phiếu.
   return getWarehouseTransfer(created.id);
 }
 
@@ -350,7 +351,7 @@ export async function createPieceWarehouseTransfer(data: {
     quantity: number;
     note?: string;
   }>;
-}): Promise<WarehouseTransfer> {
+}, idempotencyKey?: string): Promise<WarehouseTransfer> {
   const created = await http.post<BeWarehouseTransfer>(
     '/warehouse-transfers/piece-transfer',
     {
@@ -364,10 +365,9 @@ export async function createPieceWarehouseTransfer(data: {
         note: it.note,
       })),
     },
-    // Vấn đề #11 audit 26/08 (phần còn thiếu) - BE giờ bắt buộc header này.
-    withIdempotencyKey(),
+    // Cùng cách createWarehouseTransfer(): khoá do màn hình giữ qua lần mất mạng.
+    idempotencyKey ? { headers: { 'Idempotency-Key': idempotencyKey } } : withIdempotencyKey(),
   );
-  // Cùng lý do createWarehouseTransfer(): số lượng có thể đã bị clamp theo kế hoạch tại thời điểm
-  // tạo (xem WarehouseTransfersService.createPieceTransfer ở BE) — fetch lại chi tiết thật.
+  // Đọc lại chi tiết phiếu. BE không còn cắt bớt số mảnh (19/11): vượt số được chuyển thì báo lỗi, không lập phiếu.
   return getWarehouseTransfer(created.id);
 }

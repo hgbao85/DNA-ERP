@@ -23,6 +23,7 @@ import { pageTitle } from '../../../styles/typography'
 import XuatHangBookingSection from './XuatHangBookingSection'
 import { useRealtimeRefetch } from '../../../realtime/hooks'
 import LenhCode from '../../../components/LenhCode'
+import { useRetrySafeKey } from '../../../hooks/useRetrySafeKey'
 
 interface Wh { id: string; name: string; code: string; kind?: string | null; workshopId?: string | null }
 
@@ -275,6 +276,8 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
 
   const [transferBusyLine, setTransferBusyLine] = useState<string | null>(null)
   const [transferErrors, setTransferErrors] = useState<Record<string, string>>({})
+  // 20/11: khoá chống trùng phiếu chuyển mảnh, giữ qua lần mất mạng (xem useRetrySafeKey).
+  const pieceRetryKey = useRetrySafeKey()
   // Tổng duyệt 11/11: bấm "Xác nhận" xong không có phản hồi (ô vẫn giữ số, "Có thể chuyển" chưa kịp đổi) nên người dùng
   // bấm lại -> sinh phiếu trùng. Nay xoá ô số lượng + hiện số phiếu vừa lập ngay khi tạo xong.
   const [transferDone, setTransferDone] = useState<Record<string, string>>({})
@@ -304,13 +307,17 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
       setTransferErrors(prev => ({ ...prev, [lineId]: '' }))
       setTransferDone(prev => ({ ...prev, [lineId]: '' }))
       let created: { code: string }
+      // 20/11: khoá chống trùng giữ qua lần mất mạng / quá giờ chờ - bấm lại thì BE trả phiếu đã lập, không ra phiếu thứ hai.
+      const payload = {
+        fromWarehouseId: myWarehouse.id,
+        toWarehouseId: pieceDestWh.id,
+        pieceItems: [{ productionOrderId: order.id, pieceId: line.id, quantity: qty }],
+      }
       try {
-        created = await api.createPieceWarehouseTransfer({
-          fromWarehouseId: myWarehouse.id,
-          toWarehouseId: pieceDestWh.id,
-          pieceItems: [{ productionOrderId: order.id, pieceId: line.id, quantity: qty }],
-        })
+        created = await api.createPieceWarehouseTransfer(payload, pieceRetryKey.take(payload))
+        pieceRetryKey.settle()
       } catch (e) {
+        pieceRetryKey.settle(e)
         setTransferErrors(prev => ({ ...prev, [lineId]: errMsg(e, 'Không thể tạo phiếu chuyển kho nội bộ') }))
         setTransferBusyLine(null)
         return
@@ -516,7 +523,7 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
                             </div>
                           )}
                           {transferErrors[l.id] && (
-                            <div style={{ marginTop: 4, fontSize: 11, color: 'var(--fg-dc2626)' }}>{transferErrors[l.id]}</div>
+                            <div style={{ marginTop: 4, fontSize: 11, color: 'var(--fg-dc2626)', whiteSpace: 'pre-line' }}>{transferErrors[l.id]}</div>
                           )}
                           {transferDone[l.id] && (
                             <div style={{ marginTop: 4, fontSize: 11, color: 'var(--fg-2e7d32)' }}>{transferDone[l.id]}</div>

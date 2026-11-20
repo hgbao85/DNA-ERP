@@ -12,6 +12,7 @@ import { safeArr } from '../../../utils/array'
 import { warehouseFamilyOf } from '../../../utils/warehouseFamily'
 import { errMsg } from '../../../utils/errors'
 import { compactTh as th, compactTd as td, emptyBox } from '../../../styles/table'
+import { useRetrySafeKey } from '../../../hooks/useRetrySafeKey'
 import { pageTitle, pageSubtitle } from '../../../styles/typography'
 
 const ACCENT = 'var(--fg-4527a0)'
@@ -68,8 +69,8 @@ export default function ChuyenKhoTuDoPage({ scope }: { scope: string | null }) {
   // Cộng theo `availableQty` (BE đã trừ sẵn phần đang bị giữ chỗ bởi phiếu PENDING khác/cắt sắt -
   // StockReservationsService.getAvailableQty), KHÔNG dùng `qty` thô (2026-09-15, phát hiện qua live
   // test: dùng `qty` khiến "Thực có" hiển thị CAO HƠN thực tế khi có phiếu khác đang giữ chỗ cùng
-  // vật tư - người dùng nhập số trong khoảng đó vẫn tạo phiếu được, nhưng BE âm thầm clamp xuống
-  // thấp hơn số đã nhập mà không có cảnh báo rõ ràng nào ở bước tạo).
+  // vật tư - người dùng nhập số trong khoảng đó rồi bị BE từ chối vì vượt khả dụng; từ 19/11 BE báo lỗi kèm số còn, không
+  // lập phiếu và không còn cắt bớt).
   const { data: materialOptions, isLoading: loadingMaterials, refetch: refetchStock } = useFetch<MaterialOption[]>(async () => {
     if (!effectiveFromId) return []
     const [quants, materials] = await Promise.all([
@@ -106,6 +107,7 @@ export default function ChuyenKhoTuDoPage({ scope }: { scope: string | null }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [successCode, setSuccessCode] = useState('')
+  const retryKey = useRetrySafeKey()
   // 19/11: BE không còn âm thầm cắt bớt - xin vượt khả dụng (vd phiếu khác vừa giữ chỗ trước) thì BE báo lỗi rõ, phiếu không lập.
 
   const { data: pendingData, refetch: refetchPending } = useFetch(
@@ -128,18 +130,22 @@ export default function ChuyenKhoTuDoPage({ scope }: { scope: string | null }) {
     setBusy(true)
     setError('')
     setSuccessCode('')
+    // 20/11: khoá chống trùng giữ qua lần mất mạng / quá giờ chờ - bấm lại thì BE trả phiếu đã lập, không ra phiếu thứ hai.
+    const payload = {
+      fromWarehouseId: fromWarehouse.id,
+      toWarehouseId: toWarehouse.id,
+      note: note.trim() || undefined,
+      items: [{ materialId: material.id, materialName: material.name, unit: material.unit, quantity: qtyNum, spec: material.spec || undefined }],
+    }
     try {
-      const created = await api.createWarehouseTransfer({
-        fromWarehouseId: fromWarehouse.id,
-        toWarehouseId: toWarehouse.id,
-        note: note.trim() || undefined,
-        items: [{ materialId: material.id, materialName: material.name, unit: material.unit, quantity: qtyNum, spec: material.spec || undefined }],
-      })
+      const created = await api.createWarehouseTransfer(payload, retryKey.take(payload))
+      retryKey.settle()
       setSuccessCode(created.code)
       resetLine()
       refetchStock()
       refetchPending()
     } catch (e) {
+      retryKey.settle(e)
       setError(errMsg(e, 'Không thể tạo phiếu chuyển kho'))
     } finally {
       setBusy(false)
@@ -232,7 +238,7 @@ export default function ChuyenKhoTuDoPage({ scope }: { scope: string | null }) {
           </div>
         </div>
 
-        {error && <div style={{ marginBottom: 12, fontSize: 12, color: 'var(--fg-dc2626)' }}>{error}</div>}
+        {error && <div style={{ marginBottom: 12, fontSize: 12, color: 'var(--fg-dc2626)', whiteSpace: 'pre-line' }}>{error}</div>}
         {successCode && (
           <div style={{ marginBottom: 12, fontSize: 12, color: 'var(--fg-16a34a)' }}>Đã tạo phiếu {successCode}, chờ kho đích xác nhận.</div>
         )}

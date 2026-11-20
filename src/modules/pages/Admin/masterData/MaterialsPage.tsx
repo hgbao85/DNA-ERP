@@ -1,6 +1,7 @@
 'use client'
 import { Package } from 'lucide-react'
 import { useFetch } from '../../../../hooks/useFetch'
+import { useAuth } from '../../../../context/AuthContext'
 import { getMaterials, createMaterial, updateMaterial, deleteMaterial, getMaterialGroups, getWarehouses, getUsers, getStockQuants } from '../../../../services/api'
 import { MATERIAL_GROUP_SYSTEM_KEYS } from '../../../../constants/materialGroupSystemKeys'
 import AdminEntityPage, { type AdminEntityConfig } from '../shared/AdminEntityPage'
@@ -108,6 +109,16 @@ export default function MaterialsPage() {
   // Kho ảo (SUPPLIER/PRODUCTION/SCRAP/OPENING_BALANCE...) chỉ là điểm đối ứng cho bút toán kho,
   // không phải nơi vật tư thật sự nằm - loại khỏi dropdown chọn Kho để tránh gán nhầm.
   const realWarehouseOptions = warehouseList.filter((w) => !w.isVirtual)
+  // 20/11 (Sang báo): tồn kho ban đầu là 1 bút toán ghi tồn - BE chỉ cho Admin / Giám đốc ghi mọi kho, còn lại chỉ đúng kho mình
+  // phụ trách (MaterialsService.assertCanWriteOpeningStock). Ẩn ô với kho khác để không chặn oan cả lần tạo vật tư (vd Quản lý
+  // vật tư không gán kho điền ô này thì bị 403 "chưa được gán kho phụ trách").
+  const { user } = useAuth()
+  const canWriteOpeningAt = (warehouseId: unknown) => {
+    if (!user) return false
+    if (user.role === 'ADMIN' || user.role === 'BOSS') return true
+    const wh = realWarehouseOptions.find((w) => String(w.id) === String(warehouseId))
+    return !!wh && !!user.warehouseScope && wh.code === user.warehouseScope
+  }
   const { data: users } = useFetch<Purchaser[]>(getUsers)
   const buyerList = (users ?? []).filter((u) => u.isPurchaser)
   const buyerName = (id?: string | null) => buyerList.find((u) => String(u.id) === id)?.name ?? '—'
@@ -256,7 +267,16 @@ export default function MaterialsPage() {
         // này (BE update() không đọc openingQty). Cần chọn Kho trước.
         // Sắt phần mềm: tồn tính theo chiều dài cây, ô này sẽ ghi vào ô chiều dài 0 - ẩn, thay bằng câu nhắc bên dưới
         // (field ẩn thì AdminEntityPage gửi null, BE bỏ qua openingQty).
-        showIf: (v) => v.id == null && !!v.warehouseId && !isSoftwareSteel(v),
+        showIf: (v) => v.id == null && !!v.warehouseId && !isSoftwareSteel(v) && canWriteOpeningAt(v.warehouseId),
+      },
+      {
+        name: 'openingQtyScopeHint', label: 'Tồn kho ban đầu', type: 'custom', excludeFromPayload: true,
+        showIf: (v) => v.id == null && !!v.warehouseId && !isSoftwareSteel(v) && !canWriteOpeningAt(v.warehouseId),
+        Render: () => (
+          <div style={{ fontSize: 13, color: 'var(--text3)' }}>
+            Chỉ thủ kho của kho này (hoặc Admin) nhập được tồn ban đầu. Tạo vật tư xong, nhờ thủ kho nhập ở Quản lý kho &gt; Sửa tồn.
+          </div>
+        ),
       },
       {
         name: 'openingQtySteelHint', label: 'Tồn kho ban đầu', type: 'custom', excludeFromPayload: true,
