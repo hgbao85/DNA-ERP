@@ -45,3 +45,11 @@ export function cutTypeChangeMessage(w: WorkstationRef, from: SolverMachine | nu
     confirmLabel: 'Đổi loại',
   }
 }
+
+/** Tên gọi máy hợp lệ để lưu ở hộp "Sửa tên" (21/11/2026): bỏ khoảng trắng 2 đầu; rỗng, quá 120 ký tự (giới hạn BE) hoặc trùng
+ *  tên cũ thì trả null (nút Lưu khoá). */
+export function renameValue(current: string, typed: string): string | null {
+  const next = typed.trim()
+  if (!next || next.length > 120 || next === current.trim()) return null
+  return next
+}
