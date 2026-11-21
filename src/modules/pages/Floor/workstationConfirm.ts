@@ -11,7 +11,8 @@ export interface WorkstationRef { code: string; name: string }
 
 export interface ConfirmText { title: string; message: string; confirmLabel: string }
 
-const nameOf = (w: WorkstationRef) => `${w.code} · ${w.name}`
+/** 21/11/2026: màn chỉ còn mã máy (bỏ tên gọi). */
+const nameOf = (w: WorkstationRef) => w.code
 const UNASSIGNED = 'chưa gán xưởng'
 /** Máy cắt đã cắt dở: phần đó cũng về "Chưa chia" - chia lại cho máy khác thì cây đã cắt không tự trừ. */
 const CUT_PARTIAL_NOTE = 'Phần máy đã cắt dở cũng về “Chưa chia”. Khi chia lại cho máy khác, phải bớt số cây đã cắt hoặc báo tổ không cắt lại.'
@@ -46,10 +47,10 @@ export function cutTypeChangeMessage(w: WorkstationRef, from: SolverMachine | nu
   }
 }
 
-/** Tên gọi máy hợp lệ để lưu ở hộp "Sửa tên" (21/11/2026): bỏ khoảng trắng 2 đầu; rỗng, quá 120 ký tự (giới hạn BE) hoặc trùng
- *  tên cũ thì trả null (nút Lưu khoá). */
-export function renameValue(current: string, typed: string): string | null {
-  const next = typed.trim()
-  if (!next || next.length > 120 || next === current.trim()) return null
+/** Mã ngắn mới hợp lệ để lưu ở hộp "Đổi mã" (21/11/2026): bỏ khoảng trắng, viết hoa như BE; 2-32 ký tự chỉ gồm chữ, số, dấu
+ *  chấm, gạch dưới, gạch ngang (cùng luật BE); trùng mã cũ thì trả null (nút Lưu khoá). */
+export function codeValue(current: string, typed: string): string | null {
+  const next = typed.trim().toUpperCase()
+  if (next.length < 2 || next.length > 32 || !/^[A-Z0-9_.-]+$/.test(next) || next === current.trim().toUpperCase()) return null
   return next
 }

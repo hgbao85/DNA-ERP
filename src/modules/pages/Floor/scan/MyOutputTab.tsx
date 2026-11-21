@@ -88,7 +88,7 @@ function OutputItem({ r, index, showKcs }: { r: BeMyOutputRow; index: number; sh
           </b>
           {r.piCode ? <> · <LenhCode piCode={r.piCode} /></> : null}
           {outputKindText(r)}
-          {r.workstation ? ` · ${r.workstation.name}` : ' · báo trên máy tính'}
+          {r.workstation ? ` · ${r.workstation.code}` : ' · báo trên máy tính'}
         </div>
         {!r.reversed && (
           <span style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', alignItems: 'center', gap: 6, minWidth: 0 }}>

@@ -47,7 +47,6 @@ export async function printTems(list: BeWorkstation[], origin: string = window.l
       <div class="top">${STAGE[w.stage]} · ${esc(kindCaption(w))}</div>
       <img src="${img}" alt="">
       <div class="code">${esc(w.code)}</div>
-      <div class="name">${esc(w.name)}</div>
       ${temMachineLine(w)}
       <div class="how">Mở camera điện thoại, quét mã, đăng nhập bằng tên + PIN của bạn rồi nhập số.</div>
     </section>`

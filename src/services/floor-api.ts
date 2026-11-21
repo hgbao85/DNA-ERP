@@ -249,7 +249,8 @@ export interface BeWorkstation extends BeWorkstationBrief {
 
 export interface CreateWorkstationInput {
   code: string
-  name: string
+  /** 21/11/2026: màn bỏ ô Tên gọi - không gửi thì BE lấy tên = mã. */
+  name?: string
   stage: FloorStage
   kind: WorkstationKind
   processStep?: string
@@ -260,6 +261,8 @@ export interface CreateWorkstationInput {
 }
 
 export interface UpdateWorkstationInput {
+  /** 21/11/2026: đổi mã ngắn in trên tem (tên đổi theo mã). */
+  code?: string
   name?: string
   isActive?: boolean
   /** null = bỏ xưởng. */

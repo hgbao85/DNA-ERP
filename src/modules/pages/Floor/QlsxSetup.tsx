@@ -24,12 +24,13 @@ import LoadingState from '../../../components/LoadingState'
 import LoadErrorState from '../../../components/LoadErrorState'
 import { btn, card, countNonCutUnassigned, input, isCutUnassigned, isWorkshopUnassigned, KIND_LABEL, kindWithMachine, Notice, Pill, STAGE_LABEL, STEP_LABEL, summarizeCutMachines, td, th, UNASSIGNED_DEFAULT_WORKSHOP_TITLE, UNASSIGNED_WORKSHOP_TITLE, workshopsMissingSteelReceive } from './qlsxUi'
 import { isLocalOrigin, kindCaption, printTems, qrDataUrl, workstationLink } from './qrPrint'
-import { cutTypeChangeMessage, offMessage, renameValue, workshopChangeMessage } from './workstationConfirm'
+import { codeValue, cutTypeChangeMessage, offMessage, workshopChangeMessage } from './workstationConfirm'
 
 const STAGES: FloorStage[] = ['PHOI', 'HAN', 'SON']
 const STEPS = ['UON', 'DAP', 'DUC_LO', 'TAN', 'TOP_DAU', 'XE', 'NHAN']
 
-const wsTitle = (w: BeWorkstation) => `${w.code} · ${w.name}`
+/** 21/11/2026: màn chỉ còn mã máy (bỏ tên gọi). */
+const wsTitle = (w: BeWorkstation) => w.code
 const CUT_TYPES: SolverMachine[] = ['laser', 'tu_dong']
 // select nhỏ sửa nhanh ngay trên dòng (13/11/2026)
 const miniSelect = { ...input, minHeight: 30, padding: '4px 8px', fontSize: 12 }
@@ -79,23 +80,24 @@ function QrModal({ ws, base, fromSetting, onClose }: {
   )
 }
 
-/** Sửa tên gọi của máy / điểm làm việc (21/11/2026, quản lý xưởng đổi "Máy uốn 3 trục" thành "Máy uốn"). Mã ngắn in trên tem giữ nguyên. */
-function RenameModal({ ws, onSave, onClose }: {
+/** Đổi mã ngắn của máy / điểm làm việc (21/11/2026: màn bỏ tên gọi, chỉ còn mã; QLSX và Admin đổi được). Mã QR giữ nguyên nên tem đã
+ *  dán vẫn quét được, chỉ chữ in trên tem cũ không còn đúng. */
+function CodeModal({ ws, onSave, onClose }: {
   ws: BeWorkstation | null
-  onSave: (ws: BeWorkstation, name: string) => Promise<void>
+  onSave: (ws: BeWorkstation, code: string) => Promise<void>
   onClose: () => void
 }) {
-  const [name, setName] = useState('')
+  const [typed, setTyped] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [openedFor, setOpenedFor] = useState<BeWorkstation | null>(null)
   if (ws !== openedFor) {
     setOpenedFor(ws)
-    setName(ws?.name ?? '')
+    setTyped(ws?.code ?? '')
     setErr(null)
   }
   if (!ws) return null
-  const next = renameValue(ws.name, name)
+  const next = codeValue(ws.code, typed)
   const save = async () => {
     if (!next) return
     setBusy(true); setErr(null)
@@ -104,17 +106,17 @@ function RenameModal({ ws, onSave, onClose }: {
   return (
     <Modal open onClose={busy ? undefined : onClose} maxWidth={400}>
       <form onSubmit={(e) => { e.preventDefault(); void save() }} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <div style={{ fontSize: 16, fontWeight: 700 }}>Sửa tên {ws.code}</div>
+        <div style={{ fontSize: 16, fontWeight: 700 }}>Đổi mã {ws.code}</div>
         <label style={{ fontSize: 12, fontWeight: 600 }}>
-          Tên gọi
-          <input value={name} onChange={(e) => setName(e.target.value)} maxLength={120} autoFocus aria-label={`Tên gọi mới của ${ws.code}`}
-            style={{ ...input, marginTop: 4, width: '100%', boxSizing: 'border-box' }} />
+          Mã mới (in trên tem)
+          <input value={typed} onChange={(e) => setTyped(e.target.value)} maxLength={32} autoFocus aria-label={`Mã mới của ${ws.code}`}
+            placeholder="vd DAP-PA" style={{ ...input, marginTop: 4, width: '100%', boxSizing: 'border-box' }} />
         </label>
-        <div style={{ fontSize: 12, color: 'var(--text3)' }}>Mã ngắn {ws.code} in trên tem giữ nguyên, tem đã dán vẫn quét được.</div>
+        <div style={{ fontSize: 12, color: 'var(--text3)' }}>Chỉ gồm chữ không dấu, số, dấu chấm, gạch dưới, gạch ngang (2-32 ký tự). Mã QR giữ nguyên nên tem đã dán vẫn quét được; nếu đã in tem thì in lại để chữ trên tem đúng mã mới.</div>
         {err && <Notice tone="warn">{err}</Notice>}
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
           <button type="button" style={btn('secondary')} disabled={busy} onClick={onClose}>Hủy</button>
-          <button type="submit" style={btn('primary', busy || !next)} disabled={busy || !next}>{busy ? 'Đang lưu…' : 'Lưu tên'}</button>
+          <button type="submit" style={btn('primary', busy || !next)} disabled={busy || !next}>{busy ? 'Đang lưu…' : 'Lưu mã'}</button>
         </div>
       </form>
     </Modal>
@@ -128,7 +130,6 @@ function AddWorkstation({ workshops, defaultWorkshopId, onDone, onCancel }: {
   onCancel: () => void
 }) {
   const [code, setCode] = useState('')
-  const [name, setName] = useState('')
   const [stage, setStage] = useState<FloorStage>('PHOI')
   const [kind, setKind] = useState<WorkstationKind>('CUT')
   const [step, setStep] = useState('UON')
@@ -142,7 +143,7 @@ function AddWorkstation({ workshops, defaultWorkshopId, onDone, onCancel }: {
   // Máy cắt / công đoạn phụ / nhận sắt chỉ của tổ Phôi - ép đúng lựa chọn thay vì để BE báo lỗi.
   const kinds: WorkstationKind[] = stage === 'PHOI' ? ['CUT', 'STEP', 'PIECE', 'STEEL_RECEIVE'] : ['PIECE']
   const changeStage = (s: FloorStage) => { setStage(s); setKind(s === 'PHOI' ? 'CUT' : 'PIECE') }
-  const valid = code.trim().length >= 2 && name.trim().length >= 1 && (kind !== 'CUT' || cutType !== '')
+  const valid = code.trim().length >= 2 && (kind !== 'CUT' || cutType !== '')
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -150,7 +151,7 @@ function AddWorkstation({ workshops, defaultWorkshopId, onDone, onCancel }: {
     setBusy(true); setErr(null)
     try {
       await floorAdmin.createWorkstation({
-        code: code.trim(), name: name.trim(), stage, kind, processStep: kind === 'STEP' ? step : undefined,
+        code: code.trim(), stage, kind, processStep: kind === 'STEP' ? step : undefined,
         workshopId: workshopId || undefined,
         ...(kind === 'CUT' ? { cutMachineType: cutType || undefined } : {}),
       })
@@ -162,8 +163,6 @@ function AddWorkstation({ workshops, defaultWorkshopId, onDone, onCancel }: {
     <form onSubmit={submit} style={{ ...card, display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
       <label style={{ display: 'grid', gap: 4 }}>{lab('Mã ngắn (in trên tem)')}
         <input style={input} value={code} onChange={(e) => setCode(e.target.value)} placeholder="LASER-01" maxLength={32} /></label>
-      <label style={{ display: 'grid', gap: 4 }}>{lab('Tên gọi')}
-        <input style={input} value={name} onChange={(e) => setName(e.target.value)} placeholder="Máy laser số 1" maxLength={120} /></label>
       <label style={{ display: 'grid', gap: 4 }}>{lab('Tổ')}
         <select style={input} value={stage} onChange={(e) => changeStage(e.target.value as FloorStage)}>
           {STAGES.map((s) => <option key={s} value={s}>{STAGE_LABEL[s]}</option>)}</select></label>
@@ -227,7 +226,7 @@ function Workstations() {
   const { ask, confirmModal } = useConfirm()
   const [adding, setAdding] = useState(false)
   const [show, setShow] = useState<BeWorkstation | null>(null)
-  const [renaming, setRenaming] = useState<BeWorkstation | null>(null)
+  const [recoding, setRecoding] = useState<BeWorkstation | null>(null)
   const [err, setErr] = useState<string | null>(null)
   const [printing, setPrinting] = useState(false)
   const list = data ?? []
@@ -265,10 +264,9 @@ function Workstations() {
   const selStyle = (full: boolean) => ({ ...miniSelect, width: full ? '100%' : 190, minWidth: 0, boxSizing: 'border-box' as const })
   const machineCell = (w: BeWorkstation) => (
     <>
-      <b>{w.code}</b>
-      <div style={{ fontSize: 12, color: 'var(--text2)', display: 'flex', alignItems: 'center', gap: 4 }}>
-        {w.name}
-        <button type="button" style={{ ...btn('ghost'), padding: 2 }} title="Sửa tên" aria-label={`Sửa tên ${w.code}`} onClick={() => setRenaming(w)}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+        <b>{w.code}</b>
+        <button type="button" style={{ ...btn('ghost'), padding: 2 }} title="Đổi mã" aria-label={`Đổi mã ${w.code}`} onClick={() => setRecoding(w)}>
           <Pencil size={12} />
         </button>
       </div>
@@ -328,8 +326,8 @@ function Workstations() {
     <section style={{ display: 'flex', flexDirection: 'column', gap: 12 }} aria-label="Máy và mã QR">
       {confirmModal}
       <QrModal ws={show} base={base} fromSetting={!!savedBase} onClose={() => setShow(null)} />
-      <RenameModal ws={renaming} onClose={() => setRenaming(null)}
-        onSave={async (w, name) => { await floorAdmin.updateWorkstation(w.id, { name }); void refetch() }} />
+      <CodeModal ws={recoding} onClose={() => setRecoding(null)}
+        onSave={async (w, code) => { await floorAdmin.updateWorkstation(w.id, { code }); void refetch() }} />
       {settings.isLoading ? <LoadingState /> : settings.error ? (
         <LoadErrorState error={settings.error} onRetry={() => void settings.refetch()} />
       ) : (
