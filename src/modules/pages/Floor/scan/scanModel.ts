@@ -65,11 +65,11 @@ export function reportTitle(w: Pick<BeWorkstationBrief, 'kind' | 'processStep' |
   return `Báo ${STAGE_LABEL[w.stage]}`
 }
 
-/** Dòng phụ dưới tiêu đề: tên máy · loại máy cắt · xưởng · tổ. */
+/** Dòng phụ dưới tiêu đề: mã máy · loại máy cắt · xưởng · tổ (21/11/2026: mã thay tên - màn QLSX bỏ tên gọi). */
 export function workstationSubtitle(w: BeWorkstationBrief): string {
   const type = w.kind === 'CUT' && w.cutMachineType ? ` · ${MACHINE_LABEL[w.cutMachineType]}` : ''
   const shop = w.workshopName ? ` · ${w.workshopName}` : ''
-  return `${w.name}${type}${shop} · tổ ${STAGE_LABEL[w.stage]}`
+  return `${w.code}${type}${shop} · tổ ${STAGE_LABEL[w.stage]}`
 }
 
 // ─── Phôi: số đoạn theo cỡ ───────────────────────────────────────────────────

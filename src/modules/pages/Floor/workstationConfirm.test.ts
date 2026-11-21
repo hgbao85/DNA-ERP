@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { cutTypeChangeMessage, offMessage, renameValue, workshopChangeMessage } from './workstationConfirm'
+import { cutTypeChangeMessage, offMessage, codeValue, workshopChangeMessage } from './workstationConfirm'
 
 const w = { code: 'LASER-01', name: 'Máy laser số 1' }
 
@@ -55,16 +55,17 @@ describe('cutTypeChangeMessage', () => {
   })
 })
 
-// 21/11/2026: hộp "Sửa tên" máy ở Máy & tem QR.
-describe('renameValue', () => {
-  it('trả tên mới đã bỏ khoảng trắng 2 đầu', () => {
-    expect(renameValue('Máy uốn 3 trục', '  Máy uốn  ')).toBe('Máy uốn')
+// 21/11/2026: hộp "Đổi mã" máy ở Máy & tem QR.
+describe('codeValue', () => {
+  it('bỏ khoảng trắng, viết hoa', () => {
+    expect(codeValue('DAP-OVAL-PA', '  dap-pa ')).toBe('DAP-PA')
   })
-  it('rỗng, toàn khoảng trắng, trùng tên cũ hoặc quá 120 ký tự thì không lưu', () => {
-    expect(renameValue('Máy uốn', '')).toBeNull()
-    expect(renameValue('Máy uốn', '   ')).toBeNull()
-    expect(renameValue('Máy uốn', ' Máy uốn ')).toBeNull()
-    expect(renameValue('Máy uốn', 'x'.repeat(121))).toBeNull()
-    expect(renameValue('Máy uốn', 'x'.repeat(120))).toBe('x'.repeat(120))
+  it('rỗng, 1 ký tự, quá 32 ký tự, ký tự lạ hoặc trùng mã cũ thì không lưu', () => {
+    expect(codeValue('DAP-PA', '')).toBeNull()
+    expect(codeValue('DAP-PA', 'D')).toBeNull()
+    expect(codeValue('DAP-PA', 'X'.repeat(33))).toBeNull()
+    expect(codeValue('DAP-PA', 'DẬP PA')).toBeNull()
+    expect(codeValue('DAP-PA', 'dap-pa')).toBeNull()
+    expect(codeValue('DAP-PA', 'X'.repeat(32))).toBe('X'.repeat(32))
   })
 })
