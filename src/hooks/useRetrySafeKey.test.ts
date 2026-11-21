@@ -12,11 +12,19 @@ describe('keepsRetryKey', () => {
     expect(keepsRetryKey(new ApiError('đang xử lý', 409, 'IdempotencyKeyInUseException'))).toBe(true)
   })
 
-  it('đổi khoá khi 409 thường, 422, 400, 500 hoặc lỗi không phải ApiError', () => {
+  // 21/11 (F-03): proxy trả 502 / 503 / 504 trong lúc BE có thể đã ghi xong - giữ khoá để bấm lại không ra bản thứ hai.
+  it('giữ khoá khi lỗi máy chủ 500, 502, 503, 504', () => {
+    for (const code of [500, 502, 503, 504]) {
+      expect(keepsRetryKey(new ApiError('x', code, 'Error'))).toBe(true)
+    }
+  })
+
+  it('đổi khoá khi 409 thường, 422, 400, 403, 404 hoặc lỗi không phải ApiError', () => {
     expect(keepsRetryKey(new ApiError('x', 409, 'ConflictException'))).toBe(false)
     expect(keepsRetryKey(new ApiError('x', 422, 'IdempotencyKeyReusedException'))).toBe(false)
     expect(keepsRetryKey(new ApiError('x', 400, 'BadRequestException'))).toBe(false)
-    expect(keepsRetryKey(new ApiError('x', 500, 'Error'))).toBe(false)
+    expect(keepsRetryKey(new ApiError('x', 403, 'ForbiddenException'))).toBe(false)
+    expect(keepsRetryKey(new ApiError('x', 404, 'NotFoundException'))).toBe(false)
     expect(keepsRetryKey(new Error('x'))).toBe(false)
   })
 })
@@ -28,6 +36,8 @@ describe('createRetrySafeKey', () => {
     k.settle(new ApiError('x', 0, ''))
     expect(k.take({ qty: 2 })).toBe(a)
     k.settle(new ApiError('x', 409, 'IdempotencyKeyInUseException'))
+    expect(k.take({ qty: 2 })).toBe(a)
+    k.settle(new ApiError('x', 504, 'Error'))
     expect(k.take({ qty: 2 })).toBe(a)
   })
 
