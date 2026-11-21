@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { cutTypeChangeMessage, offMessage, workshopChangeMessage } from './workstationConfirm'
+import { cutTypeChangeMessage, offMessage, renameValue, workshopChangeMessage } from './workstationConfirm'
 
 const w = { code: 'LASER-01', name: 'Máy laser số 1' }
 
@@ -52,5 +52,19 @@ describe('cutTypeChangeMessage', () => {
   })
   it('chưa có loại cũ', () => {
     expect(cutTypeChangeMessage(w, null, 'laser').message).toContain('chưa chọn loại → MC Laser')
+  })
+})
+
+// 21/11/2026: hộp "Sửa tên" máy ở Máy & tem QR.
+describe('renameValue', () => {
+  it('trả tên mới đã bỏ khoảng trắng 2 đầu', () => {
+    expect(renameValue('Máy uốn 3 trục', '  Máy uốn  ')).toBe('Máy uốn')
+  })
+  it('rỗng, toàn khoảng trắng, trùng tên cũ hoặc quá 120 ký tự thì không lưu', () => {
+    expect(renameValue('Máy uốn', '')).toBeNull()
+    expect(renameValue('Máy uốn', '   ')).toBeNull()
+    expect(renameValue('Máy uốn', ' Máy uốn ')).toBeNull()
+    expect(renameValue('Máy uốn', 'x'.repeat(121))).toBeNull()
+    expect(renameValue('Máy uốn', 'x'.repeat(120))).toBe('x'.repeat(120))
   })
 })
