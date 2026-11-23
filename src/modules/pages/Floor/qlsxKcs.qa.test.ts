@@ -1,16 +1,14 @@
 /**
- * UF3 (tester-unit #4, P1 "KCS tự chuyển"): màn QLSX "Sản lượng xưởng" - AC13 (không còn "Gửi KCS", có Hủy kèm câu nhắc),
- * AC16 (pill, số đỏ), AC51 (dòng thiếu sắt), "(+N cắt lại)", MS2 / AC48 (không còn chữ cũ trong chữ hiện cho người dùng).
- * Bổ sung cho piDetailModel.test.ts / progressModel.test.ts / qlsxUi.test.ts / QlsxQueue.test.ts của Dev, không lặp ca.
+ * UF3 (tester-unit #4, P1 "KCS tự chuyển"): màn QLSX "Sản lượng xưởng" - AC51 (dòng thiếu sắt), "(+N cắt lại)", MS2 / AC48 (không còn chữ cũ trong chữ hiện cho người dùng).
+ * Bổ sung cho piDetailModel.test.ts / progressModel.test.ts / qlsxUi.test.ts của Dev, không lặp ca.
  * Phần "đọc mã nguồn" chỉ kiểm CHỮ hiện cho người dùng (đã bỏ chú thích code - AC48 nói chú thích không tính).
  */
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import type { BeStageDetail } from '../../../services/floor-api'
-import { openBatchesNote, PHOI_AUTO_ADVANCE_NOTE, SON_QUEUE_NOTE } from './QlsxQueue'
 import { missingText, phoiMaterialsOf, shortMaterials } from './piDetailModel'
+import { FLOOR_PAGE_NOTE, FLOOR_TABS } from './QlsxFloorPage'
 import { steelShortHint } from './progressModel'
-import { staleTotal, summaryPillText } from './qlsxUi'
 
 const here = (rel: string) => new URL(rel, import.meta.url)
 /** Mã nguồn đã bỏ chú thích (khối và dòng) - chỉ còn phần chữ người dùng có thể thấy. */
@@ -75,49 +73,19 @@ describe('"(+N cắt lại)" ở cỡ đoạn (Phôi)', () => {
   })
 })
 
-describe('AC13 / AC16 - chữ màn QLSX', () => {
-  it('pill của tab tổ: đúng thứ tự "N đang mở · K KCS đang chấm · M quá 4 giờ"', () => {
-    expect(summaryPillText({ open: 3, awaitingKcs: 1, stale: 2 })).toBe('3 đang mở · 1 KCS đang chấm · 2 quá 4 giờ')
-  })
-  it('pill chỉ có "quá 4 giờ" (đợt đã chấm hết, còn trễ) vẫn hiện; số âm / NaN không làm hỏng chữ', () => {
-    expect(summaryPillText({ open: 0, awaitingKcs: 0, stale: 5 })).toBe('5 quá 4 giờ')
-    expect(summaryPillText({ open: -1, awaitingKcs: -2, stale: -3 })).toBe('')
-  })
-  it('pill không còn chữ "gửi"', () => {
-    expect(summaryPillText({ open: 9, awaitingKcs: 9, stale: 9 })).not.toMatch(/gửi/i)
-  })
-  it('số đỏ menu = Σ stale 3 tổ; thiếu tổ / thiếu dữ liệu thì tính 0', () => {
-    expect(staleTotal({ PHOI: { open: 0, stale: 2 }, HAN: undefined, SON: { open: 0, stale: 1 } } as never)).toBe(3)
-    expect(staleTotal(null)).toBe(0)
-    expect(staleTotal(undefined)).toBe(0)
-  })
-  it('"Còn N đợt đang mở." - N = 0 / âm thì rỗng, không có "gửi"', () => {
-    expect(openBatchesNote(1)).toBe('Còn 1 đợt đang mở.')
-    expect(openBatchesNote(0)).toBe('')
-    expect(openBatchesNote(-2)).toBe('')
-    expect(openBatchesNote(7)).not.toMatch(/gửi|chờ quản lý/i)
-  })
+describe('AC31 - chữ màn QLSX (bỏ hàng đợi 23/11/2026)', () => {
   it('missingText: đợt đang mở chỉ ghi "N đợt đang mở", không "chờ gửi"', () => {
     const t = missingText({ lines: 0, materials: 1, materialsNotReceived: 0, pieces: 2 }, 3)
     expect(t).toBe('Còn thiếu 1 loại sắt · 2 mảnh · 3 đợt đang mở')
     expect(missingText({ lines: 4, materials: 0, materialsNotReceived: 0, pieces: 0 }, 0)).toBe('Còn thiếu 4 dòng')
     expect(t).not.toMatch(/gửi/i)
   })
-  it('ghi chú tổ Phôi / Sơn không nhắc gửi KCS', () => {
-    expect(PHOI_AUTO_ADVANCE_NOTE).not.toMatch(/gửi/i)
-    expect(SON_QUEUE_NOTE).not.toMatch(/gửi/i)
+  it('AC31: không còn tab "Sản lượng & hàng đợi"; tab mở sẵn là Chia máy cắt', () => {
+    expect(FLOOR_TABS.map((t) => t.label)).toEqual(['Chia máy cắt', 'Báo cáo', 'Máy & tem QR', 'Công nhân'])
+    expect(FLOOR_TABS[0].id).toBe('cut')
   })
-  it('AC13 khối "Đang chờ KCS chấm": có nút Hủy + câu nhắc "KCS bấm Chấm thì không hủy được nữa", không nút "Gửi KCS"', () => {
-    const src = read('./QlsxReview.tsx')
-    expect(src).toContain('KCS bấm Chấm thì không hủy được nữa')
-    expect(src).toContain('Hủy lần báo')
-    expect(src).not.toMatch(/Gửi KCS|gửi KCS/)
-    expect(src).not.toMatch(/sendCutBundle|sendProductionBatch|sendStepGroup|send-kcs/)
-  })
-  it('AC13 QlsxFloorPage: tab "Sản lượng & hàng đợi", không còn "Sản lượng & gửi KCS"', () => {
-    const src = read('./QlsxFloorPage.tsx')
-    expect(src).toContain("label: 'Sản lượng & hàng đợi'")
-    expect(src).not.toMatch(/Sản lượng & gửi KCS/i)
+  it('AC31: câu mô tả đầu màn không còn "hủy lần báo sai" / "xếp lệnh" / "hàng đợi"', () => {
+    expect(FLOOR_PAGE_NOTE).not.toMatch(/hủy|xếp lệnh|hàng đợi/i)
   })
 })
 
@@ -125,7 +93,7 @@ describe('MS2 / AC48 - không còn chữ cũ trong chữ hiện cho người dù
   // Cụm của AC48 + 2 cụm Q4 thêm vào; "QLSX kiểm" loại vì là câu đúng nghĩa ở Sổ báo vượt đoạn (Q4: warehouse.ts:298, SoBaoVuotDoanPage.tsx:81).
   const OLD = [/kiểm rồi gửi KCS/i, /Chờ gửi KCS/i, /chờ quản lý kiểm/i, /Sản lượng & gửi KCS/i, /gửi KCS quá/i, /QLSX chưa gửi KCS/i, /kiểm và gửi/i, /chưa gửi KCS/i]
   const FILES = [
-    './QlsxQueue.tsx', './QlsxReview.tsx', './QlsxPiDetail.tsx', './QlsxFloorPage.tsx', './qlsxUi.tsx', './floorStats.ts', './progressModel.ts',
+    './QlsxPiDetail.tsx', './QlsxFloorPage.tsx', './qlsxUi.tsx', './floorStats.ts', './progressModel.ts',
     './piDetailModel.ts', '../Kcs/KcsPhoiPage.tsx', '../Kcs/KcsStagePage.tsx', '../Kcs/KcsChanNhomSection.tsx', '../Kcs/kcsReviewModel.ts',
     '../../../components/sanxuat/PhoiMaterialBoard.tsx', '../../../components/sanxuat/kcsCore.tsx', './scan/scanModel.ts',
   ]

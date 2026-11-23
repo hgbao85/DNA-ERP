@@ -25,6 +25,16 @@ export const chip = (on: boolean): CSSProperties => ({
   background: on ? 'var(--blue-bg)' : 'var(--surface)', color: on ? 'var(--blue-text)' : 'var(--text)',
   cursor: 'pointer', whiteSpace: 'nowrap',
 })
+/**
+ * Ô chọn lệnh / sản phẩm (23/11/2026): ô đang chọn nền đặc màu chính + chữ trắng (nổi rõ dưới đèn xưởng), ô chưa chọn viền như chip.
+ * Cao ≥ 44 px, cho phép 2 dòng (mã lệnh + hạn giao).
+ */
+export const pickChip = (on: boolean): CSSProperties => ({
+  minHeight: 44, padding: '6px 14px', borderRadius: 14, fontSize: 15, fontWeight: on ? 700 : 500, textAlign: 'left',
+  border: `1px solid ${on ? 'var(--floor-primary)' : 'var(--border2)'}`,
+  background: on ? 'var(--floor-primary)' : 'var(--surface)', color: on ? '#fff' : 'var(--text)',
+  cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8,
+})
 export const numInput: CSSProperties = {
   width: 84, minHeight: 48, fontSize: 20, fontWeight: 600, textAlign: 'center',
   border: '1px solid var(--border2)', borderRadius: 10, background: 'var(--surface)', color: 'var(--text)',

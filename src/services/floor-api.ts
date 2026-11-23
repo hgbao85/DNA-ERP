@@ -121,15 +121,27 @@ export interface BeSteelToReceive {
   issuedByName: string | null
 }
 
+/** Lệnh Hàn / Sơn tự chọn trên màn quét (GET /floor/scan/:token, 23/11/2026). */
+export interface BeStagePi {
+  productionInvoiceId: string
+  code: string
+  deadline: string | null
+  /** Số mảnh tổ còn thiếu của lệnh. */
+  missingPieces: number
+}
+
 export interface BeScanContext {
   workstation: BeWorkstationBrief
+  /** Từ 23/11/2026 BE luôn trả null / [] (bỏ hàng đợi); giữ trường để bản FE cũ không vỡ - màn mới không đọc. */
   runningPi?: { productionInvoiceId: string; code: string } | null
   reworkPis?: { productionInvoiceId: string; code: string; endedAt: string | null }[]
+  /** Hàn / Sơn (23/11/2026): lệnh tổ làm được ở xưởng của máy, hạn giao tăng dần rồi mã lệnh. Phôi trả []. Thiếu = BE cũ. */
+  stagePis?: BeStagePi[]
   pi?: BeScanPi | null
   steelToReceive?: BeSteelToReceive[]
   /** Chỉ máy cắt: dòng chia của máy theo thứ tự cắt (14/11/2026). rows rỗng = máy chưa được chia việc. */
   machineWork?: { rows: BeCutAllocationRow[]; barsDoneEst: number; barsLeftEst: number; status: CutMachineStatus }
-  /** Lệnh báo được nhờ bảng chia (14/11/2026), ngoài runningPi / reworkPis: máy cắt = lệnh có dòng trên máy; máy công đoạn tổ Phôi = lệnh có dòng chia ở xưởng. */
+  /** Lệnh báo được nhờ bảng chia (14/11/2026): máy cắt = lệnh có dòng trên máy; máy công đoạn tổ Phôi = lệnh có dòng chia ở xưởng. */
   allocationPis?: { productionInvoiceId: string; code: string }[]
 }
 
@@ -288,36 +300,6 @@ export interface BeFloorWorker {
   lockedUntil: string | null
 }
 
-export type FloorQueueStatus = 'QUEUED' | 'RUNNING' | 'DONE'
-
-export interface BeQueueEntry {
-  id: string
-  stage: FloorStage
-  productionInvoiceId: string
-  piCode: string
-  position: number
-  status: FloorQueueStatus
-  queuedAt: string
-  startedAt: string | null
-  startedByName: string | null
-  endedAt: string | null
-  endedByName: string | null
-  hasActiveFloor: boolean
-  progress: BeFloorProgress | null
-  /** Chỉ true ở dòng DONE đóng gần nhất của tổ và "Mở lại" làm được (PI đang chạy chưa có lần báo nào). */
-  canReopen: boolean
-  /** Xưởng của hàng đợi (14/11/2026); Sơn theo nơi sơn. */
-  workshopId: string | null
-  workshopName: string | null
-  /** Xưởng của chính lệnh - khác xưởng hàng đợi khi lệnh sơn nhờ (lệnh Phước An trong hàng đợi Sơn của Phú An). */
-  piWorkshopName?: string | null
-}
-
-/** Nhãn "Lệnh của …" chỉ khi lệnh thuộc xưởng khác xưởng của hàng đợi (ô chọn xưởng đã ghi xưởng hàng đợi). */
-export function otherWorkshopLabel(e: Pick<BeQueueEntry, 'workshopName' | 'piWorkshopName'>): string | null {
-  return e.piWorkshopName && e.piWorkshopName !== e.workshopName ? `Lệnh của ${e.piWorkshopName}` : null
-}
-
 /** Ngăn số của tiến độ (BE floor-progress.util): reported = passed + awaiting + open = Σ min(Đã báo − Lỗi, Cần). */
 export interface BeFloorProgressBuckets {
   required: number
@@ -345,7 +327,7 @@ export interface BeFloorProgress extends BeFloorProgressBuckets {
   }
 }
 
-/** GET /floor/queue/:stage/detail/:piId - ngăn "còn thiếu gì" của thẻ PI: tiến độ + đúng dữ liệu gốc BE đã dùng để tính. */
+/** GET /floor/stage-progress/:stage/:piId - ngăn "còn thiếu gì" của thẻ PI: tiến độ + đúng dữ liệu gốc BE đã dùng để tính. */
 export interface BeStageDetail {
   productionInvoiceId: string
   piCode: string
@@ -358,14 +340,17 @@ export interface BeStageDetail {
   plans: Record<string, BeProductionBatchPlan>
 }
 
-export interface BeQueueCandidate {
+/** Một dòng GET /floor/stage-progress (23/11/2026): lệnh của tổ + tiến độ tóm tắt. */
+export interface BeStageProgressRow {
   productionInvoiceId: string
   code: string
   deadline: string | null
-  orderCount: number
-  activeOrderCount: number
-  workshopId: string | null
-  workshopName: string | null
+  percent: number
+  missingPieces: number
+  /** Tổ đã đủ số. */
+  complete: boolean
+  /** Thời điểm xong Phôi (ISO); null = chưa xong / không phải Phôi. */
+  phoiDoneAt: string | null
 }
 
 export interface BeReviewReport {
@@ -709,38 +694,16 @@ export const floorAdmin = {
     productionOrderId: string
     workerId: string | null
   }) => http.post<unknown>('/floor/review/step-groups/send-kcs', g),
-  reverse: (floorReportId: string, reason: string) =>
-    http.post<unknown>(`/floor/reports/${floorReportId}/reverse`, { reason }),
-
-  // Hàng đợi theo xưởng (14/11/2026): QLSX gắn xưởng thì BE tự lấy xưởng của họ; người không gắn xưởng gửi xưởng đang xem.
-  queue: (stage?: FloorStage, workshopId?: string | null) => {
-    const q = new URLSearchParams()
-    if (stage) q.set('stage', stage)
+  /** Sản lượng theo lệnh của tổ (23/11/2026). QLSX gắn xưởng: BE tự lấy xưởng của họ; tài khoản tổ chỉ xem tổ mình. */
+  stageProgress: (stage: FloorStage, workshopId?: string | null, productionInvoiceIds?: string[]) => {
+    const q = new URLSearchParams({ stage })
     if (workshopId) q.set('workshopId', workshopId)
-    const qs = q.toString()
-    return http.get<BeQueueEntry[]>(`/floor/queue${qs ? `?${qs}` : ''}`)
+    // Có danh sách id thì BE trả đúng các lệnh đó (không áp cửa sổ 7 ngày); tối đa 200 id mỗi lần gọi.
+    if (productionInvoiceIds && productionInvoiceIds.length > 0) q.set('productionInvoiceIds', productionInvoiceIds.join(','))
+    return http.get<BeStageProgressRow[]>(`/floor/stage-progress?${q.toString()}`)
   },
   stageDetail: (stage: FloorStage, productionInvoiceId: string) =>
-    http.get<BeStageDetail>(`/floor/queue/${stage}/detail/${productionInvoiceId}`),
-  queueCandidates: (stage: FloorStage, workshopId?: string | null) =>
-    http.get<BeQueueCandidate[]>(`/floor/queue/candidates?stage=${stage}${workshopId ? `&workshopId=${encodeURIComponent(workshopId)}` : ''}`),
-  enqueue: (stage: FloorStage, productionInvoiceId: string) =>
-    http.post<BeQueueEntry[]>('/floor/queue', { stage, productionInvoiceId }),
-  reorder: (stage: FloorStage, entryIds: string[], workshopId?: string | null) =>
-    http.post<BeQueueEntry[]>(`/floor/queue/${stage}/reorder`, { entryIds, workshopId: workshopId || undefined }),
-  /**
-   * expectedRunningPiId: id lệnh màn đang thấy là "đang chạy" (null = màn thấy tổ chưa chạy lệnh nào). Máy chủ thấy khác
-   * thì trả 409 "tải lại màn". undefined = không kiểm (chạy như cũ).
-   */
-  advance: (stage: FloorStage, workshopId?: string | null, expectedRunningPiId?: string | null) =>
-    http.post<BeQueueEntry[]>(`/floor/queue/${stage}/advance`, {
-      workshopId: workshopId || undefined,
-      ...(expectedRunningPiId !== undefined ? { expectedRunningPiId } : {}),
-    }),
-  /** Hoàn tác "Chuyển PI tiếp" nhầm - mở lại PI vừa đóng, trả PI đang chạy (chưa ai báo) về đầu hàng đợi. */
-  reopen: (stage: FloorStage, workshopId?: string | null) =>
-    http.post<BeQueueEntry[]>(`/floor/queue/${stage}/reopen`, { workshopId: workshopId || undefined }),
-  removeEntry: (id: string) => http.del<BeQueueEntry[]>(`/floor/queue/${id}`),
+    http.get<BeStageDetail>(`/floor/stage-progress/${stage}/${productionInvoiceId}`),
 
   workstations: () => http.get<BeWorkstation[]>('/floor/workstations'),
   createWorkstation: (d: CreateWorkstationInput) => http.post<BeWorkstation>('/floor/workstations', d),

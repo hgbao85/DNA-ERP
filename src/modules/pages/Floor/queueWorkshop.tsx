@@ -1,8 +1,8 @@
 'use client'
 
 /**
- * Chọn xưởng cho hàng đợi tổ (14/11/2026, đợt C1): hàng đợi theo xưởng. QLSX gắn xưởng thì cố định xưởng mình (BE đã lọc);
- * KHSX / Sếp / Admin chọn xưởng, nhớ lựa chọn trong phiên (cùng cách chọn xưởng của tab "Chia máy cắt").
+ * Chọn xưởng cho khối "Sản lượng theo lệnh" của tổ (14/11/2026, đợt C1; 23/11/2026 bỏ hàng đợi). QLSX gắn xưởng thì cố định xưởng
+ * mình (BE đã lọc); KHSX / Sếp / Admin chọn xưởng, nhớ lựa chọn trong phiên (cùng cách chọn xưởng của tab "Chia máy cắt").
  */
 
 import { useState } from 'react'
@@ -57,7 +57,7 @@ export function useQueueWorkshop(): QueueWorkshop {
   }
 }
 
-/** Ô chọn xưởng ở đầu khối hàng đợi; người gắn xưởng chỉ thấy tên xưởng. */
+/** Ô chọn xưởng ở đầu khối sản lượng theo lệnh; người gắn xưởng chỉ thấy tên xưởng. */
 export function QueueWorkshopPicker({ ws }: { ws: QueueWorkshop }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
