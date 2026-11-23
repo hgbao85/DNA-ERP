@@ -40,6 +40,7 @@ import { useCapacityParams } from '../../../hooks/usePlanningParams'
 // Phần A – Đợt 9 (YC2): sửa kế hoạch ở mọi giai đoạn + Excel + Sếp duyệt lại
 import DeadlinePlanImportModal from './DeadlinePlanImportModal'
 import DeadlineHistoryModal from './DeadlineHistoryModal'
+import OrderCancelControls from './OrderCancelControls' // Huỷ lệnh theo SKU 23/11
 import { cancelDeadlineChangeRequest, downloadDeadlinePlan } from '../../../services/deadline-changes-api'
 import { DEADLINE_FORM_FIELDS, FORM_FIELD_KEY, TONE_STYLE, applyFormAutoShift, autoShiftLabel, fmtChange, fmtDateTime, isRunningPi, itemDeadlineState, planFileName, projectedOrderErrors, summarizeSave, type DeadlineFormField, type SaveSummary } from './deadlineChange'
 import { FLOOR_STARTED_TEXT, isFloorStarted } from './deadlineRules'
@@ -311,6 +312,8 @@ export default function LenhSXPage() {
   // Phần A – Đợt 2: số LSX + xưởng cơ khí. Xưởng chọn MỘT lần cho cả lệnh (xuất sắt theo lệnh).
   const lsxPrefixes = useLsxPrefixes()
   const isAdmin = user?.role === 'ADMIN'
+  // Huỷ lệnh theo SKU (23/11/2026): KHSX (hoặc Admin) đề nghị huỷ 1 SKU đã có lệnh sản xuất; Sếp duyệt ở "Chờ duyệt > Huỷ lệnh SX".
+  const canRequestCancel = !isBoss && !isQlsx && (!!user?.isProductPlanner || isAdmin)
   const [qlsxWorkshopId, setQlsxWorkshopId] = useState('')
   const [changeWorkshopPi, setChangeWorkshopPi] = useState<any | null>(null)
   // KHSX chọn xưởng khi "Gửi QLSX" (bắt buộc); rỗng = chưa chọn thì lấy xưởng đã có của lệnh (xem hộp gửi QLSX).
@@ -1447,7 +1450,7 @@ export default function LenhSXPage() {
                   const iFinished = finishedFor(item, iPkgStartDate)
                   // Mốc đã qua: chữ đỏ + "Quá hạn N ngày" (test tay 09/11 điểm 14) - chỉ hiển thị. Lệnh đã Kết thúc /
                   // đơn đã xong / đã huỷ thì mốc nào cũng là ngày cũ - không tô đỏ (tránh báo trễ giả).
-                  const itemClosed = item.floorStage === 'FINISHED' || pi.status === 'DONE' || pi.status === 'CANCELLED'
+                  const itemClosed = item.floorStage === 'FINISHED' || pi.status === 'DONE' || pi.status === 'CANCELLED' || !!item.cancelledAt
                   const dc = (d: Date, own: boolean, i: number, material = false) => {
                     const late = itemClosed ? 0 : overdueDays(d)
                     return (
@@ -1479,7 +1482,8 @@ export default function LenhSXPage() {
                                 <Clock size={10}/> Chờ Sếp duyệt lại
                               </span>
                             )}
-                            {item.floorStage === 'FINISHED' && (
+                            <OrderCancelControls item={item} label={`${code} ×${qty ?? ''}`} canRequest={canRequestCancel} onChanged={refetch} />
+                            {item.floorStage === 'FINISHED' && !item.cancelledAt && (
                               <span style={{ fontSize:11, fontWeight:600, color:'var(--text3)', background:'var(--surface2)', padding:'2px 8px', borderRadius:10 }}>Đã kết thúc</span>
                             )}
                             {/* Phần A – Đợt 9 phần 2 (Q9-3): lệnh đã cắt phôi - không sửa mốc được nữa */}
