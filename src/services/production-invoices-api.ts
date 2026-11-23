@@ -85,6 +85,10 @@ interface BeProductionInvoiceItem {
   bomOutOfDate?: boolean | null;
   /** Phần A – Đợt 9: dòng đang có yêu cầu đổi mốc chờ Sếp duyệt lại (mốc hiện tại vẫn là mốc cũ); null/thiếu = không có. BE cũ thiếu field. */
   pendingDeadlineChange?: PendingDeadlineChangeRef | null;
+  /** Huỷ lệnh theo SKU (23/11/2026): thời điểm Sếp duyệt huỷ dòng này (null = đang chạy). Dòng huỷ ở lại lệnh cũ làm lịch sử. */
+  cancelledAt?: string | null;
+  /** Đề nghị huỷ đang chờ Sếp (null/thiếu = không có). */
+  pendingCancelRequest?: { id: string; reason: string; requestedAt: string } | null;
 }
 
 interface BeProductionInvoice {
@@ -169,6 +173,8 @@ function toItem(it: BeProductionInvoiceItem) {
     floorStage: it.floorStage ?? null,
     bomOutOfDate: it.bomOutOfDate ?? null,
     pendingDeadlineChange: it.pendingDeadlineChange ?? null,
+    cancelledAt: it.cancelledAt ?? null,
+    pendingCancelRequest: it.pendingCancelRequest ?? null,
     lsxCode: it.lsxCode ?? null,
     workshop: it.workshop ?? (it.workshopId ? { id: String(it.workshopId), code: '', name: it.workshopName ?? '' } : null),
     prodApproval: it.prodApprovalStatus
