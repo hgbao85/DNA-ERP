@@ -210,7 +210,11 @@ function stateOf(x: Row, stoppedPis: readonly StoppedPi[] | undefined): KcsRowSt
 function buildPiRows(
   issues: BeSteelIssue[], bundles: BeCutBundle[], stepBundles: BeStepBundle[],
   openCuts: BeReviewCutBundle[], openSteps: BeReviewStepGroup[], stoppedPis: readonly StoppedPi[] | undefined,
+  cancelledOrderIds: readonly string[] = [],
 ): PiAgg[] {
+  // Huỷ lệnh theo SKU (23/11/2026): đợt CHỜ CHẤM của SKU đã huỷ không chấm được (BE 409) -> ẩn; đợt đã chấm giữ làm lịch sử.
+  const cancelled = new Set(cancelledOrderIds)
+  const hiddenAwaiting = (status: string, orderId: string | null) => status === 'AWAITING_QC' && orderId != null && cancelled.has(orderId)
   const issueById = new Map(issues.map((i) => [i.id, i]))
   // poNumber tra theo productionInvoiceId (không còn dùng issue của chính Row vì StepRow không có
   // issue cha nữa) - lấy từ bất kỳ issue nào cùng PI, đều cùng 1 piCode. 2026-09-10 (theo yêu cầu
@@ -227,11 +231,11 @@ function buildPiRows(
   for (const s of stoppedPis ?? []) if (!poNumberByPi.has(s.productionInvoiceId)) poNumberByPi.set(s.productionInvoiceId, s.code)
   // Chỉ đợt liên quan KCS (đang mở / đã chốt trở lên) - đợt còn CUTTING hoặc công đoạn phụ chưa gửi chưa liên quan.
   const cutRows: Row[] = bundles
-    .filter((b) => b.status === 'AWAITING_QC' || b.status === 'QC_PASSED')
+    .filter((b) => (b.status === 'AWAITING_QC' || b.status === 'QC_PASSED') && !hiddenAwaiting(b.status, b.productionOrderId))
     .map((b) => ({ kind: 'cut' as const, bundle: b, issue: issueById.get(b.steelIssueId) }))
     .filter((x): x is CutRow => x.issue != null)
   const stepRows: Row[] = stepBundles
-    .filter((sb) => sb.status === 'AWAITING_QC' || sb.status === 'QC_PASSED')
+    .filter((sb) => (sb.status === 'AWAITING_QC' || sb.status === 'QC_PASSED') && !hiddenAwaiting(sb.status, sb.productionOrderId))
     .map((sb) => ({ kind: 'step' as const, stepBundle: sb }))
   const openCutRows: Row[] = openCuts
     .filter((r) => r.pi != null)
@@ -319,7 +323,7 @@ function KcsSatSection() {
   const notice = forbidden ? MSG_FORBIDDEN : floorReviewError ? `Không tải được các đợt đang mở - ${floorReviewError}` : ''
 
   const piRows = useMemo(
-    () => buildPiRows(issues ?? [], allBundles ?? [], allStepBundles ?? [], review?.cutBundles ?? [], review?.stepGroups ?? [], review?.stoppedPis),
+    () => buildPiRows(issues ?? [], allBundles ?? [], allStepBundles ?? [], review?.cutBundles ?? [], review?.stepGroups ?? [], review?.stoppedPis, review?.cancelledOrderIds),
     [issues, allBundles, allStepBundles, review],
   )
 
