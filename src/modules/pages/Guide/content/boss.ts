@@ -22,6 +22,7 @@ export const bossGroup: GuideGroup = {
       steps: [
         'Duyệt cuối cùng công thức sản phẩm (SKU/định mức) ở tab "Tổng hợp chờ duyệt".',
         'Duyệt cuối cùng lệnh sản xuất (bấm là xưởng chạy ngay) ở cùng tab "Tổng hợp chờ duyệt".',
+        'Cũng ở tab "Tổng hợp chờ duyệt": duyệt đổi mốc lệnh đã duyệt ("Đổi mốc lệnh SX") và duyệt huỷ SKU của lệnh ("Huỷ lệnh SX").',
         'Xem tiến độ, tồn kho, danh sách kho ở các tab còn lại — thuần tra cứu.',
         'Muốn sang phân hệ khác (Bán hàng, Kế hoạch SX, Mua hàng, Kho đầu vào, Sản xuất): bấm nút ô lưới ở góc trên bên trái thanh menu (trên điện thoại: mở menu ☰ trước) để về trang chọn phân hệ, rồi bấm thẻ cần mở. Từ phân hệ đó bấm nút ô lưới lần nữa để về, chọn thẻ "Giám đốc" để quay lại màn hình này.',
       ],
@@ -119,7 +120,41 @@ export const bossGroup: GuideGroup = {
       ],
       tags: ['duyệt đổi mốc', 'đổi mốc lệnh', 'sửa kế hoạch', 'boss deadline change'],
       sourceRefs: ['src/modules/pages/Boss/DuyetDoiMocPage.tsx'],
+    },    // Huỷ lệnh theo SKU - đợt 1 (23/11/2026)
+    {
+      id: 'boss-duyet-huy-lenh',
+      title: 'Duyệt huỷ lệnh SX',
+      roles: ['boss'],
+      purpose: 'Kế hoạch SX đề nghị huỷ một SKU của lệnh đã duyệt (kèm lý do); Giám đốc duyệt thì SKU đó mới bị huỷ. Huỷ được bất kỳ lúc nào trước khi giao hàng.',
+      preconditions: ['Kế hoạch SX đã gửi đề nghị huỷ.'],
+      screenshot: '/guide-screens/boss-duyet-huy-lenh.png',
+      mock: {
+        title: 'Tổng hợp chờ duyệt > Huỷ lệnh SX',
+        columns: ['Lệnh', 'SKU', 'SL', 'Lý do', 'Người đề nghị', 'Thao tác'],
+        rows: [['GP-193', 'I3 MỚI GP', '295', 'Khách đổi mẫu', 'khsx · 23/11 14:16', 'Duyệt huỷ · Từ chối']],
+        buttons: ['Chờ duyệt', 'Đã quyết', 'Từ chối', 'Duyệt huỷ'],
+      },
+      steps: [
+        'Vào tab "Tổng hợp chờ duyệt" > "Huỷ lệnh SX" (số đỏ cho biết có bao nhiêu đề nghị đang chờ). Bấm vào thông báo cũng mở thẳng mục này.',
+        'Mỗi dòng là một SKU: lệnh, SKU, số lượng, lý do Kế hoạch SX ghi, người đề nghị và lúc gửi.',
+        { text: 'Đồng ý huỷ: bấm "Duyệt huỷ", đọc hộp xác nhận rồi bấm "Duyệt huỷ". Không hoàn tác được: xưởng dừng làm SKU này, SKU về "chưa lên lệnh" để Kế hoạch SX lên lệnh lại.', critical: true },
+        'Không đồng ý: bấm "Từ chối", ghi lý do (bắt buộc). Lệnh chạy tiếp, Kế hoạch SX nhận lý do.',
+        'Xem lại các đề nghị đã quyết (duyệt, từ chối kèm lý do, Kế hoạch SX tự rút lại) ở nút "Đã quyết".',
+      ],
+      result: 'Duyệt: SKU dừng ở xưởng, hàng đã làm ra giữ nguyên tại kho công đoạn, QLSX - Kế hoạch SX - Mua hàng nhận thông báo; người mua xử lý các dòng đã ký NCC. Từ chối: lệnh chạy tiếp.',
+      warnings: [
+        'Các SKU khác trong cùng lệnh vẫn chạy. Lệnh gộp chưa xuất sắt thì hệ thống tự tính lại phương án cắt cho các SKU còn lại; đã xuất sắt thì giữ phương án, phần của SKU huỷ thành dư.',
+        'Dòng mua đã ký NCC không tự huỷ: người mua liên hệ NCC - bớt được thì "Đóng phần thiếu", không bớt được thì hàng về vào tồn chung.',
+      ],
+      commonErrors: [
+        { issue: 'Báo "SKU này còn nằm trong booking ... - gỡ SKU khỏi booking trước"', cause: 'SKU đang được xếp vào một booking chưa xuất.', fix: 'Nhờ Kinh doanh gỡ SKU khỏi booking rồi bấm "Duyệt huỷ" lại.' },
+        { issue: 'Báo "SKU này đã xuất ... cái theo booking"', cause: 'Hàng đã giao, không huỷ được nữa.', fix: 'Bấm "Từ chối" và ghi lý do.' },
+        { issue: 'Báo "Đề nghị huỷ đã ở trạng thái ... - tải lại trang"', cause: 'Kế hoạch SX vừa rút lại đề nghị, hoặc đề nghị đã được quyết ở nơi khác.', fix: 'Bấm "Làm mới".' },
+      ],
+      tags: ['duyệt huỷ lệnh', 'huỷ lệnh', 'hủy lệnh', 'boss cancel order'],
+      sourceRefs: ['src/modules/pages/Boss/DuyetHuyLenhPage.tsx'],
     },
+
     {
       id: 'boss-tra-cuu',
       title: 'Tra cứu: Tổng hợp lệnh SX, Danh sách SKU, Tổng hợp vật tư, Tổng hợp kho',
