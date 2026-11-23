@@ -133,7 +133,7 @@ function AddWorkstation({ workshops, defaultWorkshopId, onDone, onCancel }: {
   const [stage, setStage] = useState<FloorStage>('PHOI')
   const [kind, setKind] = useState<WorkstationKind>('CUT')
   const [step, setStep] = useState('UON')
-  // Máy cắt: loại máy BẮT BUỘC chọn (không mặc định, tránh khai nhầm laze). Xưởng áp cho mọi loại máy (BE lấy hàng đợi theo xưởng
+  // Máy cắt: loại máy BẮT BUỘC chọn (không mặc định, tránh khai nhầm laze). Xưởng áp cho mọi loại máy (BE lấy lệnh của tổ theo xưởng
   // của máy); mặc định = xưởng phụ trách của QLSX.
   const [cutType, setCutType] = useState<SolverMachine | ''>('')
   const [workshopId, setWorkshopId] = useState(defaultWorkshopId ?? '')
@@ -336,7 +336,7 @@ function Workstations() {
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 15, fontWeight: 700 }}>Máy &amp; điểm làm việc</div>
-          <div style={{ fontSize: 12, color: 'var(--text3)' }}>Mỗi máy 1 mã QR dán cố định. Mã không chứa lệnh - lệnh lấy từ hàng đợi của tổ.</div>
+          <div style={{ fontSize: 12, color: 'var(--text3)' }}>Mỗi máy 1 mã QR dán cố định. Mã không chứa lệnh - Hàn / Sơn tự chọn lệnh trên màn quét, Phôi theo bảng chia máy cắt.</div>
         </div>
         <button type="button" disabled={printing || !list.some((w) => w.isActive)} onClick={() => void printAll()} style={btn('secondary', printing)}>
           <Printer size={14} /> In tất cả tem

@@ -118,7 +118,7 @@ export default function ChangeWorkshopDialog({ pi, onClose, onDone, waitingQlsx 
           style={{ width: '100%', boxSizing: 'border-box', padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', fontSize: 13, background: 'var(--surface)', color: 'var(--text)', resize: 'vertical', marginBottom: 12 }} />
 
         <div style={{ fontSize: 12, color: 'var(--text2)', background: 'var(--bg-fffbeb)', border: '1px solid var(--fg-fcd34d)', borderRadius: 8, padding: '8px 12px', marginBottom: 12 }}>
-          Đổi cho <b>{items.length > 1 ? `cả ${items.length} SKU` : 'SKU'}</b> của lệnh. Chỉ đổi được khi lệnh <b>chưa xuất sắt / vật tư</b>. Lệnh còn chờ / đang chạy ở hàng đợi tổ Phôi / Hàn / Sơn thì sang cuối hàng đợi cùng tổ của xưởng mới (Sơn theo nơi sơn: giữa Phú An và Phước An giữ nguyên).
+          Đổi cho <b>{items.length > 1 ? `cả ${items.length} SKU` : 'SKU'}</b> của lệnh. Chỉ đổi được khi lệnh <b>chưa xuất sắt / vật tư</b>. Đổi xưởng xong, công nhân Hàn xưởng mới thấy lệnh khi đủ điều kiện làm; xưởng cũ không còn thấy. Tổ Sơn theo nơi sơn của xưởng (lệnh Phước An sơn ở Phú An).
           {waitingQlsx && <div style={{ marginTop: 4 }}>Lệnh đang chờ QLSX: QLSX xưởng mới nhận lệnh để xử lý.</div>}
         </div>
 

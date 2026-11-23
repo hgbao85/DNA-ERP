@@ -32,10 +32,7 @@ import KcsHanPage from '../Kcs/KcsHanPage'
 import KcsSonPage from '../Kcs/KcsSonPage'
 import ThemeToggle from '../../../components/ThemeToggle'
 import QlsxFloorPage from '../Floor/QlsxFloorPage'
-import { qlsxTabForUrl, staleTotal, startPolling } from '../Floor/qlsxUi'
-import { floorAdmin } from '../../../services/floor-api'
-import { useFetch } from '../../../hooks/useFetch'
-import { useRealtimeRefetch } from '../../../realtime/hooks'
+import { qlsxTabForUrl, teamViewForUrl } from '../Floor/qlsxUi'
 
 // ── Module-level constants (không tạo lại mỗi render) ───────────────────────
 
@@ -142,6 +139,8 @@ export default function MfgApp({ onBack }: MfgAppProps) {
   // MF1: tin KCS_BATCH_STALE trỏ ?p=kcs-<tổ> (màn của KCS); QLSX không có màn đó nên mở "Sản lượng xưởng" thay vào.
   const wantedUrlTab = qlsxTabForUrl(urlTab, isProdMgr)
   const [tab, setTabState] = useState<TabId>(() => (isTabId(wantedUrlTab) ? wantedUrlTab : initialTab))
+  // Link tới màn của tổ (vd ?p=han-khung-han) mà QLSX mở: nhảy sang "Xem các tổ" và nhớ tab con cần mở.
+  const [teamSub, setTeamSub] = useState(() => (isProdMgr ? teamViewForUrl(urlTab) : null))
   // Màn hình hẹp (< 900px): sidebar ẩn thành drawer mở qua nút ☰ - cùng idiom SalesApp/PurchasingApp/ProductionPlanApp.
   const isCompact = useIsCompact()
   const isMobile = useIsMobile()
@@ -153,6 +152,7 @@ export default function MfgApp({ onBack }: MfgAppProps) {
   // Điều hướng TỪ BÊN NGOÀI (NotificationCenter gọi router.push('/?m=production&p=...') từ sâu
   // trong cây) - đổi tab theo urlTab khi nó đổi và khác tab hiện tại.
   useEffect(() => {
+    if (isProdMgr && teamViewForUrl(urlTab)) setTeamSub(teamViewForUrl(urlTab))
     if (isTabId(wantedUrlTab) && wantedUrlTab !== tab) setTabState(wantedUrlTab)
     if (wantedUrlTab !== urlTab) setUrlTab(wantedUrlTab) // sửa luôn ?p= trên thanh địa chỉ cho khớp màn đang mở (MF1)
   }, [urlTab])
@@ -205,18 +205,9 @@ export default function MfgApp({ onBack }: MfgAppProps) {
   const { counts: workQueue, refresh: refreshWorkQueue } = useWorkQueue()
   // Đổi màn thì tải lại số đỏ ngay, khỏi chờ realtime/lượt poll 30-120 s (test tay 09/11 điểm 15).
   useEffect(() => { void refreshWorkQueue() }, [tab, refreshWorkQueue])
-  // Số đỏ "Sản lượng xưởng" = Σ số đợt chờ KCS chấm QUÁ 4 giờ của 3 tổ (summary.stale, P1 18/11/2026; BE cũ chưa trả thì 0).
-  const floorSummary = useFetch(() => (isProdMgr ? floorAdmin.summary() : Promise.resolve(null)), [isProdMgr])
-  const { refetch: refetchFloorSummary } = floorSummary
-  // 'qc-reviews': KCS chấm xong thì số đỏ giảm ngay. Thêm hỏi lại mỗi 5 phút (bỏ qua khi tab trình duyệt ẩn) để số tự tăng
-  // khi một đợt vừa qua mốc 4 giờ mà không có sự kiện nào.
-  useRealtimeRefetch(isProdMgr ? ['floor', 'production-batches', 'steel-issues', 'qc-reviews'] : [], () => { void refetchFloorSummary() })
-  useEffect(() => (isProdMgr ? startPolling(() => { void refetchFloorSummary() }) : undefined), [isProdMgr, refetchFloorSummary])
-  const floorOpen = staleTotal(floorSummary.data)
   const badgeByTab: Partial<Record<TabId, number>> = {
     'lenh-sx': workQueue.qlsxProductionQueue,
     'ke-hoach': isProdMgr ? workQueue.qlsxAwaitingFinish : undefined,
-    'san-luong-xuong': floorOpen,
     'phoi-xac-nhan-nhan-sat': workQueue.phoiSteelReceiving,
     'kcs-phoi': workQueue.kcsPhoi,
     'kcs-han': workQueue.kcsHan,
@@ -345,7 +336,7 @@ export default function MfgApp({ onBack }: MfgAppProps) {
         {tab === 'lenh-sx' && (isDirector || isProdMgr) && <LenhSXPage />}
         {tab === 'san-luong-xuong' && isProdMgr && <QlsxFloorPage />}
         {tab === 'so-bao-vuot-doan' && (isProdMgr || isDirector) && <SoBaoVuotDoanPage canResolve={isProdMgr} />}
-        {tab === 'xem-cac-to' && isProdMgr && <QlsxTeamViewsPage />}
+        {tab === 'xem-cac-to' && isProdMgr && <QlsxTeamViewsPage key={teamSub ?? 'default'} initialSub={teamSub ?? undefined} />}
         {tab === 'ke-hoach' && (isProdMgr || isDirector) && <ThongKePagePlan />}
         {tab === 'phoi-xac-nhan-nhan-sat' && (isPhoi || isDirector) && <XacNhanNhanSatPage readOnly={isDirector} />}
         {tab === 'phoi-lenh-sx' && (isPhoi || isHan || isSon || isDirector) && (isHan ? <LenhSanXuatHan readOnly={isDirector} /> : isSon ? <LenhSanXuatSon readOnly={isDirector} /> : <LenhSanXuatPhoi readOnly={isDirector} onOpenCuttingGuide={openHuongDanCat} />)}

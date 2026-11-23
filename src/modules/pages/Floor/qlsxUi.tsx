@@ -3,7 +3,7 @@
 /** Style + phần tử nhỏ dùng chung cho màn QLSX "Sản lượng xưởng" - xem QlsxFloorPage. */
 
 import type { CSSProperties, ReactNode } from 'react'
-import type { BeFloorSummary, BeFloorSummaryStage, BeReviewBlockedReason, BeWorkstation, FloorStage } from '../../../services/floor-api'
+import type { BeReviewBlockedReason, BeWorkstation } from '../../../services/floor-api'
 import { MACHINE_LABEL } from '../../../utils/cutMachine'
 import { STAGE_LABEL, STEP_LABEL } from './floorUi'
 
@@ -165,55 +165,27 @@ export function blockedTextOf(blockedReason: BeReviewBlockedReason | null | unde
 /** Số đợt tính vào số đếm = các dòng KHÔNG xám. Cùng nghĩa `summary.open` của BE (pill tab và số đầu khối dùng 1 cách đếm). */
 export const countedOf = <T extends { blocked: string | null }>(rows: T[]): T[] => rows.filter((r) => !r.blocked)
 
-type SummaryStageLike = Pick<BeFloorSummaryStage, 'open'> & Partial<Pick<BeFloorSummaryStage, 'awaitingKcs' | 'stale'>>
-
-/** Pill của tab tổ: "N đang mở · K KCS đang chấm · M quá 4 giờ" - chỉ ghi phần khác 0; rỗng = không hiện pill. */
-export function summaryPillText(s: SummaryStageLike | null | undefined): string {
-  if (!s) return ''
-  const parts: string[] = []
-  if (s.open > 0) parts.push(`${s.open} đang mở`)
-  if ((s.awaitingKcs ?? 0) > 0) parts.push(`${s.awaitingKcs} KCS đang chấm`)
-  if ((s.stale ?? 0) > 0) parts.push(`${s.stale} quá 4 giờ`)
-  return parts.join(' · ')
-}
-
-/** Số đỏ menu "Sản lượng xưởng" = Σ stale của 3 tổ (BE cũ chưa trả stale thì tính 0). */
-export function staleTotal(s: Pick<BeFloorSummary, 'PHOI' | 'HAN' | 'SON'> | null | undefined): number {
-  if (!s) return 0
-  return (s.PHOI?.stale ?? 0) + (s.HAN?.stale ?? 0) + (s.SON?.stale ?? 0)
-}
-
 /**
  * MF1: tin KCS_BATCH_STALE trỏ tới ?p=kcs-<tổ>; QLSX không có màn KCS nên mở "Sản lượng xưởng" thay vào.
  * Trả giá trị `p` cần dùng (giữ nguyên nếu không phải trường hợp này).
  */
 export function qlsxTabForUrl(p: string | null, isProdMgr: boolean): string | null {
+  if (isProdMgr && p !== null && teamViewForUrl(p)) return 'xem-cac-to'
   return isProdMgr && p !== null && p.startsWith('kcs-') ? 'san-luong-xuong' : p
 }
 
 /**
- * Tin KCS_BATCH_STALE mang focus "FLOOR_STAGE:<tổ>:<xưởng>" (P1, 19/11): QLSX bấm tin thì "Sản lượng xưởng" mở đúng tab tổ đó
- * (Hàn / Sơn) thay vì tab đang nhớ. Không khớp mẫu -> null (giữ tab cũ).
+ * Link tới màn của tổ (?p=phoi-huong-dan-cat / phoi-kho-phoi / han-khung-han / son-manh-cho-dan): QLSX không có menu riêng cho các màn
+ * này (chỉ có "Xem các tổ") nên trước đây ra màn trắng. Trả tab con của "Xem các tổ" cần mở; không phải các p này thì null.
  */
-export function qlsxStageFromFocus(focus: string | null): FloorStage | null {
-  const m = focus?.match(/^FLOOR_STAGE:(PHOI|HAN|SON)(?::|$)/)
-  return m ? (m[1] as FloorStage) : null
-}
-
-/** Hỏi lại số đếm mỗi 5 phút để pill / số đỏ "quá 4 giờ" tự tăng khi không có sự kiện nào. */
-export const SUMMARY_POLL_MS = 5 * 60_000
-
-/**
- * Chạy `run` mỗi `intervalMs`, BỎ QUA lượt khi tab trình duyệt đang ẩn (document.hidden). Trả hàm dừng.
- * `isHidden` tách ra để test bằng giờ giả.
- */
-export function startPolling(
-  run: () => void,
-  opts: { intervalMs?: number; isHidden?: () => boolean } = {},
-): () => void {
-  const isHidden = opts.isHidden ?? (() => typeof document !== 'undefined' && document.hidden)
-  const t = setInterval(() => { if (!isHidden()) run() }, opts.intervalMs ?? SUMMARY_POLL_MS)
-  return () => clearInterval(t)
+export function teamViewForUrl(p: string | null): 'huong-dan-cat' | 'kho-phoi' | 'khung-han' | 'manh-cho-dan' | null {
+  switch (p) {
+    case 'phoi-huong-dan-cat': return 'huong-dan-cat'
+    case 'phoi-kho-phoi': return 'kho-phoi'
+    case 'han-khung-han': return 'khung-han'
+    case 'son-manh-cho-dan': return 'manh-cho-dan'
+    default: return null
+  }
 }
 
 /** Ngăn số của tiến độ (cùng định nghĩa progressModel / BE floor-progress.util). */

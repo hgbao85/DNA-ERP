@@ -10,7 +10,7 @@ import { PiPicker, SkuPicker } from './Pickers'
 import PieceForm from './PieceForm'
 import SegmentForm from './SegmentForm'
 import {
-  hasPickablePi, isOnlyRunningPi, isReworkSelected, needPiAction, reportTitle, STAGE_LABEL, STEP_LABEL, workstationSubtitle,
+  hasPickablePi, needPiAction, noPiText, reportTitle, STAGE_LABEL, STEP_LABEL, workstationSubtitle,
 } from './scanModel'
 import { ActionBar, Banner } from './ScanParts'
 import { column, hintFaint, loadingText, tabColumn } from './scanUi'
@@ -28,15 +28,11 @@ function ReportForms({ ctx, pi, orderId, r, reportRef }: {
   const lenhOf = useLenhCodeLookup([pi.code])
   const order = pi.orders.find((o) => o.productionOrderId === orderId)
     ?? pi.orders.find((o) => o.floorStage === 'ACTIVE') ?? pi.orders[0] ?? null
-  const only = isOnlyRunningPi(ctx)
   const base = (o: NonNullable<typeof order>) => ({ productionInvoiceId: pi.productionInvoiceId, productionOrderId: o.productionOrderId })
   return (
     <div ref={reportRef} style={{ ...column(16), scrollMarginTop: 12 }}>
-      {!only && <PiPicker ctx={ctx} selectedPi={r.selectedPi} onSelect={r.selectPi} />}
-      {isReworkSelected(ctx, r.selectedPi) && (
-        <Banner tone="warn">Đang báo LÀM BÙ cho lệnh {pi.code} (lệnh này tổ đã làm qua rồi).</Banner>
-      )}
-      <SkuPicker orders={pi.orders} value={order?.productionOrderId ?? null} onChange={r.setOrderId} piCode={only ? pi.code : undefined} />
+      <PiPicker ctx={ctx} selectedPi={r.selectedPi} onSelect={r.selectPi} />
+      <SkuPicker orders={pi.orders} value={order?.productionOrderId ?? null} onChange={r.setOrderId} />
       {order && order.floorStage !== 'ACTIVE' && (
         <Banner tone="warn">Sản phẩm này quản lý chưa cho làm (hoặc đang tạm dừng). Chưa báo được.</Banner>
       )}
@@ -73,7 +69,7 @@ function ReportBody({ ctx, r, reportRef }: { ctx: BeScanContext; r: Report } & R
   }
   if (ctx.pi) return <ReportForms ctx={ctx} pi={ctx.pi} orderId={r.orderId} r={r} reportRef={reportRef} />
   if (hasPickablePi(ctx)) return <ChoosePi ctx={ctx} r={r} reportRef={reportRef} />
-  return <Banner tone="info">Tổ {STAGE_LABEL[w.stage]} chưa có lệnh nào để làm. Báo quản lý xếp lệnh cho tổ.</Banner>
+  return <Banner tone="info">{noPiText(w.stage)}</Banner>
 }
 
 export default function ReportTab({ ws }: { ws: string }) {
@@ -89,7 +85,7 @@ export default function ReportTab({ ws }: { ws: string }) {
         <div style={{ fontSize: 14, color: 'var(--text2)' }} title={`Mã máy ${w.code}`}>{workstationSubtitle(w)}</div>
       </div>
       {w.kind === 'CUT' && ctx.machineWork && (
-        <MachineWork work={ctx.machineWork} runningPiId={ctx.runningPi?.productionInvoiceId ?? null}
+        <MachineWork work={ctx.machineWork}
           selectedPiId={r.selectedPi ?? ctx.pi?.productionInvoiceId ?? null} onPick={r.pickPi} />
       )}
       {flash && (

@@ -1,6 +1,6 @@
 /**
  * Logic thuần của ngăn "còn thiếu gì" (thẻ PI của tổ ở "Sản lượng xưởng", changelog BE 10-08 mục 45.4/48): từ dữ liệu
- * BE `GET /floor/queue/:stage/detail/:piId` ra danh sách còn thiếu, tổng số theo SKU đang chọn và các bất thường. Mọi số
+ * BE `GET /floor/stage-progress/:stage/:piId` ra danh sách còn thiếu, tổng số theo SKU đang chọn và các bất thường. Mọi số
  * đi qua progressModel.ts (cùng công thức BE) nên khớp thẻ PI và "Tổng hợp lệnh SX".
  */
 
@@ -21,6 +21,8 @@ export interface PieceView extends ProgressBuckets {
   perUnit?: number
   /** Số lỗi KCS chưa làm bù, tính TỪNG dòng (SKU × mảnh) rồi mới cộng: Σ min(lỗi, còn thiếu − thiếu KCS ghi). Không tính trên số đã gộp. */
   unmade: number
+  /** Tên sản phẩm (SKU) của mảnh khi xem cả lệnh có từ 2 SKU - để phân biệt mảnh trùng tên; rỗng khi chỉ 1 SKU. */
+  skus: string[]
 }
 
 /**
@@ -46,23 +48,25 @@ export function phoiMaterialsOf(detail: BeStageDetail, orderId: OrderFilter): Ph
 /** Mảnh của tổ (Hàn/Sơn, hoặc mảnh Phôi + vật tư thành phẩm), mỗi (SKU × mảnh) chặn trần riêng rồi mới gộp theo mảnh. */
 export function piecesOf(detail: BeStageDetail, orderId: OrderFilter): PieceView[] {
   const byKey = new Map<string, PieceView>()
-  const push = (key: string, name: string, code: string, line: ProgressLineInput, perUnit?: number, shortQty = 0) => {
+  const multi = planEntries(detail, orderId).length > 1
+  const push = (key: string, name: string, code: string, line: ProgressLineInput, sku: string, perUnit?: number, shortQty = 0) => {
     const b = bucketLine(line)
     const cur = byKey.get(key)
     if (!cur) {
-      byKey.set(key, { key, name, code, ...b, remaining: remainingQty(line), perUnit, unmade: unmadeOf(b.failed, remainingQty(line), shortQty) })
+      byKey.set(key, { key, name, code, ...b, remaining: remainingQty(line), perUnit, unmade: unmadeOf(b.failed, remainingQty(line), shortQty), skus: multi ? [sku] : [] })
       return
     }
     cur.unmade += unmadeOf(b.failed, remainingQty(line), shortQty)
+    if (multi && !cur.skus.includes(sku)) cur.skus.push(sku)
     if (cur.perUnit !== perUnit) cur.perUnit = undefined // gộp 2 SKU mà khác SL/bộ → không so được
     for (const k of ['required', 'reported', 'passed', 'awaiting', 'open', 'failed'] as const) cur[k] += b[k]
     cur.remaining += remainingQty(line)
   }
   for (const [, plan] of planEntries(detail, orderId)) {
-    for (const it of plan.items) push(`p${it.pieceId}`, it.pieceName, it.pieceCode, pieceLine(it), qtyPerUnitOf(it, plan.quantity), it.shortQty ?? 0)
+    for (const it of plan.items) push(`p${it.pieceId}`, it.pieceName, it.pieceCode, pieceLine(it), plan.productName, qtyPerUnitOf(it, plan.quantity), it.shortQty ?? 0)
     for (const it of plan.materialYieldItems ?? []) {
       // Vật tư TP: BE chưa trả số lỗi KCS (đạt lấy từ sổ kho theo đợt chốt công đoạn cuối) nên lỗi = 0.
-      push(`m${it.materialId}`, it.materialName, it.materialCode, { required: it.plannedQty, done: it.passedQty + it.awaitingQcQty, failed: 0, open: 0, awaiting: it.awaitingQcQty })
+      push(`m${it.materialId}`, it.materialName, it.materialCode, { required: it.plannedQty, done: it.passedQty + it.awaitingQcQty, failed: 0, open: 0, awaiting: it.awaitingQcQty }, plan.productName)
     }
   }
   return [...byKey.values()].filter((p) => p.required > 0)

@@ -2,7 +2,7 @@
 
 /**
  * Màn quét QR tại máy cho công nhân Phôi/Hàn/Sơn. Mã QR dán ở máy = link `/floor?ws=<qrToken>`: mã chỉ định danh MÁY,
- * lệnh lấy từ hàng đợi của tổ (QLSX xếp + "Chuyển PI tiếp"), công nhân chỉ chọn SKU → loại sắt + cỡ đoạn (Phôi, nhập SỐ ĐOẠN)
+ * công nhân Hàn / Sơn tự chọn lệnh làm được ở xưởng của máy (Phôi: lệnh trong bảng chia máy cắt), rồi chọn SKU → loại sắt + cỡ đoạn (Phôi, nhập SỐ ĐOẠN)
  * hoặc mảnh (Hàn/Sơn, nhập SỐ MẢNH) → Lưu. Từ P1 KCS tự chấm đợt công nhân vừa báo (QLSX không gửi KCS nữa); số nhập quá
  * "còn báo được" thì BE chặn nên nút Lưu khoá.
  * Thiết kế cho điện thoại: 1 cột, chữ to, ô số mở bàn phím số, nút Lưu dính đáy. Các phần con nằm trong ./scan/.

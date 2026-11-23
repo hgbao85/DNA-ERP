@@ -17,8 +17,8 @@ export const TEAM_VIEW_TABS: { id: TeamViewTab; label: string }[] = [
   { id: 'manh-cho-dan', label: 'Mảnh chờ đan' },
 ]
 
-export default function QlsxTeamViewsPage() {
-  const [sub, setSub] = useState<TeamViewTab>('huong-dan-cat')
+export default function QlsxTeamViewsPage({ initialSub = 'huong-dan-cat' }: { initialSub?: TeamViewTab }) {
+  const [sub, setSub] = useState<TeamViewTab>(initialSub)
   return (
     <div>
       <div role="tablist" aria-label="Xem các tổ" style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 'var(--space-4)' }}>

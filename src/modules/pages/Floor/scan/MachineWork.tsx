@@ -2,7 +2,7 @@
 
 /**
  * Khối "Việc của máy" trên màn quét máy cắt: các dòng QLSX đã chia cho máy này, theo thứ tự cắt. Chỉ để xem, không đổi
- * luồng báo. Dòng của lệnh tổ đang chạy được đánh dấu "Đang chạy". Chữ gọn cho khổ 375 px: số và đơn vị dính nhau.
+ * luồng báo. Chữ gọn cho khổ 375 px: số và đơn vị dính nhau.
  */
 
 import { useState } from 'react'
@@ -32,8 +32,8 @@ function Summary({ work }: { work: Work }) {
   )
 }
 
-export default function MachineWork({ work, runningPiId, selectedPiId, onPick }: {
-  work: Work; runningPiId: string | null; selectedPiId: string | null; onPick: (piId: string) => void
+export default function MachineWork({ work, selectedPiId, onPick }: {
+  work: Work; selectedPiId: string | null; onPick: (piId: string) => void
 }) {
   // Dòng còn việc trước (thứ tự cắt), dòng đã xong xuống cuối: việc máy rảnh tự kéo về nằm cuối danh sách chia.
   const sorted = openRowsFirst(sortMachineRows(work.rows))
@@ -53,7 +53,6 @@ export default function MachineWork({ work, runningPiId, selectedPiId, onPick }:
           <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column' }}>
             {visible.map((r, i) => (
               <MachineWorkRow key={r.id} row={r} index={i} lenhText={lenhOf(r.piCode)} done={isRowDone(r)}
-                running={!!runningPiId && r.productionInvoiceId === runningPiId}
                 picked={!!selectedPiId && r.productionInvoiceId === selectedPiId} onPick={onPick} />
             ))}
           </ol>

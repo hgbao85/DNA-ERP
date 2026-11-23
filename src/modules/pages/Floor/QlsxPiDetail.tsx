@@ -1,9 +1,9 @@
 'use client'
 
 /**
- * Ngăn "còn thiếu gì" mở từ thẻ PI của tổ ở "Sản lượng xưởng" (2026-10-19, changelog BE 10-08 mục 45.4/48): QLSX trả lời
- * "PI này còn thiếu đúng cái gì, có bất thường không, chuyển PI tiếp được chưa" mà không phải sang "Tổng hợp lệnh SX".
- * Số lấy từ GET /floor/queue/:stage/detail/:piId (cùng nguồn BE dùng cho thẻ) + progressModel → khớp thẻ và Tổng hợp.
+ * Ngăn "còn thiếu gì" của một lệnh (2026-10-19; 23/11/2026 chuyển sang "Xem các tổ" - Khung hàn / Mảnh chờ đan, bỏ hàng đợi):
+ * QLSX trả lời "lệnh này còn thiếu đúng cái gì, có bất thường không" mà không phải sang "Tổng hợp lệnh SX".
+ * Số lấy từ GET /floor/stage-progress/:stage/:piId (cùng nguồn BE dùng cho "Tổng hợp") + progressModel → khớp Tổng hợp.
  * Hé lộ dần: tổng (thanh 3 ngăn) → tab "Còn thiếu" (mặc định) → "Tất cả" (bảng đầy đủ dùng lại bảng của Tổng hợp)
  * → "Bất thường". Ngăn phải ~720px, < 900px thì toàn màn hình; Esc đóng, giữ focus trong ngăn, đóng thì trả focus.
  */
@@ -31,16 +31,14 @@ type DetailTab = 'short' | 'all' | 'abnormal'
 
 const fmt = (n: number) => n.toLocaleString('vi-VN')
 
-export default function QlsxPiDetail({ stage, productionInvoiceId, piCode, review, initialTab = 'short', onClose, onGoToReview }: {
+export default function QlsxPiDetail({ stage, productionInvoiceId, piCode, review = null, initialTab = 'short', onClose }: {
   stage: FloorStage
   productionInvoiceId: string
   piCode: string
-  /** Danh sách "Đang chờ KCS chấm" của tổ - để đếm đợt chờ quá lâu của PI này (null = chưa tải). */
-  review: BeFloorReview | null
+  /** Danh sách đợt đang mở của tổ - để đếm đợt chờ quá lâu của lệnh này. Bỏ trống = không đếm. */
+  review?: BeFloorReview | null
   initialTab?: DetailTab
   onClose: () => void
-  /** Đóng ngăn và cuộn tới khối "Đang chờ KCS chấm". */
-  onGoToReview: () => void
 }) {
   const compact = useIsCompact()
   const { data, error, refetch } = useFetch<BeStageDetail>(() => floorAdmin.stageDetail(stage, productionInvoiceId), [stage, productionInvoiceId])
@@ -149,7 +147,7 @@ export default function QlsxPiDetail({ stage, productionInvoiceId, piCode, revie
               <div role="tabpanel">
                 {tab === 'short' && <ShortList materials={view.shortM} pieces={view.shortP} stage={stage} />}
                 {tab === 'all' && <AllBoards stage={stage} materials={view.materials} pieces={view.pieces} syncOk={view.syncOk} />}
-                {tab === 'abnormal' && <AbnormalList items={view.abnormal} onGoToReview={onGoToReview} onShowAll={() => setTab('all')} />}
+                {tab === 'abnormal' && <AbnormalList items={view.abnormal} onShowAll={() => setTab('all')} />}
               </div>
             </>
           )}
@@ -223,7 +221,7 @@ function ShortList({ materials, pieces, stage }: { materials: ShortMaterial[]; p
           <ul style={{ listStyle: 'none', marginTop: 6, display: 'grid', gap: 4 }}>
             {pieces.map((p) => (
               <li key={p.key} style={{ display: 'flex', gap: 8, fontSize: 13, flexWrap: 'wrap' }}>
-                <span style={{ flex: 1, minWidth: 140 }}>{p.name} <span style={{ fontSize: 11, color: 'var(--text3)' }}>{p.code}</span></span>
+                <span style={{ flex: 1, minWidth: 140 }}>{p.name} <span style={{ fontSize: 11, color: 'var(--text3)' }}>{p.code}</span>{p.skus.length > 0 && <span style={{ display: 'block', fontSize: 11, color: 'var(--text2)' }}>SKU: {p.skus.join(', ')}</span>}</span>
                 <span>{fmt(p.reported)}/{fmt(p.required)}</span>
                 {p.awaiting > 0 && <span style={{ color: 'var(--text2)' }}>KCS đang chấm {fmt(p.awaiting)}</span>}
                 {p.open > 0 && <span style={{ color: 'var(--text2)' }}>đang mở {fmt(p.open)}</span>}
@@ -281,7 +279,7 @@ function AllBoards({ stage, materials, pieces, syncOk }: { stage: FloorStage; ma
   )
 }
 
-function AbnormalList({ items, onGoToReview, onShowAll }: { items: Abnormal[]; onGoToReview: () => void; onShowAll: () => void }) {
+function AbnormalList({ items, onShowAll }: { items: Abnormal[]; onShowAll: () => void }) {
   if (items.length === 0) return <Notice tone="ok"><CheckCircle2 size={14} style={{ verticalAlign: -2 }} /> Không có bất thường.</Notice>
   return (
     <ul style={{ listStyle: 'none', display: 'grid', gap: 8 }}>
@@ -289,9 +287,7 @@ function AbnormalList({ items, onGoToReview, onShowAll }: { items: Abnormal[]; o
         <li key={a.kind + a.text} style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', background: 'var(--amber-bg)', color: 'var(--amber)', borderRadius: 8, padding: '10px 12px', fontSize: 13, fontWeight: 600 }}>
           <AlertTriangle size={16} aria-hidden />
           <span style={{ flex: 1, minWidth: 180 }}>{a.text}</span>
-          {(a.kind === 'steel-over' || a.kind === 'stale')
-            ? <button type="button" onClick={onGoToReview} style={btn('secondary')}>Đến danh sách chờ KCS chấm</button>
-            : <button type="button" onClick={onShowAll} style={btn('secondary')}>Xem bảng đầy đủ</button>}
+          <button type="button" onClick={onShowAll} style={btn('secondary')}>Xem bảng đầy đủ</button>
         </li>
       ))}
     </ul>

@@ -12,14 +12,19 @@
  * không có SKU:VIEW/PRODUCTION_ORDER:VIEW để tự resolve danh sách PI qua đường khác) thay vì phẳng
  * mọi PO như Admin.
  *
+ * 23/11/2026 (bỏ hàng đợi xưởng, gộp Sản lượng vào đây): bảng tổng kết mỗi loại sắt thêm Đã cắt / KCS đạt / Lỗi / Còn thiếu (từ
+ * GET /production-invoices/:id/phoi-progress, công thức ở guideOutputModel.ts), dòng nhỏ công đoạn phụ dưới cỡ đoạn, khối
+ * "Mảnh Phôi" cuối trang; danh sách lệnh có "Xong Phôi dd/mm" + %. Bản in / Excel giữ nguyên. Tự tải lại theo realtime.
+ *
  * `initialPiId`/`onConsumeInitialPi`: cho phép LenhSanXuatPhoi.tsx nhảy thẳng vào đúng PI đang mở
  * (nút "Xem hướng dẫn cắt" trong CutBatchPanel) thay vì bắt chọn lại từ đầu.
  */
 import { useEffect, useMemo, useState } from 'react'
-import { ChevronLeft, ChevronRight, Ruler, AlertTriangle } from 'lucide-react'
+import { ChevronLeft, Ruler, AlertTriangle } from 'lucide-react'
 import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
-import type { BeSteelIssue } from '../../../services/steel-issues-api'
+import { getPhoiProgress, type BePhoiProgressItem, type BeSteelIssue } from '../../../services/steel-issues-api'
+import { floorAdmin, type BeStageDetail, type BeStageProgressRow } from '../../../services/floor-api'
 import {
   getCuttingProposalsForInvoice, getCuttingProposal,
   type CuttingProposal, type CuttingProposalLine,
@@ -35,6 +40,16 @@ import { pageTitle, pageSubtitle } from '../../../styles/typography'
 import PrintExportButton from '../../../components/PrintExportButton'
 import { useRealtimeRefetch } from '../../../realtime/hooks'
 import { useLenhCodeLookup } from '../../../components/LenhCode'
+import { piecesOf, type PieceView } from '../Floor/piDetailModel'
+import PiProgressCard from '../Floor/PiProgressCard'
+import { stageMissingText } from '../Floor/stageOutputModel'
+import {
+  chunkIds, cutOutputsOf, needShown, outputKey, phoiDoneLabel, piecesSummaryText, progressById, stepLinesOf, stepLinesText, waitingText,
+  type SegmentOutput, type StepLine,
+} from './guideOutputModel'
+
+/** Số tự tải lại khi KCS chấm / công nhân báo / xong Phôi (AC25). */
+const LIVE_TOPICS = ['steel-issues', 'qc-reviews', 'floor'] as const
 
 const th: React.CSSProperties = { padding: '10px 14px', fontSize: 12, fontWeight: 600, color: 'var(--text2)', textAlign: 'left', whiteSpace: 'nowrap' }
 const thR: React.CSSProperties = { ...th, textAlign: 'right' }
@@ -43,14 +58,18 @@ const tdR: React.CSSProperties = { ...td, textAlign: 'right' }
 // overflowX (không cắt): trên điện thoại bảng rộng hơn khung thì cuộn ngang thay vì mất cột bên phải.
 const card: React.CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflowX: 'auto' }
 
-interface PiOption { productionInvoiceId: string; poNumber: string }
+// Hai cột đầu của bảng tổng kết đứng yên khi cuộn ngang (nền đặc để không lộ chữ cuộn phía sau).
+const stickyName: React.CSSProperties = { position: 'sticky', left: 0, zIndex: 1, background: 'var(--surface)', minWidth: 110, maxWidth: 140, whiteSpace: 'normal' }
+const stickyMm: React.CSSProperties = { position: 'sticky', left: 110, zIndex: 1, background: 'var(--surface)', minWidth: 64, borderRight: '1px solid var(--border)' }
+
+interface PiOption { productionInvoiceId: string; poNumber: string; piCode?: string }
 
 function buildPiOptions(issues: BeSteelIssue[]): PiOption[] {
-  const seen = new Map<string, string>()
+  const seen = new Map<string, PiOption>()
   for (const i of issues) {
-    if (!seen.has(i.productionInvoiceId)) seen.set(i.productionInvoiceId, i.salesOrderCode ?? i.piCode)
+    if (!seen.has(i.productionInvoiceId)) seen.set(i.productionInvoiceId, { productionInvoiceId: i.productionInvoiceId, poNumber: i.salesOrderCode ?? i.piCode, piCode: i.piCode })
   }
-  return [...seen.entries()].map(([productionInvoiceId, poNumber]) => ({ productionInvoiceId, poNumber }))
+  return [...seen.values()]
 }
 
 export default function HuongDanCatPage({ initialPiId, onConsumeInitialPi }: {
@@ -58,12 +77,21 @@ export default function HuongDanCatPage({ initialPiId, onConsumeInitialPi }: {
   onConsumeInitialPi?: () => void
 }) {
   const { data: issues, isLoading, error, refetch } = useFetch<BeSteelIssue[]>(() => api.getSteelIssuesByStatus(), [])
-  useRealtimeRefetch(['steel-issues'], refetch)
   const lenhOf = useLenhCodeLookup((issues ?? []).map(i => i.piCode))
   const piOptions = useMemo(
     () => buildPiOptions(issues ?? []).map(p => ({ ...p, poNumber: lenhOf(p.poNumber) })),
     [issues, lenhOf],
   )
+  // Tiến độ Phôi từng lệnh (% + "Xong Phôi dd/mm"): chỉ là phần thêm - lỗi / thiếu quyền thì danh sách vẫn hiện như cũ.
+  const piIdsKey = piOptions.map(p => p.productionInvoiceId).join(',')
+  // Truyền đúng id các lệnh đang hiện (lệnh cũ ngoài bảng chia / quá 7 ngày vẫn có %), chia lô 200.
+  const stage = useFetch<BeStageProgressRow[]>(
+    () => Promise.all(chunkIds(piIdsKey ? piIdsKey.split(',') : []).map(ids => floorAdmin.stageProgress('PHOI', null, ids).catch(() => [] as BeStageProgressRow[]))).then(r => r.flat()),
+    [piIdsKey],
+  )
+  const progress = useMemo(() => progressById(stage.data), [stage.data])
+  const refetchAll = () => { void refetch(); void stage.refetch() }
+  useRealtimeRefetch(LIVE_TOPICS, refetchAll)
   // Đọc initialPiId NGAY lúc khởi tạo (không đợi issues tải xong) - component này mount lại từ
   // đầu mỗi lần chuyển sang tab "Hướng dẫn cắt" (MfgApp chỉ render tab đang chọn), nên state khởi
   // tạo 1 lần là đủ, không cần effect để đồng bộ theo prop đổi sau khi đã mount.
@@ -100,30 +128,28 @@ export default function HuongDanCatPage({ initialPiId, onConsumeInitialPi }: {
   return (
     <div>
       {header}
-      <div style={card}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr style={{ background: 'var(--surface2)' }}>
-              <th style={th}>PO / Lệnh</th>
-              <th style={{ ...th, width: 40 }}></th>
-            </tr>
-          </thead>
-          <tbody>
-            {piOptions.map(p => (
-              <tr key={p.productionInvoiceId} onClick={() => setSelPiId(p.productionInvoiceId)}
-                style={{ borderTop: '1px solid var(--border)', cursor: 'pointer' }}
-                onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
-                onMouseLeave={e => (e.currentTarget.style.background = '')}>
-                <td style={{ ...td, fontWeight: 700, fontFamily: 'monospace' }}>{p.poNumber}</td>
-                <td style={{ ...td, textAlign: 'center', color: 'var(--text3)' }}><ChevronRight size={16} /></td>
-              </tr>
-            ))}
-            {piOptions.length === 0 && (
-              <tr><td colSpan={2} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}><div className="table-empty-msg"><span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><AlertTriangle size={14} /> Chưa có PI nào được xuất sắt</span></div></td></tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      {piOptions.length === 0 ? (
+        <div style={{ ...card, padding: 32, textAlign: 'center', color: 'var(--text3)', fontSize: 13 }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><AlertTriangle size={14} /> Chưa có PI nào được xuất sắt</span>
+        </div>
+      ) : (
+        <>
+          <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 8 }}>% = số đã báo trừ lỗi trên số cần (gồm phần KCS chưa chấm).</div>
+          <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {piOptions.map(p => {
+              const row = progress.get(p.productionInvoiceId)
+              const done = row ? phoiDoneLabel(row.phoiDoneAt) : null
+              return (
+                <li key={p.productionInvoiceId}>
+                  <PiProgressCard title={<span style={{ fontFamily: 'monospace' }}>{p.poNumber}</span>}
+                    status={done ?? (row && !row.complete ? stageMissingText(row, 'đoạn / mảnh') : null)} statusTone={done ? 'green' : 'amber'}
+                    deadline={row?.deadline} percent={row ? row.percent : null} onClick={() => setSelPiId(p.productionInvoiceId)} />
+                </li>
+              )
+            })}
+          </ul>
+        </>
+      )}
     </div>
   )
 }
@@ -137,6 +163,17 @@ function PiCuttingGuide({ pi, onBack }: { pi: PiOption; onBack: () => void }) {
     () => approved ? getCuttingProposal(approved.id) : Promise.resolve(null),
     [approved?.id],
   )
+  // Sản lượng (23/11/2026): cột Đã cắt / KCS đạt / Lỗi / Còn thiếu từ phoi-progress; công đoạn phụ + mảnh Phôi từ chi tiết lệnh Phôi.
+  // Chỉ là phần thêm: lỗi / thiếu quyền thì bảng cắt vẫn hiện như cũ (không có cột sản lượng).
+  const phoi = useFetch<BePhoiProgressItem[] | null>(() => getPhoiProgress(pi.productionInvoiceId).catch(() => null), [pi.productionInvoiceId])
+  const stageDetail = useFetch<BeStageDetail | null>(() => floorAdmin.stageDetail('PHOI', pi.productionInvoiceId).catch(() => null), [pi.productionInvoiceId])
+  const { refetch: refetchPhoi } = phoi
+  const { refetch: refetchDetail } = stageDetail
+  useRealtimeRefetch(LIVE_TOPICS, () => { void refetchPhoi(); void refetchDetail() })
+  const outputs = useMemo(() => (phoi.data ? cutOutputsOf(phoi.data) : null), [phoi.data])
+  const stepLines = useMemo(() => stepLinesOf(stageDetail.data?.phoi), [stageDetail.data])
+  const pieces = useMemo(() => (stageDetail.data ? piecesOf(stageDetail.data, null) : []), [stageDetail.data])
+  const piecesSummary = piecesSummaryText(pieces)
   const lines = (detail?.lines ?? []).filter(l => l.feasible && (l.patterns?.length ?? 0) > 0)
   // Xưởng không có laze (vd Phước An): nhóm laze hiện "MC Tự động · lỗ làm tay". Thiếu machineContext = coi như laze dùng được.
   const laserAllowed = detail?.machineContext?.laserAllowed !== false
@@ -166,6 +203,13 @@ function PiCuttingGuide({ pi, onBack }: { pi: PiOption; onBack: () => void }) {
         )}
       </div>
 
+      {piecesSummary && (
+        <button type="button" onClick={() => document.getElementById('phoi-pieces')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 12, padding: '6px 12px', minHeight: 34, fontSize: 13, fontWeight: 600, border: '1px solid var(--border)', borderRadius: 999, background: 'var(--surface)', color: pieces.some(p => p.remaining > 0) ? 'var(--amber)' : 'var(--green)', cursor: 'pointer' }}>
+          {piecesSummary}
+        </button>
+      )}
+
       {isLoading || detailLoading ? (
         <LoadingState />
       ) : error || !proposals ? (
@@ -180,14 +224,20 @@ function PiCuttingGuide({ pi, onBack }: { pi: PiOption; onBack: () => void }) {
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {lines.map(l => <MaterialGuide key={l.materialId} poNumber={detail!.poNumber} line={l} laserAllowed={laserAllowed} />)}
+          {lines.map(l => <MaterialGuide key={l.materialId} poNumber={detail!.poNumber} line={l} laserAllowed={laserAllowed} outputs={outputs} stepLines={stepLines} />)}
+          <PhoiPiecesBlock pieces={pieces} />
         </div>
       )}
     </div>
   )
 }
 
-function MaterialGuide({ poNumber, line, laserAllowed }: { poNumber: string; line: CuttingProposalLine; laserAllowed: boolean }) {
+function MaterialGuide({ poNumber, line, laserAllowed, outputs, stepLines }: {
+  poNumber: string; line: CuttingProposalLine; laserAllowed: boolean
+  /** Số sản lượng theo (loại sắt, cỡ đoạn); null = chưa có (BE cũ / thiếu quyền) thì bảng không có 4 cột mới. */
+  outputs: Map<string, SegmentOutput> | null
+  stepLines: Map<string, StepLine[]>
+}) {
   const { columns, columnLabels, rows } = buildCuttingGuideTable(line)
   const pieces = buildPieceSummary(line)
   // Cột "Cách cắt theo bó" chỉ hiện khi phương án tính bằng MC Tự động; MC Laser/phương án cũ giữ nguyên bảng. Ở màn Phôi đã có
@@ -237,25 +287,54 @@ function MaterialGuide({ poNumber, line, laserAllowed }: { poNumber: string; lin
       {/* Bảng TỔNG KẾT CẮT — cùng layout "In kết quả" của MC Laser (SL cần/SL cắt theo cỡ đoạn),
           để màn hình khớp với bản in ra cho thợ. */}
       <div style={{ overflowX: 'auto', borderBottom: '1px solid var(--border)' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <table style={{ width: '100%', minWidth: outputs ? 700 : undefined, borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ background: 'var(--surface2)' }}>
               {/* Giữ chữ "Tên sắt" như bảng "In kết quả" của máy laze cũ xưởng đã quen; cột này là tên chi tiết (mảnh) dùng cỡ đoạn. */}
-              <th style={th} title="Tên chi tiết (mảnh) dùng cỡ đoạn này - cùng cách ghi với bảng In kết quả của máy laze">Tên sắt</th>
-              <th style={thR}>Đoạn (mm)</th>
-              <th style={thR}>SL cần</th>
-              <th style={thR}>SL cắt</th>
+              {/* Tên sắt + Đoạn đứng yên khi cuộn ngang: màn hẹp vẫn thấy dòng nào và Còn thiếu. */}
+              <th style={{ ...th, ...stickyName, background: 'var(--surface2)' }} title="Tên chi tiết (mảnh) dùng cỡ đoạn này - cùng cách ghi với bảng In kết quả của máy laze">Tên sắt</th>
+              <th style={{ ...thR, ...stickyMm, background: 'var(--surface2)' }}>Đoạn (mm)</th>
+              {outputs && <th style={thR} title="Số cần trừ (đã cắt − lỗi); phần đã báo mà KCS chưa chấm tính tạm">Còn thiếu</th>}
+              <th style={thR} title="Số cần theo định mức, gồm phần cắt lại">Cần</th>
+              <th style={thR} title="Số đoạn theo phương án cắt (như bản in)">Theo phương án</th>
+              {outputs && <>
+                <th style={thR} title="Công nhân đã báo cắt (đã trừ phần KCS ghi thiếu), gồm cả phần KCS chưa chấm">Đã cắt</th>
+                <th style={thR} title="Đã cắt trừ lỗi và trừ phần KCS chưa chấm (đang mở / KCS đang chấm)">KCS đạt</th>
+                <th style={thR} title="KCS chấm không đạt, cộng dồn">Lỗi</th>
+              </>}
             </tr>
           </thead>
           <tbody>
-            {pieces.map(p => (
-              <tr key={p.size} style={{ borderTop: '1px solid var(--border)' }}>
-                <td style={td}>{p.names.length > 0 ? p.names.join(', ') : <span style={{ color: 'var(--text3)' }}>—</span>}</td>
-                <td style={tdR}>{fmtNum(p.size)}</td>
-                <td style={tdR}>{Number.isNaN(p.demand) ? <span style={{ color: 'var(--text3)' }}>—</span> : fmtNum(p.demand)}</td>
-                <td style={{ ...tdR, fontWeight: 700 }}>{fmtNum(p.produced)}</td>
-              </tr>
-            ))}
+            {pieces.map(p => {
+              const o = outputs?.get(outputKey(line.materialId, p.size))
+              const subText = stepLinesText(stepLines.get(outputKey(line.materialId, p.size)))
+              const need = needShown(p.demand, o)
+              return (
+                <tr key={p.size} style={{ borderTop: '1px solid var(--border)' }}>
+                  <td style={{ ...td, ...stickyName }}>
+                    {p.names.length > 0 ? p.names.join(', ') : <span style={{ color: 'var(--text3)' }}>—</span>}
+                    {subText && <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 2 }}>{subText}</div>}
+                  </td>
+                  <td style={{ ...tdR, ...stickyMm }}>{fmtNum(p.size)}</td>
+                  {outputs && (o
+                    ? <td style={{ ...tdR, fontWeight: 700, color: o.missing > 0 ? 'var(--amber)' : 'var(--green)' }}>{fmtNum(o.missing)}</td>
+                    : <td style={{ ...tdR, color: 'var(--text3)' }}>—</td>)}
+                  <td style={tdR}>
+                    {need.value == null ? <span style={{ color: 'var(--text3)' }}>—</span> : fmtNum(need.value)}
+                    {need.recut > 0 && <div style={{ fontSize: 11, color: 'var(--text3)', whiteSpace: 'nowrap' }}>(+{fmtNum(need.recut)} cắt lại)</div>}
+                  </td>
+                  <td style={{ ...tdR, fontWeight: 700 }}>{fmtNum(p.produced)}</td>
+                  {outputs && (o ? <>
+                    <td style={tdR}>
+                      {fmtNum(o.cut)}
+                      {o.waiting > 0 && <div style={{ fontSize: 11, color: 'var(--text3)', whiteSpace: 'nowrap' }}>{waitingText(o.open, o.awaiting)}</div>}
+                    </td>
+                    <td style={{ ...tdR, fontWeight: o.passed > 0 ? 700 : 400, color: o.passed > 0 ? 'var(--green)' : 'var(--text3)' }}>{fmtNum(o.passed)}</td>
+                    <td style={{ ...tdR, color: o.failed > 0 ? 'var(--red)' : 'var(--text3)', fontWeight: o.failed > 0 ? 700 : 400 }}>{o.failed > 0 ? fmtNum(o.failed) : '—'}</td>
+                  </> : <td colSpan={3} style={{ ...tdR, color: 'var(--text3)' }}>—</td>)}
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>
@@ -321,6 +400,49 @@ function MaterialGuide({ poNumber, line, laserAllowed }: { poNumber: string; lin
         </table>
       </div>
       )}
+    </div>
+  )
+}
+
+/** Khối "Mảnh Phôi" cuối trang (Q1 phương án A): mảnh Phôi / vật tư thành phẩm của lệnh - để QLSX thấy vì sao lệnh chưa đóng Phôi. */
+function PhoiPiecesBlock({ pieces }: { pieces: PieceView[] }) {
+  if (pieces.length === 0) return null
+  const n = (v: number) => fmtNum(v)
+  const dim = (v: number, color?: string, bold = false): React.CSSProperties => ({ ...tdR, color: v > 0 ? (color ?? 'inherit') : 'var(--text3)', fontWeight: v > 0 && bold ? 700 : 400 })
+  return (
+    <div id="phoi-pieces" style={{ ...card, scrollMarginTop: 12 }}>
+      <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
+        <div style={{ fontWeight: 700, fontSize: 14 }}>Mảnh Phôi</div>
+        <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>Mảnh / vật tư thành phẩm tổ Phôi tự báo, tính chung cho cả lệnh. Còn thiếu = cần trừ (đã báo − lỗi).</div>
+      </div>
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', minWidth: 600, borderCollapse: 'collapse' }}>
+          <thead>
+            <tr style={{ background: 'var(--surface2)' }}>
+              <th style={{ ...th, ...stickyName, background: 'var(--surface2)', borderRight: '1px solid var(--border)' }}>Mảnh</th>
+              <th style={thR}>Còn thiếu</th>
+              <th style={thR}>Cần</th>
+              <th style={thR}>KCS đạt</th>
+              <th style={thR} title="Đã lưu đợt, KCS chưa bấm Chấm">Đang mở</th>
+              <th style={thR} title="KCS đã bấm Chấm, chưa chấm xong">KCS đang chấm</th>
+              <th style={thR}>Lỗi</th>
+            </tr>
+          </thead>
+          <tbody>
+            {pieces.map(p => (
+              <tr key={p.key} style={{ borderTop: '1px solid var(--border)' }}>
+                <td style={{ ...td, ...stickyName, borderRight: '1px solid var(--border)' }}>{p.name} <span style={{ fontSize: 11, color: 'var(--text3)' }}>{p.code}</span>{p.skus.length > 0 && <div style={{ fontSize: 11, color: 'var(--text2)' }}>SKU: {p.skus.join(', ')}</div>}</td>
+                <td style={{ ...tdR, fontWeight: 700, color: p.remaining > 0 ? 'var(--amber)' : 'var(--green)' }}>{n(p.remaining)}</td>
+                <td style={tdR}>{n(p.required)}</td>
+                <td style={dim(p.passed, 'var(--green)', true)}>{n(p.passed)}</td>
+                <td style={dim(p.open)}>{p.open > 0 ? n(p.open) : '—'}</td>
+                <td style={dim(p.awaiting)}>{p.awaiting > 0 ? n(p.awaiting) : '—'}</td>
+                <td style={dim(p.failed, 'var(--red)', true)}>{p.failed > 0 ? n(p.failed) : '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }

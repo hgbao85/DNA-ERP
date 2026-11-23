@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import type { BeMyOutputRow, BeScanContext, BeScanMaterial } from '../../../../services/floor-api'
 import {
-  allocationOnlyPis, anySegmentOverMax, groupByDay, hasPickablePi, isOnlyRunningPi, isReworkSelected, kcsBatchLabel, kcsLabel, kcsLabelRowIds, materialsForSku,
-  needPiAction, opCaption, pieceAction, pieceConfirmRow, pieceMaxNow, reportTitle, rowBadges, segmentAction, segmentConfirmRows,
+  anySegmentOverMax, groupByDay, hasPickablePi, kcsBatchLabel, kcsLabel, kcsLabelRowIds, materialsForSku, missingPiecesText,
+  needPiAction, noPiText, pickablePis, soleStagePi, opCaption, pieceAction, pieceConfirmRow, pieceMaxNow, reportTitle, rowBadges, segmentAction, segmentConfirmRows,
   segmentLeft, segmentLeftText, segmentLines, segmentMaxNow, segmentOverMax, segmentSummary, showMoreToggle, splitByReceived,
   STATE_LABEL, totalsText, workerPendingText,
 } from './scanModel'
@@ -11,28 +11,50 @@ const ctx = (p: Partial<BeScanContext>): BeScanContext => ({
   workstation: { id: '1', code: 'M1', name: 'Máy 1', stage: 'PHOI', kind: 'CUT', processStep: null }, ...p,
 })
 
-describe('chọn lệnh', () => {
-  it('bảng chia không lặp lệnh đã có ở đang làm / làm bù', () => {
-    const c = ctx({
-      runningPi: { productionInvoiceId: 'a', code: 'A' },
-      reworkPis: [{ productionInvoiceId: 'b', code: 'B', endedAt: null }],
-      allocationPis: [
-        { productionInvoiceId: 'a', code: 'A' }, { productionInvoiceId: 'b', code: 'B' },
-        { productionInvoiceId: 'c', code: 'C' }, { productionInvoiceId: 'c', code: 'C' },
-      ],
-    })
-    expect(allocationOnlyPis(c).map((x) => x.productionInvoiceId)).toEqual(['c'])
-    expect(isOnlyRunningPi(c)).toBe(false)
-    expect(isReworkSelected(c, 'b')).toBe(true)
-    expect(isReworkSelected(c, 'a')).toBe(false)
+describe('chọn lệnh (bỏ hàng đợi 23/11/2026)', () => {
+  const hanCtx = (stagePis: BeScanContext['stagePis']) =>
+    ctx({ workstation: { id: '1', code: 'H1', name: 'H1', stage: 'HAN', kind: 'PIECE', processStep: null }, stagePis })
+
+  it('Hàn / Sơn: lấy đúng stagePis theo thứ tự BE trả, kèm số còn thiếu', () => {
+    const c = hanCtx([
+      { productionInvoiceId: 'a', code: 'A', deadline: '2026-12-01', missingPieces: 12 },
+      { productionInvoiceId: 'b', code: 'B', deadline: null, missingPieces: 3 },
+      { productionInvoiceId: 'c', code: 'C', deadline: null, missingPieces: 7 },
+    ])
+    expect(pickablePis(c).map((x) => x.productionInvoiceId)).toEqual(['a', 'b', 'c'])
+    expect(pickablePis(c)[0].missingPieces).toBe(12)
+    expect(hasPickablePi(c)).toBe(true)
+    expect(soleStagePi(c)).toBeNull()
   })
 
-  it('chỉ có lệnh đang chạy thì bỏ hàng chọn lệnh', () => {
-    const c = ctx({ runningPi: { productionInvoiceId: 'a', code: 'A' } })
-    expect(isOnlyRunningPi(c)).toBe(true)
-    expect(hasPickablePi(c)).toBe(true)
-    expect(hasPickablePi(ctx({}))).toBe(false)
-    expect(isOnlyRunningPi(null)).toBe(false)
+  it('chỉ 1 lệnh làm được thì chọn sẵn (soleStagePi)', () => {
+    const c = hanCtx([{ productionInvoiceId: 'a', code: 'A', deadline: null, missingPieces: 5 }])
+    expect(soleStagePi(c)?.productionInvoiceId).toBe('a')
+    expect(soleStagePi(null)).toBeNull()
+  })
+
+  it('hết lệnh: không có gì để chọn, hiện câu của spec 5.1', () => {
+    const c = hanCtx([])
+    expect(hasPickablePi(c)).toBe(false)
+    expect(soleStagePi(c)).toBeNull()
+    expect(noPiText('HAN')).toBe('Tổ Hàn chưa có lệnh nào làm được: chưa có mảnh Phôi đạt KCS, hoặc quản lý chưa cho làm sản phẩm.')
+    expect(noPiText('SON')).toContain('chưa có khung Hàn đạt KCS')
+    expect(noPiText('HAN')).not.toMatch(/xếp lệnh/)
+    expect(noPiText('PHOI')).not.toMatch(/xếp lệnh/)
+  })
+
+  it('Phôi: lệnh trong bảng chia, bỏ trùng; không có số còn thiếu', () => {
+    const c = ctx({ allocationPis: [
+      { productionInvoiceId: 'a', code: 'A' }, { productionInvoiceId: 'a', code: 'A' }, { productionInvoiceId: 'b', code: 'B' },
+    ] })
+    expect(pickablePis(c).map((x) => x.productionInvoiceId)).toEqual(['a', 'b'])
+    expect(pickablePis(c)[0].missingPieces).toBeUndefined()
+    expect(soleStagePi(c)).toBeNull()
+  })
+
+  it('chữ chip: "còn thiếu N mảnh", không âm', () => {
+    expect(missingPiecesText(12)).toBe('còn thiếu 12 mảnh')
+    expect(missingPiecesText(-3)).toBe('còn thiếu 0 mảnh')
   })
 
   it('tiêu đề theo loại máy', () => {
@@ -179,9 +201,9 @@ describe('nút chính ở cuối màn', () => {
 
 describe('khối Việc của máy', () => {
   it('nhãn đầu dòng: Đang báo không hiện khi đã là Đang chạy', () => {
-    expect(rowBadges({ running: true, picked: true, done: false, isBundle: false }).map((b) => b.text)).toEqual(['Đang chạy'])
-    expect(rowBadges({ running: false, picked: true, done: false, isBundle: true }).map((b) => b.text)).toEqual(['Đang báo', 'Cắt theo bó'])
-    expect(rowBadges({ running: false, picked: false, done: true, isBundle: false }).map((b) => b.text)).toEqual(['Xong'])
+    expect(rowBadges({ picked: true, done: false, isBundle: false }).map((b) => b.text)).toEqual(['Đang báo'])
+    expect(rowBadges({ picked: true, done: false, isBundle: true }).map((b) => b.text)).toEqual(['Đang báo', 'Cắt theo bó'])
+    expect(rowBadges({ picked: false, done: true, isBundle: false }).map((b) => b.text)).toEqual(['Xong'])
   })
 
   it('nút Xem thêm chỉ hiện khi quá phần xem trước', () => {

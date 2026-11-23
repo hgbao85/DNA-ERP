@@ -3,7 +3,7 @@
 /**
  * Tab "Chia máy cắt" của màn QLSX "Sản lượng xưởng": bảng chia sắt cho từng máy cắt của xưởng.
  * Hệ thống tự chia (BE `/floor/cut-allocation`), QLSX xưởng chỉnh tay: đổi máy, sửa số cây, tách, xoá, đổi thứ tự cắt.
- * Chỉ là bảng kế hoạch, không đổi luồng quét QR hay hàng đợi tổ. Mọi route trả cả bảng nên sau mỗi thao tác thay thẳng bảng.
+ * Chỉ là bảng kế hoạch, không đổi luồng quét QR. Mọi route trả cả bảng nên sau mỗi thao tác thay thẳng bảng.
  */
 
 import { useState } from 'react'

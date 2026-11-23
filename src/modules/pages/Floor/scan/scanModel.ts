@@ -1,6 +1,6 @@
 /** Logic thuần của màn quét QR (chuỗi, trạng thái nút, sắp xếp, gom nhóm). Không đụng React. */
 import type {
-  BeMyOutputRow, BeScanContext, BeScanMaterial, BeScanPieceItem, BeScanSegment, BeWorkstationBrief, MyOutputState,
+  BeMyOutputRow, BeScanContext, BeScanMaterial, BeScanPieceItem, BeScanSegment, BeStagePi, BeWorkstationBrief, MyOutputState,
 } from '../../../../services/floor-api'
 import { MACHINE_LABEL } from '../../../../utils/cutMachine'
 import { dayKey, describeError, STAGE_LABEL, STEP_LABEL, type OutputTotal } from '../floorUi'
@@ -32,29 +32,40 @@ export const fmtQty = (n: number) => n.toLocaleString('vi-VN')
 
 // ─── chọn lệnh ───────────────────────────────────────────────────────────────
 
-/** Lệnh trong bảng chia mà chưa có ở "đang làm" / "làm bù" (khỏi hiện 2 lần). */
-export function allocationOnlyPis(ctx: BeScanContext) {
-  const seen = new Set<string>([
-    ...(ctx.runningPi ? [ctx.runningPi.productionInvoiceId] : []),
-    ...(ctx.reworkPis ?? []).map((r) => r.productionInvoiceId),
-  ])
+/** Một lệnh để công nhân chọn báo. `missingPieces` chỉ có ở Hàn / Sơn (stagePis). */
+export interface PickablePi { productionInvoiceId: string; code: string; missingPieces?: number; deadline?: string | null }
+
+/**
+ * Lệnh công nhân chọn được (23/11/2026, bỏ hàng đợi): Hàn / Sơn = `stagePis` (BE đã sắp hạn giao tăng dần);
+ * Phôi = lệnh trong bảng chia (`allocationPis`, bỏ trùng).
+ */
+export function pickablePis(ctx: BeScanContext): PickablePi[] {
+  if ((ctx.stagePis ?? []).length > 0) return ctx.stagePis ?? []
+  const seen = new Set<string>()
   return (ctx.allocationPis ?? []).filter((a) => !seen.has(a.productionInvoiceId) && seen.add(a.productionInvoiceId))
 }
 
-/** Có lệnh nào để chọn báo không (đang làm / làm bù / trong bảng chia). */
+/** Có lệnh nào để chọn báo không. */
 export function hasPickablePi(ctx: BeScanContext): boolean {
-  return !!ctx.runningPi || (ctx.reworkPis ?? []).length > 0 || (ctx.allocationPis ?? []).length > 0
+  return pickablePis(ctx).length > 0
 }
 
-/** Tổ chỉ có 1 lệnh (đang chạy, không làm bù, không thêm từ bảng chia): bỏ hàng chọn lệnh. */
-export function isOnlyRunningPi(ctx: BeScanContext | null): boolean {
-  return !!ctx?.runningPi && (ctx.reworkPis ?? []).length === 0 && allocationOnlyPis(ctx).length === 0
+/** Hàn / Sơn chỉ có đúng 1 lệnh làm được: chọn sẵn, bỏ hàng chọn lệnh. null = 0 hoặc ≥ 2 lệnh (hoặc tổ Phôi). */
+export function soleStagePi(ctx: BeScanContext | null): BeStagePi | null {
+  const list = ctx?.stagePis ?? []
+  return list.length === 1 ? list[0] : null
 }
 
-/** Đang chọn một lệnh làm bù (không phải lệnh đang chạy). */
-export function isReworkSelected(ctx: BeScanContext, selectedPi: string | null): boolean {
-  return !!selectedPi && selectedPi !== ctx.runningPi?.productionInvoiceId
-    && (ctx.reworkPis ?? []).some((r) => r.productionInvoiceId === selectedPi)
+/** Chữ ngắn trên chip lệnh Hàn / Sơn: "còn thiếu 12 mảnh". */
+export function missingPiecesText(n: number): string {
+  return `còn thiếu ${fmtQty(Math.max(0, n))} mảnh`
+}
+
+/** Tổ không có lệnh nào làm được (spec 5.1; Hàn / Sơn có câu riêng, Phôi theo bảng chia). */
+export function noPiText(stage: BeWorkstationBrief['stage']): string {
+  if (stage === 'HAN') return 'Tổ Hàn chưa có lệnh nào làm được: chưa có mảnh Phôi đạt KCS, hoặc quản lý chưa cho làm sản phẩm.'
+  if (stage === 'SON') return 'Tổ Sơn chưa có lệnh nào làm được: chưa có khung Hàn đạt KCS, hoặc quản lý chưa cho làm sản phẩm.'
+  return 'Tổ Phôi chưa có lệnh nào để làm: máy chưa được chia việc, hoặc quản lý chưa cho làm sản phẩm.'
 }
 
 /** Tiêu đề màn theo loại máy. */
@@ -189,14 +200,13 @@ export function needPiAction(w: Pick<BeWorkstationBrief, 'kind'>, hasMachineWork
 
 // ─── khối Việc của máy ───────────────────────────────────────────────────────
 
-export type RowBadgeTone = 'run' | 'pick' | 'done' | 'bundle'
+export type RowBadgeTone = 'pick' | 'done' | 'bundle'
 export interface RowBadge { tone: RowBadgeTone; text: string }
 
-/** Nhãn đầu dòng: Đang chạy / Đang báo / Xong / Cắt theo bó. */
-export function rowBadges(o: { running: boolean; picked: boolean; done: boolean; isBundle: boolean }): RowBadge[] {
+/** Nhãn đầu dòng: Đang báo / Xong / Cắt theo bó (23/11/2026: bỏ nhãn "Đang chạy" của hàng đợi). */
+export function rowBadges(o: { picked: boolean; done: boolean; isBundle: boolean }): RowBadge[] {
   const out: RowBadge[] = []
-  if (o.running) out.push({ tone: 'run', text: 'Đang chạy' })
-  if (o.picked && !o.running) out.push({ tone: 'pick', text: 'Đang báo' })
+  if (o.picked) out.push({ tone: 'pick', text: 'Đang báo' })
   if (o.done) out.push({ tone: 'done', text: 'Xong' })
   if (o.isBundle) out.push({ tone: 'bundle', text: 'Cắt theo bó' })
   return out

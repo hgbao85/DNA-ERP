@@ -11,7 +11,6 @@ import { fmtMm, fmtQty, PICKED_ROW_TEXT, rowBadges, type RowBadgeTone } from './
 import { divider, hint, nowrap, pill, rowButton } from './scanUi'
 
 const BADGE_STYLE: Record<RowBadgeTone, React.CSSProperties> = {
-  run: pill('var(--green-bg)', 'var(--green)'),
   pick: pill('var(--blue-bg)', 'var(--blue-text)'),
   done: pill('var(--green-bg)', 'var(--green)'),
   bundle: pill('var(--surface2)', 'var(--text2)', 600),
@@ -19,9 +18,9 @@ const BADGE_STYLE: Record<RowBadgeTone, React.CSSProperties> = {
 
 const line: React.CSSProperties = { fontSize: 15 }
 
-export default function MachineWorkRow({ row: r, index, lenhText, running, picked, done, onPick }: {
+export default function MachineWorkRow({ row: r, index, lenhText, picked, done, onPick }: {
   row: BeCutAllocationRow; index: number; lenhText: ReactNode
-  running: boolean; picked: boolean; done: boolean; onPick: (piId: string) => void
+  picked: boolean; done: boolean; onPick: (piId: string) => void
 }) {
   const steps = rowStepLabels(r)
   const names = pieceNamesOf(r.segments)
@@ -33,7 +32,7 @@ export default function MachineWorkRow({ row: r, index, lenhText, running, picke
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3, overflowWrap: 'anywhere' }}>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
           <b style={{ fontSize: 16 }}>{lenhText}</b>
-          {rowBadges({ running, picked, done, isBundle: r.isBundle }).map((b) => (
+          {rowBadges({ picked, done, isBundle: r.isBundle }).map((b) => (
             <span key={b.tone} style={BADGE_STYLE[b.tone]}>{b.text}</span>
           ))}
         </div>

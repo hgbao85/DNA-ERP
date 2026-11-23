@@ -32,6 +32,7 @@ import LoadingState from '../../../components/LoadingState'
 import LoadErrorState from '../../../components/LoadErrorState'
 import { pageTitle, pageSubtitle } from '../../../styles/typography'
 import { useRealtimeRefetch } from '../../../realtime/hooks'
+import StageOutputBlock from '../Floor/StageOutputBlock'
 
 interface ManhRow {
   pieceId: string
@@ -137,6 +138,9 @@ export default function KhungHanPage() {
       <h2 style={{ ...pageTitle, marginBottom: 2, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
         <Frame size={20} /> Khung hàn
       </h2>
+      {/* 23/11/2026: sản lượng theo lệnh của tổ (thay cho hàng đợi xưởng), kho cũ giữ bên dưới. */}
+      <StageOutputBlock stage="HAN" />
+      <h3 style={{ margin: '0 0 4px', fontSize: 15, fontWeight: 700 }}>Kho khung hàn</h3>
       <div style={{ ...pageSubtitle, marginBottom: 'var(--space-5)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
         <Check size={14} style={{ color: 'var(--fg-16a34a)' }} /> Kho chứa các mảnh/khung Tổ Hàn đã hàn & KCS duyệt đạt — chờ chuyển sang Sơn. Bấm vào 1 sản phẩm để xem các mảnh còn tồn.
       </div>
