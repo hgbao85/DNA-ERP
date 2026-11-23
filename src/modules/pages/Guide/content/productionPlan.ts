@@ -542,6 +542,66 @@ export const productionPlanGroup: GuideGroup = {
       ],
       tags: ['sửa kế hoạch', 'lệnh đang chạy', 'đang chạy', 'excel', 'tải excel kế hoạch', 'chờ sếp duyệt lại', 'huỷ yêu cầu', 'lịch sử đổi mốc', 'đổi mốc'],
       sourceRefs: ['src/modules/pages/ProductionPlan/LenhSXPage.tsx', 'src/modules/pages/ProductionPlan/DeadlinePlanImportModal.tsx', 'src/modules/pages/ProductionPlan/DeadlineHistoryModal.tsx'],
+    },    // Huỷ lệnh theo SKU - đợt 1 (23/11/2026, anh Nhân trả lời 7 câu)
+    {
+      id: 'pp-huy-lenh',
+      title: 'Đề nghị huỷ SKU của lệnh đã duyệt',
+      roles: ['khsx'],
+      purpose: 'Khi khách huỷ hoặc đổi một SKU của lệnh Giám đốc đã duyệt, Kế hoạch SX đề nghị huỷ đúng SKU đó kèm lý do. Giám đốc duyệt thì SKU mới bị huỷ; các SKU khác của lệnh vẫn chạy tiếp.',
+      preconditions: [
+        'Tài khoản Kế hoạch sản xuất (Admin cũng làm được).',
+        'SKU đã được Giám đốc duyệt (đã có lệnh sản xuất) và chưa giao hàng.',
+      ],
+      screenshot: '/guide-screens/pp-huy-lenh-de-nghi.png',
+      extraScreenshots: [{ src: '/guide-screens/pp-huy-lenh.png', caption: 'Lệnh gộp sau khi đề nghị: SKU đang chờ Giám đốc có nhãn "Chờ Sếp duyệt huỷ" kèm nút "Rút lại"; SKU đã được duyệt huỷ có nhãn "Đã huỷ". Số liệu trong ảnh là dữ liệu mẫu.' }],
+      mock: {
+        title: 'Lệnh sản xuất mới > mở lệnh',
+        buttons: ['Đang chạy', 'Rút lại', 'Đề nghị huỷ'],
+      },
+      steps: [
+        'Vào menu "Lệnh sản xuất mới", bấm "Đang chạy", mở lệnh có SKU cần huỷ.',
+        'Ở dòng SKU cần huỷ, bấm nút đỏ "Đề nghị huỷ" (cạnh mã SKU và số lượng). Nút chỉ có ở SKU đã có lệnh sản xuất.',
+        { text: 'Ghi lý do huỷ (bắt buộc) rồi bấm "Gửi đề nghị". Giám đốc nhận thông báo và quyết ở mục "Huỷ lệnh SX".', critical: true },
+        'Trong lúc chờ, dòng SKU hiện nhãn đỏ "Chờ Sếp duyệt huỷ" (rê chuột vào nhãn để xem lại lý do). Xưởng vẫn làm bình thường tới khi Giám đốc duyệt.',
+        'Muốn thôi không huỷ: bấm "Rút lại" ngay trên nhãn đó và xác nhận. Lệnh chạy tiếp như cũ.',
+        'Khi Giám đốc quyết, bạn nhận thông báo kết quả. Được duyệt thì dòng SKU hiện nhãn "Đã huỷ"; bị từ chối thì thông báo ghi lý do và lệnh chạy tiếp.',
+        'Sau khi huỷ, dòng đơn hàng của SKU đó quay về "chưa lên lệnh": SKU xuất hiện lại ở màn "Tối ưu cắt sắt" để gom hoặc cắt riêng, rồi lên lệnh lại như một lệnh mới.',
+      ],
+      result: 'SKU bị huỷ dừng ở xưởng, dòng đơn hàng sẵn sàng lên lệnh lại; các SKU còn lại của lệnh chạy tiếp.',
+      tables: [
+        {
+          title: 'Sau khi Giám đốc duyệt huỷ',
+          columns: ['Phần việc', 'Hệ thống làm gì'],
+          rows: [
+            ['Xưởng', 'Không báo cắt, báo Hàn / Sơn, chấm KCS, ghi chuyền kiểm hay đóng gói cho SKU này nữa; QLSX không bấm "Bắt đầu" lại được. Các đợt của SKU này không còn hiện ở danh sách chờ KCS.'],
+            ['Hàng đã làm ra', 'Giữ nguyên tại kho của từng công đoạn (đoạn đã cắt, mảnh hàn / sơn, hàng đã đóng gói). Hệ thống ghi lại số lượng ở từng công đoạn lúc huỷ; việc dùng lại số hàng này cho lệnh khác làm ở đợt sau.'],
+            ['Số LSX', 'Số LSX chưa dùng (lệnh chưa bắt đầu, chưa xuất sắt, xưởng chưa báo gì) thì đi theo dòng mới. Số đã dùng thì ở lại lệnh cũ, dòng mới để trống - bạn nhập số mới khi lên lệnh lại.'],
+            ['Phương án cắt (lệnh gộp)', 'Lệnh chưa xuất sắt: hệ thống tự tính lại phương án cho các SKU còn lại. Nếu phương án mới vượt ngưỡng hao hụt hoặc không cắt được thì giữ phương án cũ và bạn nhận thông báo "giữ phương án cắt cũ" - muốn đổi thì vào "Tính lại" của lệnh. Lệnh đã xuất sắt: giữ phương án, tổ cắt cắt hết, phần của SKU huỷ thành dư.'],
+            ['Mua hàng', 'Dòng mua chưa ký tự giảm theo nhu cầu mới (không còn cần thì đóng). Dòng đã ký NCC: người mua nhận thông báo để liên hệ NCC - bớt được thì "Đóng phần thiếu", không bớt được thì hàng về vào tồn chung, không còn giữ cho lệnh.'],
+            ['Yêu cầu đổi mốc đang chờ', 'Tự huỷ theo.'],
+            ['Cả lệnh', 'Huỷ hết các SKU thì cả lệnh chuyển sang Huỷ và mọi giữ chỗ vật tư của lệnh được nhả.'],
+          ],
+        },
+      ],
+      statuses: [
+        { name: 'Chờ Sếp duyệt huỷ', meaning: 'Đã gửi đề nghị huỷ, chờ Giám đốc quyết. Mỗi SKU chỉ có một đề nghị chờ.' },
+        { name: 'Đã huỷ', meaning: 'Giám đốc đã duyệt huỷ. Dòng ở lại lệnh cũ để tra cứu, không làm gì thêm được.' },
+      ],
+      warnings: [
+        'Huỷ được bất kỳ lúc nào trước khi giao hàng. SKU đã xuất hàng theo booking thì không huỷ được.',
+        'SKU còn nằm trong một booking chưa xuất thì Giám đốc chưa duyệt được: nhờ Kinh doanh gỡ SKU khỏi booking trước.',
+        'Huỷ không hoàn tác được. Muốn làm lại SKU đó thì lên lệnh mới từ "Tối ưu cắt sắt".',
+      ],
+      commonErrors: [
+        { issue: 'Báo "Lệnh này đã có đề nghị huỷ đang chờ Sếp duyệt"', cause: 'SKU đã có một đề nghị chưa được Giám đốc quyết.', fix: 'Chờ Giám đốc quyết, hoặc bấm "Rút lại" rồi gửi đề nghị mới.' },
+        { issue: 'Báo "đã xuất ... cái theo booking - không huỷ được"', cause: 'SKU đã giao hàng.', fix: 'Không huỷ qua phần mềm được nữa; báo Giám đốc xử lý ngoài hệ thống.' },
+      ],
+      tags: ['huỷ lệnh', 'hủy lệnh', 'huỷ SKU', 'đề nghị huỷ', 'cancel', 'khách huỷ đơn'],
+      sourceRefs: [
+        'src/modules/pages/ProductionPlan/OrderCancelControls.tsx',
+        'BE src/modules/production-invoices/order-cancellation/order-cancellation.service.ts',
+      ],
     },
+
   ],
 };

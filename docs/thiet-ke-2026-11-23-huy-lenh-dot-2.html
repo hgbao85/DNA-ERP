@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DNA-ERP — Huỷ lệnh đợt 2: dùng lại hàng của SKU đã huỷ (23/11/2026)</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=Be+Vietnam+Pro:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --bg:#eef1f0;
+    --surface:#ffffff;
+    --surface-2:#f5f7f6;
+    --border:#d7dcda;
+    --border-strong:#c1c9c6;
+    --text:#182220;
+    --text-muted:#56635f;
+    --text-faint:#8a948f;
+    --accent:#1f6f78;
+    --accent-strong:#154e55;
+    --accent-soft:#dcecec;
+    --active:#a8382b;
+    --active-soft:#f6e3df;
+    --dead:#96631f;
+    --dead-soft:#f3e6d3;
+    --resolved:#3f6b4f;
+    --resolved-soft:#e1ede4;
+    --moot:#727d78;
+    --moot-soft:#eceeed;
+    --shadow: 0 1px 2px rgba(20,30,28,0.06), 0 6px 20px -12px rgba(20,30,28,0.18);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#10171a; --surface:#161f22; --surface-2:#1b2528;
+      --border:#2a3538; --border-strong:#39464a;
+      --text:#e7ede9; --text-muted:#a3b2ac; --text-faint:#728079;
+      --accent:#63b9bd; --accent-strong:#8fd0d2; --accent-soft:#1e3436;
+      --active:#e07a68; --active-soft:#3a231e;
+      --dead:#d9ab68; --dead-soft:#392e1b;
+      --resolved:#84c096; --resolved-soft:#1f3526;
+      --moot:#8ea198; --moot-soft:#212b28;
+      --shadow: 0 1px 2px rgba(0,0,0,0.4), 0 10px 30px -14px rgba(0,0,0,0.6);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#10171a; --surface:#161f22; --surface-2:#1b2528;
+    --border:#2a3538; --border-strong:#39464a;
+    --text:#e7ede9; --text-muted:#a3b2ac; --text-faint:#728079;
+    --accent:#63b9bd; --accent-strong:#8fd0d2; --accent-soft:#1e3436;
+    --active:#e07a68; --active-soft:#3a231e;
+    --dead:#d9ab68; --dead-soft:#392e1b;
+    --resolved:#84c096; --resolved-soft:#1f3526;
+    --moot:#8ea198; --moot-soft:#212b28;
+    --shadow: 0 1px 2px rgba(0,0,0,0.4), 0 10px 30px -14px rgba(0,0,0,0.6);
+  }
+
+  *{box-sizing:border-box;}
+  html{-webkit-text-size-adjust:100%;}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:'Be Vietnam Pro', system-ui, sans-serif;
+    font-size:16px; line-height:1.6; -webkit-font-smoothing:antialiased;
+  }
+  a{color:var(--accent-strong);}
+  a:focus-visible, button:focus-visible, summary:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+  code, .mono{ font-family:'IBM Plex Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+
+  .wrap{ max-width:960px; margin:0 auto; padding: clamp(28px, 6vw, 64px) clamp(18px, 5vw, 28px) 96px; }
+
+  header.hero{ border-bottom:1px solid var(--border); padding-bottom:28px; margin-bottom:32px; }
+  .eyebrow{ display:flex; align-items:center; gap:10px; font-family:'IBM Plex Mono', monospace; font-size:12.5px; letter-spacing:0.09em; text-transform:uppercase; color:var(--accent-strong); margin-bottom:14px; }
+  .eyebrow .dot{ width:6px; height:6px; border-radius:50%; background:var(--accent); box-shadow:0 0 0 3px var(--accent-soft); }
+  h1{ font-family:'Archivo', system-ui, sans-serif; font-weight:800; font-size:clamp(28px, 4.4vw, 40px); line-height:1.12; letter-spacing:-0.01em; margin:0 0 12px; text-wrap:balance; color:var(--text); }
+  .dek{ color:var(--text-muted); font-size:16.5px; max-width:70ch; margin:0 0 20px; }
+  .meta-row{ display:flex; flex-wrap:wrap; gap:10px 22px; font-size:13.5px; color:var(--text-faint); }
+  .meta-row b{ color:var(--text-muted); font-weight:600; }
+
+  .stats{ display:grid; grid-template-columns:repeat(auto-fit, minmax(130px,1fr)); gap:1px; background:var(--border); border:1px solid var(--border); border-radius:10px; overflow:hidden; margin:28px 0 4px; }
+  .stat{ background:var(--surface); padding:16px 16px 15px; }
+  .stat .n{ font-family:'Archivo', sans-serif; font-weight:800; font-size:26px; line-height:1; color:var(--text); }
+  .stat .n.active{color:var(--active);}
+  .stat .n.dead{color:var(--dead);}
+  .stat .n.resolved{color:var(--resolved);}
+  .stat .l{ margin-top:6px; font-size:12px; color:var(--text-faint); letter-spacing:0.02em; }
+
+  section{ margin-top:52px; }
+  .section-head{ display:flex; align-items:baseline; gap:12px; margin-bottom:6px; }
+  .section-num{ font-family:'IBM Plex Mono', monospace; font-size:13px; color:var(--text-faint); }
+  h2{ font-family:'Archivo', sans-serif; font-weight:700; font-size:22px; letter-spacing:-0.005em; margin:0; color:var(--text); }
+  .section-note{ color:var(--text-muted); font-size:15px; max-width:74ch; margin:10px 0 22px; }
+  .section-note code{ background:var(--surface-2); border:1px solid var(--border); border-radius:4px; padding:1px 5px; font-size:0.9em; }
+
+  .finding{ background:var(--surface); border:1px solid var(--border); border-left:4px solid var(--moot); border-radius:8px; padding:18px 20px 20px; margin-bottom:14px; box-shadow:var(--shadow); }
+  .finding.active{ border-left-color:var(--active); }
+  .finding.dead{ border-left-color:var(--dead); }
+  .finding.resolved{ border-left-color:var(--resolved); }
+  .finding.clean{ border-left-color:var(--accent); }
+
+  .finding-top{ display:flex; align-items:flex-start; justify-content:space-between; gap:14px; flex-wrap:wrap; margin-bottom:8px; }
+  .finding-title{ font-family:'Archivo', sans-serif; font-weight:700; font-size:16.5px; color:var(--text); margin:0; }
+  .badge{ display:inline-flex; align-items:center; gap:5px; font-family:'IBM Plex Mono', monospace; font-size:11px; letter-spacing:0.04em; text-transform:uppercase; padding:3px 8px; border-radius:999px; white-space:nowrap; font-weight:600; }
+  .badge.active{ background:var(--active-soft); color:var(--active); }
+  .badge.dead{ background:var(--dead-soft); color:var(--dead); }
+  .badge.resolved{ background:var(--resolved-soft); color:var(--resolved); }
+  .badge.moot{ background:var(--moot-soft); color:var(--moot); }
+  .badge.clean{ background:var(--accent-soft); color:var(--accent-strong); }
+
+  .loc{ display:block; font-family:'IBM Plex Mono', monospace; font-size:12.5px; color:var(--text-faint); margin-bottom:10px; }
+  .finding p{ margin:0 0 10px; color:var(--text); font-size:15px; }
+  .finding p:last-child{ margin-bottom:0; }
+  .finding .scenario{ background:var(--surface-2); border:1px solid var(--border); border-radius:6px; padding:10px 13px; font-size:14px; color:var(--text-muted); }
+  .finding .scenario b{ color:var(--text); font-weight:600; }
+  .finding .quote{ font-size:13.5px; color:var(--text-faint); border-left:2px solid var(--border); padding-left:10px; font-style:italic; margin:0 0 10px; }
+
+  .status-list{ display:flex; flex-direction:column; gap:1px; background:var(--border); border:1px solid var(--border); border-radius:8px; overflow:hidden; }
+  .status-row{ background:var(--surface); padding:13px 16px; display:flex; gap:14px; align-items:flex-start; }
+  .status-row .badge{ margin-top:2px; flex-shrink:0; }
+  .status-row .body b{ color:var(--text); }
+  .status-row .body{ color:var(--text-muted); font-size:14.5px; }
+
+  .cmp-table{ width:100%; border-collapse:collapse; font-size:14px; }
+  .cmp-table th{ text-align:left; font-family:'IBM Plex Mono', monospace; font-size:11px; letter-spacing:0.05em; text-transform:uppercase; color:var(--text-faint); padding:0 12px 8px; border-bottom:1px solid var(--border-strong); }
+  .cmp-table td{ padding:11px 12px; border-bottom:1px solid var(--border); color:var(--text-muted); vertical-align:top; }
+  .cmp-table td:first-child{ color:var(--text); font-weight:600; }
+  .cmp-table tr:last-child td{ border-bottom:none; }
+  .table-wrap{ overflow-x:auto; border:1px solid var(--border); border-radius:8px; background:var(--surface); box-shadow:var(--shadow); margin-bottom:14px; }
+
+  footer{ margin-top:64px; padding-top:20px; border-top:1px solid var(--border); font-size:12.5px; color:var(--text-faint); }
+
+  .tags{ display:inline-flex; flex-wrap:wrap; gap:6px; }
+  .badge.me{ background:var(--surface-2); color:var(--text-muted); border:1px solid var(--border); }
+  .badge.part{ background:var(--surface-2); color:var(--accent-strong); border:1px dashed var(--border-strong); }
+  .finding .scenario{ margin-top:4px; }
+  h3.sub{ font-family:'Archivo', sans-serif; font-weight:700; font-size:16px; margin:28px 0 8px; color:var(--text); }
+  ol.steps, ul.plain{ margin:0; padding-left:22px; color:var(--text); font-size:15px; }
+  ol.steps li, ul.plain li{ margin-bottom:8px; }
+  ol.steps{ background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px 20px 10px 40px; box-shadow:var(--shadow); }
+  .section-note b{ color:var(--text); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <div class="eyebrow"><span class="dot"></span>Thiết kế · Huỷ lệnh theo SKU · Đợt 2 · Bàn với Sang</div>
+    <h1>Cho lệnh khác dùng lại hàng của SKU đã huỷ</h1>
+    <p class="dek">Đợt 1 (đã lên <code>main</code> / <code>demo</code> 23/11) cho huỷ từng SKU, dừng xưởng, xử lý mua hàng, và <b>giữ nguyên</b> hàng đã làm ra tại kho công đoạn. Đợt 2 làm nốt câu 6 và câu 7 anh Nhân trả lời: số hàng đó phải vào tồn đúng công đoạn để lệnh khác dùng được. Phần lớn đụng code xưởng của Sang, nên bản này để Sang xem và chốt hướng trước khi code. <b>Chưa sửa gì.</b></p>
+    <div class="meta-row">
+      <span><b>Ngày:</b> 23/11/2026</span>
+      <span><b>Người viết:</b> B (Bảo)</span>
+      <span><b>Dựa trên:</b> BE <code>main</code> dd51aa7, FE <code>demo</code> 2de102a</span>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="n active">5</div><div class="l">Loại hàng cần xử lý (sắt chưa cắt, đoạn, mảnh, khung đan, thành phẩm)</div></div>
+      <div class="stat"><div class="n dead">1</div><div class="l">Loại đã là tồn dùng chung (đoạn, khi bật công tắc)</div></div>
+      <div class="stat"><div class="n">7</div><div class="l">Câu cần chốt (mục 03)</div></div>
+      <div class="stat"><div class="n resolved">0</div><div class="l">Migration cần ngay cho bước 1</div></div>
+    </div>
+  </header>
+
+  <section>
+    <div class="section-head"><span class="section-num">00</span><h2>Tóm tắt</h2></div>
+    <div class="status-list">
+      <div class="status-row"><span class="badge active">Yêu cầu</span><div class="body">Anh Nhân 23/11. <b>Câu 6:</b> sắt đã xuất cho tổ cắt mà chưa dùng thì để ở bên cắt, cắt hết rồi đưa vào tồn kho Phôi. <b>Câu 7:</b> hàng đã làm ra vào tồn đúng công đoạn: đoạn đã cắt vào kho Phôi, mảnh hàn / sơn vào kho tương ứng, hàng đã đóng gói vào kho thành phẩm.</div></div>
+      <div class="status-row"><span class="badge dead">Đợt 1 đã làm</span><div class="body">Lúc Sếp duyệt huỷ, hệ thống chụp số hàng của SKU ở từng công đoạn vào <code class="mono">production_order_cancel_requests.wipSnapshot</code> (đoạn theo quy cách + trạng thái đợt cắt, lô mảnh theo công đoạn, pat, xuất / nhận đan, chuyền kiểm, đã đóng gói, phiếu XK sắt của cả lệnh). Mọi ghi của xưởng cho SKU đã huỷ bị chặn; SKU huỷ bị bỏ khỏi tiến độ / nhu cầu / danh sách việc / KCS.</div></div>
+      <div class="status-row"><span class="badge active">Vấn đề</span><div class="body">Chỉ <b>đoạn</b> là có sẵn khái niệm "tồn dùng chung" (cột dư), và chỉ khi bật <code class="mono">SEGMENT_STOCK_ENABLED</code> (đang tắt ở dev và prod). Mảnh đã nằm trong sổ kho theo mã mảnh nhưng mọi trần xuất / chuyển đều tính theo bộ đếm của chính lệnh nên lệnh khác không lấy được. Khung đan và thành phẩm không có sổ tồn. Sắt đã xuất chưa cắt không có đường báo cắt nếu không gắn SKU.</div></div>
+      <div class="status-row"><span class="badge clean">Đề xuất</span><div class="body">Làm theo 3 bước, dễ trước khó sau (mục 02). Bước 1 chỉ cần bật công tắc tồn đoạn + 1 dòng lọc lệnh huỷ. Bước 2 "chuyển sổ" thủ công mảnh / thành phẩm sang SKU khác cùng mã, có dấu vết, không cần tồn dùng chung. Bước 3 đường "cắt cho tồn" cho sắt đã xuất.</div></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head"><span class="section-num">01</span><h2>Hiện trạng từng loại hàng</h2></div>
+    <p class="section-note">Đọc code 23/11 (BE <code>main</code>). "Tồn" = có trong sổ kho (<code>stock_ledger</code> / <code>stock_quant</code>). "Lệnh khác dùng được" = luồng của lệnh khác lấy được hàng đó mà không cần sửa code.</p>
+    <div class="table-wrap">
+      <table class="cmp-table">
+        <thead><tr><th>Loại hàng</th><th>Đang lưu ở đâu</th><th>Là tồn?</th><th>Lệnh khác dùng được?</th><th>Thiếu gì</th></tr></thead>
+        <tbody>
+          <tr><td><b>Sắt đã xuất, chưa cắt</b></td><td><code class="mono">SteelIssue</code> theo (PI, vật tư, chiều dài). Xuất là trừ kho Phôi sang kho ảo PRODUCTION. Số cây chưa cắt chỉ ước lượng (<code class="mono">attachSteelBalance</code>: mm nhận − mm đã báo cắt).</td><td>Không</td><td>Không</td><td>Báo cắt (<code class="mono">recordCutBatch</code>) bắt buộc gắn 1 SKU của PI, chỉ cỡ đoạn trong định mức SKU đó, và bị chặn vượt nhu cầu (<code class="mono">assertCutWithinNeedInTx</code>). Không có đường "cắt cho tồn".</td></tr>
+          <tr><td><b>Đoạn đã cắt</b></td><td><code class="mono">CutBundle</code> + KCS. Khi bật công tắc: sau KCS, <code class="mono">SegmentProductionService.recomputeAfterQc</code> ghi <code class="mono">SEGMENT_PRODUCE</code> vào kho Phôi, chia phần <b>giữ cho PI</b> (tới nhu cầu) và phần <b>dư</b>.</td><td>Chỉ khi bật công tắc</td><td>Có (phần dư): Hàn tiêu đoạn của PI mình trước rồi lấy dư (<code class="mono">consumeForOrder</code>).</td><td>Công tắc đang tắt. Nhu cầu tính theo cả PI (<code class="mono">loadProduction</code>), chưa bỏ SKU huỷ. PI đã "đóng" (Huỷ / mọi SKU Kết thúc) thì không tính lại nữa - nhưng lúc đóng, đợt 1 đã gọi <code class="mono">releaseOrderHoldings</code> nên phần giữ tự sang dư.</td></tr>
+          <tr><td><b>Mảnh Hàn / Sơn (và Phôi VTTP)</b></td><td>Lô <code class="mono">ProductionBatch</code> theo lệnh SX. Qua KCS công đoạn cuối: <code class="mono">FRAME_OUTPUT</code> ghi sổ theo mã mảnh vào kho Sơn / Hàn / Phôi của xưởng.</td><td>Có (theo mã mảnh, không gắn lệnh)</td><td>Không</td><td>Mọi trần (xuất đan <code class="mono">pieceCaps</code>, chuyển mảnh, kế hoạch Hàn / Sơn) tính theo bộ đếm QC_DONE <b>của chính lệnh</b> trừ phần đã chuyển / xuất. Mảnh của lệnh huỷ nằm im trong sổ.</td></tr>
+          <tr><td><b>Khung đã đan</b></td><td><code class="mono">WeavingReceipt</code> - bộ đếm theo lệnh, không ghi sổ kho. Mảnh xuất đan đã trừ sổ (<code class="mono">WEAVING_ISSUE</code>).</td><td>Không</td><td>Không</td><td>Không có khái niệm tồn khung đan.</td></tr>
+          <tr><td><b>Chuyền kiểm / đã đóng gói</b></td><td><code class="mono">TransferCheckResult</code>, <code class="mono">PackagingRecord</code> - bộ đếm theo dòng SKU. Booking giao chặn theo (đã đóng gói − đã giao) của chính dòng SKU.</td><td>Không (không có sổ tồn thành phẩm; loại sổ <code class="mono">FINISHED</code> có trong enum nhưng chưa dùng)</td><td>Không</td><td>Sổ tồn thành phẩm, hoặc cách chuyển số đã đóng gói sang dòng SKU khác.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head"><span class="section-num">02</span><h2>Đề xuất làm theo 3 bước</h2></div>
+    <p class="section-note">Mỗi bước dùng được ngay khi xong, không phụ thuộc bước sau. Thứ tự theo độ khó và mức đụng code xưởng.</p>
+
+    <div class="finding clean">
+      <div class="finding-top"><h3 class="finding-title">Bước 1 — Đoạn: bật tồn đoạn, bỏ SKU huỷ khỏi nhu cầu</h3><span class="tags"><span class="badge part">Sang</span></span></div>
+      <span class="loc mono">segment-production.service.ts: loadProduction · SEGMENT_STOCK_ENABLED</span>
+      <p>Thêm lọc lệnh huỷ vào <code class="mono">loadProduction</code> (cùng helper <code class="mono">NOT_CANCELLED_ORDER</code> đợt 1 đã dùng ~30 chỗ). Lần tính lại sau KCS kế tiếp tự chuyển phần đoạn của SKU huỷ từ "giữ cho PI" sang "dư", lệnh khác dùng qua <code class="mono">consumeForOrder</code> như hiện nay. Đợt 1 cố ý <b>chưa</b> lọc chỗ này vì công tắc đang tắt và chưa chốt với Sang.</p>
+      <p>Phần cần Sang quyết là <b>bật công tắc</b> (câu Q1): DB dev đang có ô tồn đoạn âm sẵn (Phôi PA −150, PhA −30 lúc kiểm 18/11), phải kiểm kê đoạn trước khi bật. Không cần migration.</p>
+    </div>
+
+    <div class="finding clean">
+      <div class="finding-top"><h3 class="finding-title">Bước 2 — Mảnh và thành phẩm: "chuyển sổ" sang SKU khác cùng mã</h3><span class="tags"><span class="badge part">Sang + Bảo</span></span></div>
+      <span class="loc mono">production-batches · warehouse-transfers (chuyển mảnh) · weaving-issues · packaging / booking-shipments</span>
+      <p>Thay vì làm "tồn mảnh dùng chung" (phải đổi mọi trần đang tính theo bộ đếm từng lệnh), cho QLSX (mảnh) / KHSX (thành phẩm) <b>chuyển số</b> từ lệnh đã huỷ sang 1 lệnh đang chạy <b>cùng mã mảnh</b> (mảnh) hoặc <b>cùng sản phẩm + màu dây + vải nệm</b> (thành phẩm). Ghi 1 bản ghi chuyển có người làm + lý do; lệnh nhận coi như đã làm ra số đó (bộ đếm tăng, phần cần làm giảm), lệnh huỷ giảm tương ứng. Không trừ trên số chụp lúc huỷ quá phần còn lại.</p>
+      <p>Đã có mẫu gần giống: <code class="mono">assignCutBundleOrder</code> / <code class="mono">assignStepBundleOrder</code> (Admin chuyển đợt cắt sang SKU khác <b>trong cùng PI</b>, có audit). Bước 2 mở rộng ý đó ra khác PI. Cần 1 bảng mới ghi lần chuyển (migration).</p>
+    </div>
+
+    <div class="finding dead">
+      <div class="finding-top"><h3 class="finding-title">Bước 3 — Sắt đã xuất chưa cắt: đường "cắt cho tồn"</h3><span class="tags"><span class="badge dead">Sang</span></span></div>
+      <span class="loc mono">steel-issues.service.ts: recordCutBatch · assertCutWithinNeedInTx · qc-reviews · segment-stock</span>
+      <p>Theo câu 6: tổ cắt cắt hết sắt đã nhận của lệnh huỷ, đoạn ra vào dư kho Phôi. Cần 1 kiểu đợt cắt <b>không gắn SKU</b> (hoặc gắn lệnh đã huỷ), được cắt cỡ đoạn bất kỳ của loại sắt đó, không chặn theo nhu cầu, qua KCS rồi ghi thẳng <code class="mono">SEGMENT_PRODUCE</code> vào <b>dư</b> (không giữ cho PI nào). Phụ thuộc bước 1 (công tắc tồn đoạn).</p>
+      <p>Phương án đơn giản hơn để hỏi anh Nhân (câu Q3): cây chưa cắt thì <b>nhập trả</b> về kho Phôi thành cây lẻ (đã có luồng cây lẻ CS2 dùng trước cho lệnh sau), không bắt cắt.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head"><span class="section-num">03</span><h2>Câu cần chốt</h2></div>
+    <p class="section-note">Q1, Q4, Q7 hỏi Sang. Q2, Q3, Q5, Q6 cần anh Nhân trả lời (sau khi Sang đồng ý hướng). Cột "Đề xuất" là ý của B.</p>
+    <div class="table-wrap">
+      <table class="cmp-table">
+        <thead><tr><th>#</th><th>Câu hỏi</th><th>Hỏi ai</th><th>Đề xuất</th></tr></thead>
+        <tbody>
+          <tr><td>Q1</td><td>Bật <code class="mono">SEGMENT_STOCK_ENABLED</code> ở dev rồi prod được chưa? Cần kiểm kê đoạn trước để xoá các ô âm không?</td><td>Sang</td><td>Bật ở dev sau khi kiểm kê đoạn (đã có <code class="mono">POST segment-stocktake</code>), chạy thử 1 tuần rồi mới bật prod.</td></tr>
+          <tr><td>Q2</td><td>Đoạn đã cắt của SKU huỷ có cần ai xác nhận trước khi thành dư không, hay tự động?</td><td>Anh Nhân</td><td>Tự động (đúng câu 7: vào tồn kho Phôi).</td></tr>
+          <tr><td>Q3</td><td>Sắt đã xuất chưa cắt: bắt cắt hết (câu 6) hay cho nhập trả thành cây lẻ? Nếu cắt hết thì cắt cỡ nào - theo phương án cũ, hay tổ cắt tự chọn?</td><td>Anh Nhân</td><td>Cho cả 2: còn nguyên cây thì nhập trả thành cây lẻ (rẻ, đã có luồng); cây đã cắt dở thì cắt hết theo phương án cũ.</td></tr>
+          <tr><td>Q4</td><td>Bước 2 "chuyển sổ" mảnh: ai bấm (QLSX hay Admin)? Có giới hạn cùng xưởng không (mảnh nằm ở kho xưởng khác thì phải kèm phiếu chuyển kho)?</td><td>Sang</td><td>QLSX của xưởng đang giữ mảnh; khác xưởng thì bắt kèm phiếu chuyển kho như đổi xưởng.</td></tr>
+          <tr><td>Q5</td><td>Hàng đã đóng gói của SKU huỷ có được giao cho đơn của khách khác không? Bắt buộc cùng màu dây, vải nệm, nhãn khách?</td><td>Anh Nhân</td><td>Chỉ chuyển sang dòng SKU cùng sản phẩm + màu dây + vải nệm; nhãn / thùng in riêng theo khách thì không chuyển.</td></tr>
+          <tr><td>Q6</td><td>Khung đã đan (đã nhận về từ điểm đan) của SKU huỷ xử lý thế nào? Có dùng lại cho lệnh khác không?</td><td>Anh Nhân</td><td>Coi như thành phẩm dở dang: chuyển sổ như Q5, cùng điều kiện màu dây.</td></tr>
+          <tr><td>Q7</td><td>Chia việc: bước 1 và 3 (đoạn, cắt cho tồn) là code của Sang; bước 2 phần mảnh của Sang, phần thành phẩm / booking của B. Sang đồng ý không?</td><td>Sang</td><td>Như trên. B làm bảng chuyển sổ + màn KHSX; Sang làm phần xưởng.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head"><span class="section-num">04</span><h2>Đợt 1 để lại gì cho đợt 2</h2></div>
+    <div class="status-list">
+      <div class="status-row"><span class="badge resolved">Dữ liệu</span><div class="body"><code class="mono">wipSnapshot</code> trên mỗi đề nghị huỷ đã duyệt: số hàng lúc huỷ, làm trần cho lần chuyển sổ / ghi tồn sau này. Dòng SKU cũ ở lại lệnh cũ (<code class="mono">cancelledAt</code>), lệnh SX <code class="mono">status = CANCELLED</code>, <code class="mono">floorStage = FINISHED</code>.</div></div>
+      <div class="status-row"><span class="badge resolved">Helper</span><div class="body"><code class="mono">common/utils/cancelled-order.util.ts</code>: <code class="mono">NOT_CANCELLED_ORDER</code>, <code class="mono">orderNotCancelled()</code> / <code class="mono">orderNotCancelledNullable()</code>, <code class="mono">isCancelledOrder()</code>. Cổng xưởng: <code class="mono">assertOrderNotCancelled</code> / <code class="mono">assertItemNotCancelled</code> trong <code class="mono">floor-gate.util.ts</code>.</div></div>
+      <div class="status-row"><span class="badge dead">Cố ý chưa lọc</span><div class="body"><code class="mono">segment-production loadProduction</code> (bước 1), <code class="mono">cut-allocation-snapshot</code> (phương án giữ nguyên nên tổ cắt vẫn thấy kiểu cắt của SKU huỷ), các danh sách lịch sử (đợt cắt / lô đã báo).</div></div>
+      <div class="status-row"><span class="badge active">Còn hở</span><div class="body">Phiếu XK sắt đã xuất cho lệnh huỷ hết mà tổ cắt chưa xác nhận nhận thì không xác nhận được nữa (cổng xưởng chặn vì lệnh không còn SKU chạy). Đi cùng Q3.</div></div>
+    </div>
+  </section>
+
+</div>
+</body>
+</html>
