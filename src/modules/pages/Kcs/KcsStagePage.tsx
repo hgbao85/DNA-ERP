@@ -135,7 +135,10 @@ export default function KcsStagePage({ cfg, stage, showPieceSteps }: {
 
     let seq = 1
     const out: KcsRow[] = []
+    // Huỷ lệnh theo SKU (23/11/2026): SKU đã huỷ KCS không chấm được (BE 409) -> bỏ cả dòng lệnh (đợt mở BE đã lọc).
+    const cancelled = new Set(review?.cancelledOrderIds ?? [])
     for (const productionOrderId of order) {
+      if (cancelled.has(productionOrderId)) continue
       const { batches: batchList, bundles: bundleList, openBatches, openPats, piCode } = byPo.get(productionOrderId)!
       // 2026-09-10 (theo yêu cầu người dùng): màn KCS LUÔN hiện mã PI (lệnh sản xuất nội bộ KCS
       // đang kiểm), KHÔNG hiện mã PO (đơn hàng Sales) - trước đây ưu tiên PO nếu có, dễ nhầm với
