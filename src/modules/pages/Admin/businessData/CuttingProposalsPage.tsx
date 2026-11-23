@@ -17,7 +17,8 @@ import { buildCuttingGuideTable, exportCuttingGuideExcel, printCuttingGuide } fr
 import PrintExportButton from '../../../../components/PrintExportButton'
 import { PatternMachineCell } from '../../ProductionPlan/CuttingSolvePanel'
 import { fmtBundles, fmtBundleSummary, linesMachine, machineLabel } from '../../../../utils/cutMachine'
-import { fmtMm, fmtNum, fmtPct } from '../../../../utils/numberFormat'
+import { fmtBars, fmtMm, fmtNum, fmtPct } from '../../../../utils/numberFormat'
+import { stockLengthBreakdown } from '../../../../utils/stockLengthBreakdown'
 import {
   getCuttingProposals,
   getCuttingProposal,
@@ -241,7 +242,7 @@ export default function CuttingProposalsPage() {
               meta: [
                 { label: 'SKU / Sản phẩm', value: p.mfgProductName ? `${p.mfgProductCode} — ${p.mfgProductName}` : p.mfgProductCode },
                 { label: 'Ngày yêu cầu', value: fmtDate(p.requestedAt) },
-                { label: 'Tổng số cây', value: fmtNum(p.totalBarsAll) },
+                { label: 'Tổng số cây cắt', value: fmtNum(p.totalBarsAll) },
                 { label: 'Hao hụt %', value: fmtPct(p.wastePercentage) },
               ],
               footer: p.displayStatus === 'NEEDS_ACTION' ? <div style={{ display: 'flex', justifyContent: 'flex-end' }}>{retryBtn(p)}</div> : undefined,
@@ -260,7 +261,7 @@ export default function CuttingProposalsPage() {
                   <th style={th}>Mã PO</th>
                   <th style={th}>SKU / Sản phẩm</th>
                   <th style={th}>Trạng thái</th>
-                  <th style={{ ...th, textAlign: 'right' }}>Tổng số cây</th>
+                  <th style={{ ...th, textAlign: 'right' }} title="Tổng số cây cắt, gồm cả cây lẻ có sẵn ở kho Phôi (nếu có) - số cây mua xem trong chi tiết">Tổng số cây cắt</th>
                   <th style={{ ...th, textAlign: 'right' }}>Hao hụt %</th>
                   <th style={th}>Ngày yêu cầu</th>
                   <th style={th}>Thao tác</th>
@@ -400,7 +401,19 @@ export default function CuttingProposalsPage() {
                           </span>
                         </td>
                         <td style={{ ...td, textAlign: 'right' }}>
-                          {fmtNum(l.totalBars)}
+                          {(() => {
+                            // CS2 (review Sang 21/11): cây lẻ kho Phôi cắt trước, không phải mua - số chính là cây MUA.
+                            const leftover = stockLengthBreakdown(l).filter(e => e.leftover).reduce((s, e) => s + e.bars, 0)
+                            if (l.totalBars == null || leftover === 0) return fmtNum(l.totalBars)
+                            return (
+                              <>
+                                {fmtNum(l.totalBars - leftover)}
+                                <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 2, whiteSpace: 'nowrap' }}>
+                                  cắt {fmtNum(l.totalBars)} cây, {fmtNum(leftover)} cây lẻ có sẵn
+                                </div>
+                              </>
+                            )
+                          })()}
                           {/* MC Tự động: nói luôn số bó / cây cắt tay / lần cắt ngay dưới số cây. */}
                           {l.machine === 'tu_dong' && fmtBundleSummary(l.bundleSummary) && (
                             // Cho xuống dòng (13/11/2026): để 1 dòng thì chữ tràn đè sang cột Hao hụt trong khung chi tiết hẹp.
@@ -425,6 +438,11 @@ export default function CuttingProposalsPage() {
                           {l.lengthSource === 'scan' && (
                             <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--fg-e65100)', marginTop: 2 }}>⚠ đặt riêng</div>
                           )}
+                          {stockLengthBreakdown(l).filter(e => e.leftover).map(e => (
+                            <div key={e.lengthMm} style={{ fontSize: 10, fontWeight: 700, color: 'var(--fg-166534)', marginTop: 2, whiteSpace: 'nowrap' }}>
+                              + {fmtBars(e.bars)} lẻ {fmtMm(e.lengthMm)} kho Phôi
+                            </div>
+                          ))}
                         </td>
                         <td style={{ ...td, textAlign: 'right' }}>
                           {l.solveSeconds != null ? fmtSeconds(l.solveSeconds) : '—'}
