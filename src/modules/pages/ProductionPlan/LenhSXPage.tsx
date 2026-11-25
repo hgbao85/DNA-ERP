@@ -2453,7 +2453,7 @@ export default function LenhSXPage() {
                 </div>
               ) : (
                 <div style={{ marginBottom:16, fontSize:11.5, color:'var(--text3)' }}>
-                  Đợt gộp: mốc cần sắt (Mua VT khung & đan, chưa có thì Khung cơ khí) của các SKU chỉ được gộp trong khung {mergeWindowDays} ngày (chênh tối đa {maxGapDays(mergeWindowDays)} ngày).
+                  Đợt gộp: nên giữ mốc cần sắt (Mua VT khung & đan, chưa có thì Khung cơ khí) của các SKU gần nhau; không còn chặn theo số ngày chênh.
                 </div>
               )
             )}

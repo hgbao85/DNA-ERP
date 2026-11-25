@@ -13,7 +13,8 @@ import {
   type OrderCancelRequestDto,
   type OrderCancelStatus,
 } from '../../../services/order-cancellations-api'
-import ConfirmModal from '../../../components/ConfirmModal'
+import Modal from '../../../components/Modal'
+import CancelImpactPanel from './CancelImpactPanel'
 import EmptyState from '../../../components/EmptyState'
 import LoadErrorState from '../../../components/LoadErrorState'
 import LoadingState from '../../../components/LoadingState'
@@ -58,6 +59,8 @@ export default function DuyetHuyLenhPage() {
 
   const [approveTarget, setApproveTarget] = useState<OrderCancelRequestDto | null>(null)
   const [rejectTarget, setRejectTarget] = useState<OrderCancelRequestDto | null>(null)
+  // Câu 8: xem lại ảnh hưởng của đề nghị đã quyết (số chụp lúc duyệt).
+  const [viewTarget, setViewTarget] = useState<OrderCancelRequestDto | null>(null)
   const [reason, setReason] = useState('')
   const [busy, setBusy] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
@@ -151,6 +154,9 @@ export default function DuyetHuyLenhPage() {
                         <div style={{ fontWeight: 600, color: r.status === 'APPROVED' ? 'var(--fg-c62828)' : 'var(--text2)' }}>{STATUS_TEXT[r.status]}</div>
                         {r.decisionNote && <div style={{ fontSize: 11.5, color: 'var(--text2)' }}>{r.status === 'REJECTED' ? 'Lý do: ' : ''}{r.decisionNote}</div>}
                         {r.decidedByName && <div style={{ fontSize: 11, color: 'var(--text3)' }}>{r.decidedByName} · {fmtDateTimeVN(r.decidedAt)}</div>}
+                        {r.status === 'APPROVED' && (
+                          <button onClick={() => setViewTarget(r)} style={{ marginTop: 4, padding: 0, border: 'none', background: 'none', color: 'var(--blue)', fontSize: 12, cursor: 'pointer' }}>Xem sắt / mua / hàng</button>
+                        )}
                       </div>
                     )}
                   </td>
@@ -161,19 +167,38 @@ export default function DuyetHuyLenhPage() {
         </div>
       )}
 
-      <ConfirmModal
-        open={approveTarget != null}
-        title="Duyệt huỷ lệnh"
-        message={approveTarget
-          ? `Huỷ SKU ${approveTarget.factoryCode} (${approveTarget.quantity} cái) của lệnh ${lenhOf(approveTarget)}? Xưởng dừng làm SKU này, không hoàn tác được. SKU về "chưa lên lệnh" để Kế hoạch SX lên lệnh lại.`
-          : ''}
-        confirmLabel="Duyệt huỷ"
-        danger
-        busy={busy}
-        error={actionError}
-        onConfirm={() => approveTarget && void decide(approveTarget, true)}
-        onCancel={closeModals}
-      />
+      <Modal open={approveTarget != null} onClose={busy ? undefined : closeModals} maxWidth={760}>
+        {approveTarget && (
+          <>
+            <h3 style={{ margin: '0 0 6px', fontSize: 16, fontWeight: 700 }}>Duyệt huỷ lệnh {lenhOf(approveTarget)}</h3>
+            <p style={{ margin: '0 0 4px', fontSize: 13, color: 'var(--text2)' }}>
+              Huỷ SKU {approveTarget.factoryCode} ({approveTarget.quantity} cái)? Xưởng dừng làm SKU này, không hoàn tác được. SKU về
+              &quot;chưa lên lệnh&quot; để Kế hoạch SX lên lệnh lại.
+            </p>
+            <CancelImpactPanel requestId={approveTarget.id} />
+            {actionError && <div style={{ marginTop: 12, color: 'var(--fg-c62828)', fontSize: 12.5 }}>{actionError}</div>}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 18 }}>
+              <button onClick={closeModals} disabled={busy} style={{ padding: '7px 14px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 13, cursor: 'pointer' }}>Hủy</button>
+              <button
+                onClick={() => void decide(approveTarget, true)}
+                disabled={busy}
+                style={{ padding: '7px 14px', borderRadius: 6, border: 'none', background: 'var(--bg-c62828)', color: '#fff', fontSize: 13, fontWeight: 600, cursor: busy ? 'not-allowed' : 'pointer', opacity: busy ? 0.6 : 1 }}
+              >{busy ? 'Đang huỷ...' : 'Duyệt huỷ'}</button>
+            </div>
+          </>
+        )}
+      </Modal>
+      <Modal open={viewTarget != null} onClose={() => setViewTarget(null)} maxWidth={760}>
+        {viewTarget && (
+          <>
+            <h3 style={{ margin: '0 0 6px', fontSize: 16, fontWeight: 700 }}>Lệnh {lenhOf(viewTarget)} · {viewTarget.factoryCode}</h3>
+            <CancelImpactPanel requestId={viewTarget.id} />
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 18 }}>
+              <button onClick={() => setViewTarget(null)} style={{ padding: '7px 14px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 13, cursor: 'pointer' }}>Đóng</button>
+            </div>
+          </>
+        )}
+      </Modal>
       <ReasonModal
         open={rejectTarget != null}
         title="Từ chối huỷ lệnh"

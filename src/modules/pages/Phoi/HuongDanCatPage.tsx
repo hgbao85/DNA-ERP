@@ -322,8 +322,12 @@ function MaterialGuide({ poNumber, line, laserAllowed, outputs, stepLines }: {
                   <td style={tdR}>
                     {need.value == null ? <span style={{ color: 'var(--text3)' }}>—</span> : fmtNum(need.value)}
                     {need.recut > 0 && <div style={{ fontSize: 11, color: 'var(--text3)', whiteSpace: 'nowrap' }}>(+{fmtNum(need.recut)} cắt lại)</div>}
+                    {!!p.fromStock && <div style={{ fontSize: 11, color: 'var(--green)', whiteSpace: 'nowrap' }} title="Đoạn dư có sẵn trong kho Phôi, thủ kho xuất cho tổ - không phải cắt">(+{fmtNum(p.fromStock)} có sẵn trong kho)</div>}
                   </td>
-                  <td style={{ ...tdR, fontWeight: 700 }}>{fmtNum(p.produced)}</td>
+                  <td style={{ ...tdR, fontWeight: 700 }}>
+                    {fmtNum(p.produced)}
+                    {!Number.isNaN(p.demand) && p.produced > p.demand && <div style={{ fontSize: 11, fontWeight: 400, color: 'var(--text3)', whiteSpace: 'nowrap' }} title="Đoạn dư cắt từ khúc thừa cây mua cuối - báo cắt, làm đủ công đoạn, KCS chấm rồi vào phần dư kho Phôi">(+{fmtNum(p.produced - p.demand)} đoạn dư)</div>}
+                  </td>
                   {outputs && (o ? <>
                     <td style={tdR}>
                       {fmtNum(o.cut)}

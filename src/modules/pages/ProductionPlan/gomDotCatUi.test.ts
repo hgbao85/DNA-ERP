@@ -138,14 +138,13 @@ describe('buildRuleReason', () => {
   it('quá số SKU tối đa', () => {
     expect(buildRuleReason({ ...base, selectedCount: 3 })).toBe('Đợt gồm 3 SKU, tối đa 2 SKU mỗi đợt/lệnh gộp.')
   })
-  it('mốc cách nhau quá khung thì nêu hai đầu, trong khung thì gộp được', () => {
+  // 24/11/2026 (anh Nhân): bỏ chặn khung N ngày - mốc cách xa vẫn gộp được.
+  it('mốc cách nhau xa (20 ngày) không còn bị chặn', () => {
     const span = (days: number) => ({
-      days, earliest: { code: 'A', date: '2026-11-10' }, latest: { code: 'B', date: '2026-11-20' },
+      days, earliest: { code: 'A', date: '2026-11-10' }, latest: { code: 'B', date: '2026-11-30' },
     })
     expect(buildRuleReason({ ...base, span: span(4) })).toBeNull()
-    const msg = buildRuleReason({ ...base, span: span(5) })
-    expect(msg).toContain('cách nhau 5 ngày')
-    expect(msg).toContain('khung 5 ngày (chênh tối đa 4 ngày)')
+    expect(buildRuleReason({ ...base, span: span(20) })).toBeNull()
   })
 })
 

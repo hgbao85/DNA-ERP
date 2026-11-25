@@ -112,10 +112,11 @@ interface PiAgg {
   blockedCount: number
 }
 /** 1 đợt cắt kèm lô nhận cha (để hiện materialName/barLengthMm - bundle tự nó không có tên vật tư). */
-interface CutRow { kind: 'cut'; bundle: BeCutBundle; issue: BeSteelIssue }
+/** orderCancelled: câu 4 (24/11/2026) - SKU đã huỷ, KCS vẫn chấm nốt (không xám theo lệnh dừng). */
+interface CutRow { kind: 'cut'; bundle: BeCutBundle; issue: BeSteelIssue; orderCancelled?: boolean }
 /** 1 đợt gửi KCS công đoạn PHỤ (2026-09-08, PI-wide) - StepBundle tự mang đủ
  *  productionInvoiceId/materialName, không cần cutBundle/issue cha nữa. */
-interface StepRow { kind: 'step'; stepBundle: BeStepBundle }
+interface StepRow { kind: 'step'; stepBundle: BeStepBundle; orderCancelled?: boolean }
 /** P1 (18/11/2026): đợt cắt ĐANG MỞ (công nhân vừa báo, chưa chốt) - từ GET /floor/review. Bấm Chấm thì chốt rồi chấm. */
 interface OpenCutRow { kind: 'openCut'; r: BeReviewCutBundle; piId: string }
 /** P1: nhóm công đoạn phụ ĐANG MỞ (các dòng chưa gom, theo người + SKU) - từ GET /floor/review. */
@@ -204,7 +205,9 @@ function stateOf(x: Row, stoppedPis: readonly StoppedPi[] | undefined): KcsRowSt
   const status = statusOf(x)
   if (status === 'QC_PASSED') return { muted: false, locked: true, message: null, counted: false }
   if (x.kind === 'openCut' || x.kind === 'openStep') return pickRowState({ phase: 'OPEN', blockedReason: x.r.blockedReason })
-  return pickRowState({ phase: 'AWAITING_QC', piStopped: isPiStopped(stoppedPis, { productionInvoiceId: piIdOf(x) }) })
+  // Câu 4 (24/11/2026): đợt chờ chấm của SKU đã huỷ chấm được dù PI không còn SKU đang chạy.
+  const orderCancelled = (x.kind === 'cut' || x.kind === 'step') && x.orderCancelled === true
+  return pickRowState({ phase: 'AWAITING_QC', piStopped: !orderCancelled && isPiStopped(stoppedPis, { productionInvoiceId: piIdOf(x) }) })
 }
 
 function buildPiRows(
@@ -212,9 +215,9 @@ function buildPiRows(
   openCuts: BeReviewCutBundle[], openSteps: BeReviewStepGroup[], stoppedPis: readonly StoppedPi[] | undefined,
   cancelledOrderIds: readonly string[] = [],
 ): PiAgg[] {
-  // Huỷ lệnh theo SKU (23/11/2026): đợt CHỜ CHẤM của SKU đã huỷ không chấm được (BE 409) -> ẩn; đợt đã chấm giữ làm lịch sử.
+  // Câu 4 (anh Nhân 24/11/2026, đảo cách ẩn 23/11): KCS chấm nốt đợt của SKU đã huỷ - hàng đạt vào kho công đoạn.
   const cancelled = new Set(cancelledOrderIds)
-  const hiddenAwaiting = (status: string, orderId: string | null) => status === 'AWAITING_QC' && orderId != null && cancelled.has(orderId)
+  const isCancelled = (orderId: string | null) => orderId != null && cancelled.has(orderId)
   const issueById = new Map(issues.map((i) => [i.id, i]))
   // poNumber tra theo productionInvoiceId (không còn dùng issue của chính Row vì StepRow không có
   // issue cha nữa) - lấy từ bất kỳ issue nào cùng PI, đều cùng 1 piCode. 2026-09-10 (theo yêu cầu
@@ -231,12 +234,12 @@ function buildPiRows(
   for (const s of stoppedPis ?? []) if (!poNumberByPi.has(s.productionInvoiceId)) poNumberByPi.set(s.productionInvoiceId, s.code)
   // Chỉ đợt liên quan KCS (đang mở / đã chốt trở lên) - đợt còn CUTTING hoặc công đoạn phụ chưa gửi chưa liên quan.
   const cutRows: Row[] = bundles
-    .filter((b) => (b.status === 'AWAITING_QC' || b.status === 'QC_PASSED') && !hiddenAwaiting(b.status, b.productionOrderId))
-    .map((b) => ({ kind: 'cut' as const, bundle: b, issue: issueById.get(b.steelIssueId) }))
+    .filter((b) => b.status === 'AWAITING_QC' || b.status === 'QC_PASSED')
+    .map((b): Omit<CutRow, 'issue'> & { issue: BeSteelIssue | undefined } => ({ kind: 'cut', bundle: b, issue: issueById.get(b.steelIssueId), orderCancelled: isCancelled(b.productionOrderId) }))
     .filter((x): x is CutRow => x.issue != null)
   const stepRows: Row[] = stepBundles
-    .filter((sb) => (sb.status === 'AWAITING_QC' || sb.status === 'QC_PASSED') && !hiddenAwaiting(sb.status, sb.productionOrderId))
-    .map((sb) => ({ kind: 'step' as const, stepBundle: sb }))
+    .filter((sb) => sb.status === 'AWAITING_QC' || sb.status === 'QC_PASSED')
+    .map((sb) => ({ kind: 'step' as const, stepBundle: sb, orderCancelled: isCancelled(sb.productionOrderId) }))
   const openCutRows: Row[] = openCuts
     .filter((r) => r.pi != null)
     .map((r) => ({ kind: 'openCut' as const, r, piId: r.pi!.productionInvoiceId }))

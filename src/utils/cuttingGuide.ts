@@ -115,6 +115,12 @@ export function cutMachineLineText(line: CuttingProposalLine, laserAllowed = tru
 
 const fmtDemand = (n: number): string | number => (Number.isNaN(n) ? '—' : n);
 
+/** SL cần của bảng tổng kết: có đoạn dư lấy từ kho (câu 14a) thì "30 (có sẵn 5, cắt 25)". */
+export function demandText(p: CuttingProposalPieceSummary): string | number {
+  if (!p.fromStock || Number.isNaN(p.demand)) return fmtDemand(p.demand);
+  return `${p.demand + p.fromStock} (có sẵn ${p.fromStock}, cắt ${p.demand})`;
+}
+
 /** Cột "Máy" (nhãn lớp máy + đoạn dập) chỉ có khi ít nhất một kiểu cắt có machineGroups - không có dữ liệu thì giữ nguyên bảng như cũ. */
 export function hasMachineColumn(rows: CuttingGuideRow[]): boolean {
   return rows.some((r) => r.machineGroups !== null);
@@ -128,7 +134,7 @@ export function buildSheetAoa(line: CuttingProposalLine, laserAllowed = true): (
   const summaryRows = pieces.map((p) => [
     p.names.length > 0 ? p.names.join(', ') : '',
     p.size,
-    fmtDemand(p.demand),
+    demandText(p),
     p.produced,
   ]);
   // Cột "Cách cắt theo bó cây" chỉ có khi phương án tính bằng MC Tự động - MC Laser/phương án cũ giữ nguyên bảng như cũ.
@@ -184,7 +190,7 @@ export function buildPrintSectionHtml(line: CuttingProposalLine, pageBreakBefore
   const summaryRows = pieces
     .map(
       (p) => `<tr><td class="l">${escapeHtml(p.names.join(', ') || '—')}</td><td>${fmtNum(p.size)}</td>` +
-        `<td>${Number.isNaN(p.demand) ? '—' : fmtNum(p.demand)}</td><td>${fmtNum(p.produced)}</td></tr>`,
+        `<td>${Number.isNaN(p.demand) ? '—' : p.fromStock ? escapeHtml(String(demandText(p))) : fmtNum(p.demand)}</td><td>${fmtNum(p.produced)}</td></tr>`,
     )
     .join('');
   const hasBundles = rows.some((r) => fmtBundles(r.bundles) !== null);

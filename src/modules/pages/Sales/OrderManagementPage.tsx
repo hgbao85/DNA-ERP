@@ -591,6 +591,8 @@ function PODetailView({ po, onBack, onDeleted, onUpdated, canWrite }: { po: Sale
   const [tab, setTab] = useState<DetailTab>('production')
   // LS2 19/11: dòng chưa duyệt sản xuất đổi / bỏ chọn được màu dây, vải nệm (định mức đổi tick sau khi lên đơn).
   const [choiceItem, setChoiceItem] = useState<SalesOrderItem | null>(null)
+  // Huỷ lệnh câu 2 (24/11/2026): khách huỷ hẳn thì Sales huỷ dòng đơn.
+  const [cancelItem, setCancelItem] = useState<SalesOrderItem | null>(null)
   const { ask, confirmModal } = useConfirm()
   const isMobile = useIsMobile()
 
@@ -688,14 +690,29 @@ function PODetailView({ po, onBack, onDeleted, onUpdated, canWrite }: { po: Sale
                   <strong>{item.skuCode}</strong>{item.skuName && item.skuName !== item.skuCode ? <span style={{ color: 'var(--text3)' }}> — {item.skuName}</span> : ''}
                   <MaterialChoiceTags wire={item.wireMaterial} cushion={item.cushionMaterial} />
                   <span style={{ color: 'var(--text2)' }}>SL {item.totalQty.toLocaleString()}</span>
-                  <StatusBadge status={item.status} />
-                  {canWrite && item.status === 'LEN_KE_HOACH' && item.mfgProductId && (
+                  {item.cancelledAt ? (
+                    <span title={item.cancelReason ?? undefined} style={{ padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 600, background: 'var(--bg-fee2e2)', color: 'var(--fg-a32d2d)' }}>
+                      Đã huỷ dòng {format(new Date(item.cancelledAt), 'dd/MM/yyyy')}
+                    </span>
+                  ) : (
+                    <StatusBadge status={item.status} />
+                  )}
+                  {canWrite && !item.cancelledAt && item.status === 'LEN_KE_HOACH' && item.mfgProductId && (
                     <button onClick={() => setChoiceItem(item)} style={{ ...btnSecondary, padding: '3px 10px', fontSize: 11 }}>
                       Đổi màu dây / vải nệm
                     </button>
                   )}
+                  {canWrite && !item.cancelledAt && item.shippedQty === 0 && (
+                    <button onClick={() => setCancelItem(item)} style={{ ...btnSecondary, padding: '3px 10px', fontSize: 11, color: 'var(--fg-e24b4a)', borderColor: 'var(--fg-e24b4a)' }}>
+                      Huỷ dòng
+                    </button>
+                  )}
                 </div>
-                <ProductionStepper status={item.status} vertical={isMobile} />
+                {item.cancelledAt ? (
+                  <div style={{ fontSize: 12, color: 'var(--text3)' }}>Lý do: {item.cancelReason || '—'}</div>
+                ) : (
+                  <ProductionStepper status={item.status} vertical={isMobile} />
+                )}
               </div>
             ))}
           </div>
@@ -739,8 +756,73 @@ function PODetailView({ po, onBack, onDeleted, onUpdated, canWrite }: { po: Sale
           onSaved={(fresh) => { setChoiceItem(null); onUpdated(fresh) }}
         />
       )}
+      {cancelItem && (
+        <ItemCancelModal
+          orderId={po.id}
+          item={cancelItem}
+          onClose={() => setCancelItem(null)}
+          onSaved={(fresh) => { setCancelItem(null); onUpdated(fresh) }}
+        />
+      )}
       {confirmModal}
     </div>
+  )
+}
+
+/** Huỷ lệnh câu 2 (anh Nhân 24/11/2026): khách huỷ hẳn thì Sales huỷ 1 dòng đơn, bắt buộc ghi lý do. Dòng đang có lệnh sản xuất
+ *  thì BE báo để KHSX đề nghị huỷ lệnh (Sếp duyệt) trước - huỷ lệnh không tự huỷ dòng đơn. */
+function ItemCancelModal({ orderId, item, onClose, onSaved }: {
+  orderId: string
+  item: SalesOrderItem
+  onClose: () => void
+  onSaved: (fresh: SalesOrder) => void
+}) {
+  const [reason, setReason] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const empty = reason.trim() === ''
+
+  const save = async () => {
+    if (empty) return
+    setSaving(true)
+    setError(null)
+    try {
+      onSaved(await api.cancelSalesOrderItem(orderId, item.id, reason.trim()))
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Không huỷ được dòng')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Modal open onClose={onClose} maxWidth={520}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)' }}>
+        <div style={{ fontWeight: 700, fontSize: 16 }}>Huỷ dòng {item.skuCode} — SL {item.totalQty.toLocaleString()}</div>
+        <button onClick={onClose} style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}><X size={18} /></button>
+      </div>
+      <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 10 }}>
+        Dùng khi khách huỷ hẳn dòng này. Dòng đã huỷ không lên lệnh sản xuất, không xếp booking được và không mở lại được.
+        Nếu dòng đang có lệnh sản xuất, KHSX cần đề nghị huỷ lệnh (Sếp duyệt) trước.
+      </div>
+      <label style={{ fontSize: 12, fontWeight: 600 }}>Lý do huỷ *</label>
+      <textarea
+        value={reason}
+        onChange={(e) => setReason(e.target.value)}
+        rows={3}
+        maxLength={500}
+        placeholder="Vd: Khách huỷ đơn"
+        style={{ width: '100%', marginTop: 4, padding: 8, fontSize: 13, border: '1px solid var(--border)', borderRadius: 6, boxSizing: 'border-box' }}
+      />
+      {error && <div style={{ color: 'var(--fg-e24b4a)', fontSize: 12, marginTop: 10 }}>{error}</div>}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 'var(--space-5)' }}>
+        <button onClick={onClose} style={btnSecondary}>Đóng</button>
+        <button className="primary" onClick={save} disabled={saving || empty}
+          style={{ background: 'var(--fg-e24b4a)', borderColor: 'var(--fg-e24b4a)', ...(saving || empty ? { opacity: 0.5, cursor: 'not-allowed' } : null) }}>
+          {saving ? 'Đang huỷ...' : 'Huỷ dòng'}
+        </button>
+      </div>
+    </Modal>
   )
 }
 

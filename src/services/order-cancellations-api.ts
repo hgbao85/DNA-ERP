@@ -31,12 +31,116 @@ export interface OrderCancelRequestDto {
   decisionNote: string | null;
   /** Dòng SKU mới cấp cho dòng đơn sau khi huỷ (để KHSX lên lệnh lại). */
   replacementItemId: string | null;
+  /** Q3 (24/11/2026): QLSX quyết sắt chưa cắt - null = chưa quyết. */
+  cutDecision?: CutDecision | null;
+  cutDecidedAt?: string | null;
+  cutDecisionNote?: string | null;
+}
+
+export type CutDecision = 'CONTINUE' | 'STOP';
+
+export interface SteelReturnLine { materialId: string; lengthMm: number; bars: number }
+
+/** Q3: SKU đã huỷ còn sắt ở tổ cắt (chép CutSteelRowDto bên BE). */
+export interface CutSteelRow {
+  request: OrderCancelRequestDto;
+  isMergedInvoice: boolean;
+  otherSkuActive: boolean;
+  materials: {
+    materialId: string;
+    materialCode: string;
+    materialName: string;
+    barLengthsMm: number[];
+    unreceivedBars: number;
+    leftoverMm: number;
+    returnedMm: number;
+  }[];
+  returns: { materialCode: string; lengthMm: number; bars: number; createdAt: string }[];
+}
+
+export async function getCutSteel(): Promise<CutSteelRow[]> {
+  return http.get<CutSteelRow[]>('/production-order-cancellations/cut-steel');
+}
+
+/** Huỷ lệnh đợt 2 - Q5/Q6 (chép CancelledGoodsRowDto bên BE). */
+export type CancelledGoodsKind = 'PACKED' | 'WOVEN';
+
+export interface CancelledGoodsRow {
+  requestId: string;
+  lenhCode: string;
+  factoryCode: string;
+  sourceItemId: string;
+  wireName: string | null;
+  cushionName: string | null;
+  packedAvailable: number;
+  woven: { pieceId: string; pieceCode: string; pieceName: string; available: number }[];
+  targets: {
+    itemId: string;
+    lenhCode: string;
+    orderCode: string | null;
+    customerName: string | null;
+    quantity: number;
+    packedQty: number;
+    sameWire: boolean;
+    sameCushion: boolean;
+  }[];
+  transfers: { id: string; kind: CancelledGoodsKind; qty: number; pieceName: string | null; targetLenhCode: string; createdAt: string }[];
+}
+
+export async function getCancelledGoods(): Promise<CancelledGoodsRow[]> {
+  return http.get<CancelledGoodsRow[]>('/production-order-cancellations/goods');
+}
+
+/** KHSX chuyển hàng đã đóng gói (PACKED) / khung đã đan (WOVEN, kèm pieceId) sang 1 dòng SKU đang chạy. */
+export async function transferCancelledGoods(
+  requestId: string,
+  input: { kind: CancelledGoodsKind; targetItemId: string; pieceId?: string; qty: number; note?: string },
+): Promise<CancelledGoodsRow> {
+  return http.post<CancelledGoodsRow>(`/production-order-cancellations/${requestId}/transfer-goods`, input);
+}
+
+/** QLSX: cho cắt tiếp (CONTINUE) hoặc ngưng + nhập trả cây (STOP). */
+export async function decideCutSteel(
+  requestId: string,
+  input: { decision: CutDecision; returns?: SteelReturnLine[]; note?: string },
+): Promise<CutSteelRow> {
+  return http.post<CutSteelRow>(`/production-order-cancellations/${requestId}/cut-decision`, input);
 }
 
 export async function getOrderCancelRequests(
   q: { status?: OrderCancelStatus; productionInvoiceId?: string; productionOrderId?: string } = {},
 ): Promise<OrderCancelRequestDto[]> {
   return http.get<OrderCancelRequestDto[]>('/production-order-cancellations', { params: q });
+}
+
+/** Câu 8 (anh Nhân 24/11/2026) - chép theo CancelImpactDto bên BE. */
+export interface CancelImpactDto {
+  requestId: string;
+  fromSnapshot: boolean;
+  takenAt: string;
+  floorStage: string;
+  isMergedInvoice: boolean;
+  steelIssued: { materialCode: string; materialName: string; barLengthMm: number; bars: number; receivedBars: number }[];
+  signedPurchases: {
+    itemId: string;
+    materialCode: string;
+    materialName: string;
+    unit: string;
+    signedQty: number;
+    receivedQty: number;
+    unitPrice: number | null;
+    amount: number | null;
+    supplierName: string | null;
+    supplierOrderCode: string | null;
+  }[];
+  signedAmountTotal: number;
+  missingPriceCount: number;
+  stages: { stage: string; label: string; rows: { name: string; qty: number }[] }[];
+}
+
+/** Sắt đã xuất, dòng mua đã ký (kèm tiền), hàng từng công đoạn - cho hộp duyệt huỷ của Sếp. */
+export async function getOrderCancelImpact(requestId: string): Promise<CancelImpactDto> {
+  return http.get<CancelImpactDto>(`/production-order-cancellations/${requestId}/impact`);
 }
 
 /** KHSX (hoặc Admin) đề nghị huỷ 1 SKU. */

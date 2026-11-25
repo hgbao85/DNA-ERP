@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useCloseNavOnNotification } from '../../../hooks/useCloseNavOnNotification'
-import { LayoutDashboard, Package, LogOut, Grid, CalendarClock, ClipboardList, Warehouse, FilePlus, Layers, PackageCheck, Menu, X, AlertTriangle } from 'lucide-react'
+import { LayoutDashboard, Package, LogOut, Grid, CalendarClock, ClipboardList, Warehouse, FilePlus, Layers, PackageCheck, Menu, X, AlertTriangle, PackageOpen } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import { useFetch } from '../../../hooks/useFetch'
 import { useIsCompact, useIsMobile } from '../../../hooks/useMediaQuery'
@@ -18,11 +18,12 @@ import LenhSXPage from './LenhSXPage'
 import GomDotCatPage from './GomDotCatPage'
 import VatTuCanVePage from '../MaterialsDue/VatTuCanVePage'
 import SoBaoVuotDoanPage from '../Manufacturing/SoBaoVuotDoanPage'
+import HangSkuHuyPage from './HangSkuHuyPage'
 import ThemeToggle from '../../../components/ThemeToggle'
 
-type Page = 'planforms' | 'duyet-sku' | 'vattu' | 'thongke' | 'lenh-sx' | 'gom-cat' | 'warehouses' | 'vat-tu-can-ve' | 'so-bao-vuot-doan'
+type Page = 'planforms' | 'duyet-sku' | 'vattu' | 'thongke' | 'lenh-sx' | 'gom-cat' | 'warehouses' | 'vat-tu-can-ve' | 'so-bao-vuot-doan' | 'hang-sku-huy'
 
-const PAGE_VALUES: Page[] = ['planforms', 'duyet-sku', 'vattu', 'thongke', 'lenh-sx', 'gom-cat', 'warehouses', 'vat-tu-can-ve', 'so-bao-vuot-doan']
+const PAGE_VALUES: Page[] = ['planforms', 'duyet-sku', 'vattu', 'thongke', 'lenh-sx', 'gom-cat', 'warehouses', 'vat-tu-can-ve', 'so-bao-vuot-doan', 'hang-sku-huy']
 const isPage = (v: string | null): v is Page => !!v && (PAGE_VALUES as string[]).includes(v)
 
 interface Props { onBack?: () => void }
@@ -81,6 +82,8 @@ export default function ProductionPlanApp({ onBack }: Props) {
     { page: 'vat-tu-can-ve', icon: <PackageCheck size={16} />, label: 'Vật tư cần về' },
     // Tồn đoạn theo lệnh - anh Nhân 14/11: KHSX xem sổ báo vượt (QLSX mới đóng dòng).
     { page: 'so-bao-vuot-doan', icon: <AlertTriangle size={16} />, label: 'Sổ báo vượt đoạn' },
+    // Huỷ lệnh đợt 2 - Q5/Q6 (24/11/2026): chuyển hàng đã đóng gói / khung đã đan của SKU đã huỷ sang SKU khác.
+    { page: 'hang-sku-huy', icon: <PackageOpen size={16} />, label: 'Hàng SKU đã huỷ' },
   ]
 
   const selectPage = (page: Page) => { setActivePage(page); setDrawerOpen(false) }
@@ -163,6 +166,7 @@ export default function ProductionPlanApp({ onBack }: Props) {
       {activePage === 'warehouses' && <MfgWarehousesPage />}
       {activePage === 'vat-tu-can-ve' && <VatTuCanVePage />}
       {activePage === 'so-bao-vuot-doan' && <SoBaoVuotDoanPage canResolve={false} />}
+      {activePage === 'hang-sku-huy' && <HangSkuHuyPage />}
     </>
   )
 

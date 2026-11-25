@@ -135,16 +135,16 @@ export default function KcsStagePage({ cfg, stage, showPieceSteps }: {
 
     let seq = 1
     const out: KcsRow[] = []
-    // Huỷ lệnh theo SKU (23/11/2026): SKU đã huỷ KCS không chấm được (BE 409) -> bỏ cả dòng lệnh (đợt mở BE đã lọc).
+    // Câu 4 (anh Nhân 24/11/2026, đảo cách ẩn 23/11): KCS chấm nốt đợt của SKU đã huỷ - không xám theo lệnh dừng, gắn nhãn.
     const cancelled = new Set(review?.cancelledOrderIds ?? [])
     for (const productionOrderId of order) {
-      if (cancelled.has(productionOrderId)) continue
+      const orderCancelled = cancelled.has(productionOrderId)
       const { batches: batchList, bundles: bundleList, openBatches, openPats, piCode } = byPo.get(productionOrderId)!
       // 2026-09-10 (theo yêu cầu người dùng): màn KCS LUÔN hiện mã PI (lệnh sản xuất nội bộ KCS
       // đang kiểm), KHÔNG hiện mã PO (đơn hàng Sales) - trước đây ưu tiên PO nếu có, dễ nhầm với
       // "PO" ở màn Mua hàng/Kho (2 mã khác nhau cùng gọi là "PO"). piCode luôn có giá trị thật
       // (ProductionOrder luôn sinh từ 1 ProductionInvoiceItem đã duyệt) - "—" chỉ là chốt an toàn.
-      const po = lenhOf(piCode) || '—'
+      const po = (lenhOf(piCode) || '—') + (orderCancelled ? ' (SKU đã huỷ)' : '')
       const poHasWork =
         batchList.some(b => b.status === 'AWAITING_QC') || bundleList.some(bd => bd.status === 'AWAITING_QC') ||
         openBatches.length > 0 || openPats.length > 0
@@ -184,7 +184,7 @@ export default function KcsStagePage({ cfg, stage, showPieceSteps }: {
 
       // ── Dòng ĐÃ CHỐT (chờ chấm) / đã chấm ────────────────────────────────────────
       // Đợt đã chốt xám theo stoppedPis (so theo mã PI), không theo blockedReason.
-      const awaitingState = pickRowState({ phase: 'AWAITING_QC', piStopped: isPiStopped(stoppedPis, { code: piCode }) })
+      const awaitingState = pickRowState({ phase: 'AWAITING_QC', piStopped: !orderCancelled && isPiStopped(stoppedPis, { code: piCode }) })
       const batchLines: KcsLine[] = batchList.map(b => {
         const lineId = seq++
         const pending = b.status === 'AWAITING_QC'

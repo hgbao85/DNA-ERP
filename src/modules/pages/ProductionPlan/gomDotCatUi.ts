@@ -183,11 +183,10 @@ export function buildRuleReason(p: {
 }): string | null {
   if (p.beReason) return p.beReason
   if (p.selectedCount > p.mergeMax) return `Đợt gồm ${p.selectedCount} SKU, tối đa ${p.mergeMax} SKU mỗi đợt/lệnh gộp.`
-  const span = p.span
-  if (!span || span.days <= maxGapDays(p.mergeWindow)) return null
-  return `Mốc cần sắt của các SKU trong đợt cách nhau ${span.days} ngày `
-    + `(sớm nhất ${fmtDate(span.earliest.date)} – ${span.earliest.code}, muộn nhất ${fmtDate(span.latest.date)} – ${span.latest.code})`
-    + ` - chỉ được gộp trong khung ${p.mergeWindow} ngày (chênh tối đa ${maxGapDays(p.mergeWindow)} ngày).`
+  // 24/11/2026 (anh Nhân): bỏ chặn "chênh tối đa N ngày" khi gộp - mốc cách xa vẫn gộp được, gợi ý gộp chỉ ưu tiên mốc gần.
+  void p.mergeWindow
+  void p.span
+  return null
 }
 
 export type FixKey = 'add' | 'custom' | 'urgent'
