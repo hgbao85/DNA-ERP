@@ -89,6 +89,8 @@ const TEAM_BY_REF_TYPE: Record<string, string> = {
   FRAME_OUTPUT: 'Tổ Phôi',
   // Tồn đoạn theo lệnh (13/11/2026): đoạn đủ công đoạn + KCS đạt từ Tổ Phôi vào kho (âm = tính lại giảm).
   SEGMENT_PRODUCE: 'Tổ Phôi',
+  // Huỷ lệnh đợt 2 - Q3 (24/11/2026): tổ cắt trả cây chưa cắt của SKU đã huỷ về kho Phôi.
+  STEEL_RETURN: 'Tổ Phôi',
 }
 
 function whLabel(code: string, name: string, e: BeStockLedgerEntry): string {

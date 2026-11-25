@@ -64,25 +64,13 @@ export function steelNeedSpan(entries: { code: string; date: string | null | und
   return { days: Math.round((dayMs(latest.date) - dayMs(earliest.date)) / 86_400_000), earliest, latest }
 }
 
-/** 'yyyy-MM-dd' -> 'dd/MM' (thêm /yyyy khi hai mốc nằm ở hai năm khác nhau cho khỏi mơ hồ). */
-const fmtDay = (ymd: string, withYear: boolean): string => {
-  const [y, m, d] = ymd.slice(0, 10).split('-')
-  return withYear ? `${d}/${m}/${y}` : `${d}/${m}`
-}
-
 /**
- * Câu báo lỗi khi các mốc không nằm gọn trong khung `windowDays` ngày (chênh > maxGapDays); null = hợp lệ.
- * Cùng lời văn với thông báo 400 của BE để người dùng thấy MỘT câu dù FE chặn trước hay BE chặn sau.
+ * Câu báo chặn khi mốc cần sắt các SKU của lệnh gộp cách nhau quá khung `windowDays` ngày; null = hợp lệ.
+ * 24/11/2026 (anh Nhân): BỎ chặn khung N ngày khi gộp / sửa hạn lệnh gộp, chỉ ưu tiên gộp mốc gần - luôn trả null. Giữ chữ ký để nơi
+ * gọi (LenhSXPage) không đổi; độ chênh vẫn xem được qua steelNeedSpan().
  */
 export function steelNeedSpanMessage(span: SteelNeedSpan | null, windowDays: number): string | null {
-  const gap = maxGapDays(windowDays)
-  if (!span || span.days <= gap) return null
-  const withYear = span.earliest.date.slice(0, 4) !== span.latest.date.slice(0, 4)
-  return (
-    `Mốc cần sắt của các SKU trong lệnh gộp cách nhau ${span.days} ngày ` +
-    `(sớm nhất ${fmtDay(span.earliest.date, withYear)} – ${span.earliest.code}, ` +
-    `muộn nhất ${fmtDay(span.latest.date, withYear)} – ${span.latest.code}) - ` +
-    `chỉ được gộp trong khung ${windowDays} ngày (chênh tối đa ${gap} ngày, vd ngày 1 gộp được ngày ${windowDays}). ` +
-    `Dời lại mốc hoặc tách SKU ra lệnh riêng.`
-  )
+  void span
+  void windowDays
+  return null
 }

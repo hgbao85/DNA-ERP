@@ -10,6 +10,8 @@ import { errMsg } from '../../../utils/errors'
 
 interface CancelItem {
   productionOrderId?: string | null
+  /** Câu 1 (24/11): lệnh đã Kết thúc thì không đề nghị huỷ được. */
+  floorStage?: string | null
   cancelledAt?: string | null
   pendingCancelRequest?: { id: string; reason: string; requestedAt: string } | null
 }
@@ -38,7 +40,7 @@ export default function OrderCancelControls({
     return <span style={{ ...chip, color: 'var(--fg-b91c1c)', background: 'var(--bg-fee2e2)' }}><Ban size={10} /> Đã huỷ</span>
   }
   const pending = item.pendingCancelRequest
-  if (!pending && (!canRequest || !item.productionOrderId)) return null
+  if (!pending && (!canRequest || !item.productionOrderId || item.floorStage === 'FINISHED')) return null
 
   const close = () => { setOpen(null); setReason(''); setError(null) }
   const run = async (fn: () => Promise<unknown>) => {

@@ -33,6 +33,8 @@ interface BeSalesOrderItem {
   wireMaterial?: MaterialChoice | null;
   cushionMaterial?: MaterialChoice | null;
   containerLoad?: ContainerLoad | null;
+  cancelledAt?: string | null;
+  cancelReason?: string | null;
 }
 
 interface BeSalesOrder {
@@ -99,6 +101,8 @@ function toSalesOrderItem(it: BeSalesOrderItem): SalesOrderItem {
     wireMaterial: it.wireMaterial ?? null,
     cushionMaterial: it.cushionMaterial ?? null,
     containerLoad: it.containerLoad ?? null,
+    cancelledAt: it.cancelledAt ?? null,
+    cancelReason: it.cancelReason ?? null,
   };
 }
 
@@ -176,6 +180,17 @@ export async function updateSalesOrderItemChoice(
   choice: { wireMaterialId?: string | null; cushionMaterialId?: string | null },
 ): Promise<SalesOrder> {
   await http.patch(`/sales-orders/${orderId}/items/${itemId}`, choice);
+  return toSalesOrder(await http.get<BeSalesOrder>(`/sales-orders/${orderId}`));
+}
+
+/** Huỷ lệnh câu 2 (anh Nhân 24/11/2026): khách huỷ hẳn - Sales huỷ 1 dòng đơn (bắt buộc lý do). BE chặn khi dòng đã xuất,
+ *  còn lệnh sản xuất sống (KHSX đề nghị huỷ lệnh trước), đang tính phương án cắt hoặc đang nằm trong booking. */
+export async function cancelSalesOrderItem(
+  orderId: number | string,
+  itemId: number | string,
+  reason: string,
+): Promise<SalesOrder> {
+  await http.post(`/sales-orders/${orderId}/items/${itemId}/cancel`, { reason });
   return toSalesOrder(await http.get<BeSalesOrder>(`/sales-orders/${orderId}`));
 }
 

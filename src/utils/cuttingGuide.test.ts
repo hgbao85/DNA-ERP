@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { barsLineText, buildCuttingGuideTable, buildPieceSummary, buildPrintSectionHtml, buildSheetAoa, stockLengthBreakdown, cutMachineLineText, machineSummaryText, printCuttingGuide } from './cuttingGuide';
+import { barsLineText, demandText, buildCuttingGuideTable, buildPieceSummary, buildPrintSectionHtml, buildSheetAoa, stockLengthBreakdown, cutMachineLineText, machineSummaryText, printCuttingGuide } from './cuttingGuide';
 import type { CuttingProposalLine } from '../services/cutting-proposals-api';
 
 // Fixture tối giản khớp số liệu ví dụ "500 bộ J55" đã đối chiếu với MC Laser
@@ -347,5 +347,27 @@ describe('CS2 20/11 - cây lẻ kho Phôi + cây chiều dài mua', () => {
     const html = buildPrintSectionHtml(line, false);
     expect(html).toContain('<th>Dài cây</th>');
     expect(html).toContain('Cây lẻ kho Phôi');
+  });
+});
+
+describe('demandText - đoạn dư lấy từ kho (anh Nhân câu 14a, 24/11/2026)', () => {
+  it('có đoạn dư trong kho: "30 (có sẵn 5, cắt 25)"', () => {
+    expect(demandText({ size: 1990, demand: 25, produced: 26, names: [], fromStock: 5 })).toBe('30 (có sẵn 5, cắt 25)');
+  });
+  it('không có: giữ số như cũ, chưa có số thì "—"', () => {
+    expect(demandText({ size: 1990, demand: 30, produced: 30, names: [] })).toBe(30);
+    expect(demandText({ size: 1990, demand: NaN, produced: 30, names: [] })).toBe('—');
+  });
+});
+
+describe('bản in / Excel ghi đoạn dư lấy từ kho (câu 14a)', () => {
+  const withStock = () =>
+    makeLine({ pieceSummary: [{ size: 1990, demand: 25, produced: 26, names: ['chân'], fromStock: 5 }] });
+  it('Excel: cột SL cần "30 (có sẵn 5, cắt 25)"', () => {
+    const aoa = buildSheetAoa(withStock());
+    expect(aoa.some((r) => r.includes('30 (có sẵn 5, cắt 25)'))).toBe(true);
+  });
+  it('bản in: ô SL cần có "có sẵn 5"', () => {
+    expect(buildPrintSectionHtml(withStock(), false)).toContain('30 (có sẵn 5, cắt 25)');
   });
 });

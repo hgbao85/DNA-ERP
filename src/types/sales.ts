@@ -29,6 +29,9 @@ export interface SalesOrderItem {
   cushionMaterial?: MaterialChoice | null;
   /** Load cont của SKU (Phần A YC9) - null/thiếu = SKU chưa có. */
   containerLoad?: ContainerLoad | null;
+  /** Huỷ lệnh câu 2 (anh Nhân 24/11/2026): Sales đã huỷ dòng này (khách huỷ hẳn) - null/thiếu = còn hiệu lực. */
+  cancelledAt?: string | null;
+  cancelReason?: string | null;
 }
 
 export interface SalesOrder {
