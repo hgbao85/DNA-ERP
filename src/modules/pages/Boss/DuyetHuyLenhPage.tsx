@@ -1,6 +1,6 @@
 'use client'
 // Huỷ lệnh theo SKU - đợt 1 (23/11/2026, anh Nhân trả lời 7 câu): Sếp duyệt / từ chối đề nghị huỷ 1 SKU của KHSX. Duyệt: lệnh SX của
-// SKU dừng hẳn (xưởng hết thấy), hàng đã làm ra giữ nguyên tại kho công đoạn, dòng đơn bán về "chưa lên lệnh" để lên lệnh lại, dòng mua
+// SKU dừng hẳn (xưởng hết thấy), KCS chấm nốt, đoạn đã cắt vào dư kho Phôi, hàng đóng gói / khung đan KHSX chuyển sang đơn khác, dòng đơn bán về "chưa lên lệnh" để lên lệnh lại, dòng mua
 // chưa ký tự giảm, dòng đã ký: người mua liên hệ NCC. BE kiểm hết (đã giao hàng, còn nằm trong booking...). Không hiện mã PI.
 import { useState } from 'react'
 import { Ban } from 'lucide-react'
@@ -96,8 +96,8 @@ export default function DuyetHuyLenhPage() {
       </div>
       {view === 'PENDING' && (
         <p style={{ margin: '0 0 14px', fontSize: 12.5, color: 'var(--text3)' }}>
-          Kế hoạch SX xin huỷ SKU của lệnh đã duyệt. Duyệt thì xưởng dừng làm SKU đó, hàng đã làm ra giữ nguyên tại kho công đoạn,
-          SKU về &quot;chưa lên lệnh&quot; để lên lệnh lại.
+          Kế hoạch SX xin huỷ SKU của lệnh đã duyệt. Duyệt thì xưởng dừng làm SKU đó (KCS chấm nốt đợt đã báo), đoạn đã cắt vào dư kho
+          Phôi, hàng đã đóng gói / khung đã đan Kế hoạch SX chuyển sang đơn khác được, SKU về &quot;chưa lên lệnh&quot; để lên lệnh lại.
         </p>
       )}
       {notice && (
