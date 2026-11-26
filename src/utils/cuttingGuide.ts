@@ -38,7 +38,16 @@ export function hasLeftoverBars(line: LineWithPatternLengths): boolean {
 }
 
 /** "Mua 6000 mm × 4 cây" - có cây lẻ thì "Cây lẻ kho Phôi 5800 mm × 1 cây · Mua 6000 mm × 3 cây" (đủ cây lẻ thì không có phần Mua). */
+/** Câu chữ cho loại sắt đoạn dư trong kho phủ hết (dòng 0 cây, review IT 26/11 mục 3.5). */
+export const STOCK_ONLY_LINE_TEXT = 'Không phải cắt - dùng đoạn dư có sẵn trong kho Phôi'
+
+/** Loại sắt không phải cắt: đoạn dư trong kho Phôi phủ hết số cần (BE lưu dòng 0 cây, không có kiểu cắt). */
+export function isStockOnlyLine(line: { totalBars?: number | null; patterns?: ReadonlyArray<unknown> | null }): boolean {
+  return line.totalBars === 0 && (line.patterns?.length ?? 0) === 0
+}
+
 export function barsLineText(line: LineWithPatternLengths): string {
+  if (isStockOnlyLine(line)) return STOCK_ONLY_LINE_TEXT
   const parts = stockLengthBreakdown(line);
   if (!parts.some((e) => e.leftover)) {
     return `Mua ${fmtMm(line.bestStockLengthMm)} × ${line.totalBars != null ? fmtBars(line.totalBars) : '—'}`;
@@ -216,7 +225,7 @@ export function buildPrintSectionHtml(line: CuttingProposalLine, pageBreakBefore
   return `
     <div${pageBreakBefore ? ' style="page-break-before: always"' : ''}>
       <h3>${escapeHtml(line.materialCode)} — ${escapeHtml(line.materialName)}</h3>
-      <p>${hasLen ? `<b>${escapeHtml(barsLineText(line))}</b>` : `Mua <b>${fmtMm(line.bestStockLengthMm)}</b> × <b>${line.totalBars != null ? fmtBars(line.totalBars) : '—'}</b>`}
+      <p>${hasLen || isStockOnlyLine(line) ? `<b>${escapeHtml(barsLineText(line))}</b>` : `Mua <b>${fmtMm(line.bestStockLengthMm)}</b> × <b>${line.totalBars != null ? fmtBars(line.totalBars) : '—'}</b>`}
         ${line.wastePercentage != null ? `· hao hụt ${fmtPct(line.wastePercentage)}` : ''}</p>
       ${machineText ? `<p>Máy cắt: <b>${escapeHtml(machineText)}</b></p>` : ''}
       ${line.lengthSource === 'scan'
