@@ -265,6 +265,8 @@ export const productionPlanGroup: GuideGroup = {
       warnings: [
         'Số có dấu "≥" ở tab "Chọn và tính" chỉ là ƯỚC TÍNH NHANH để chọn SKU nào nên cắt chung — số thật chỉ có sau khi bấm "Tính phương án cắt".',
         'Hao hụt chỉ tính khúc thừa cuối cây (cùi): tề đầu, lưỡi cắt và đoạn dư không tính; % hao hụt của một loại sắt = tổng cùi ÷ tổng chiều dài các cây mua.',
+        'Cây mua cuối (từ 25/11/2026): khi cắt bình thường không đạt (mọi cây trong ngưỡng hao hụt, dư tối đa 10 đoạn mỗi cỡ), hệ thống cho 1 cây mua cuối cắt hết khúc thừa thành đoạn dư - không giới hạn số đoạn dư, tự chọn cỡ cho cùi nhỏ nhất, vẫn giữ luật nhát cắt cuối của máy laze. Đoạn dư tổ cắt báo, làm đủ công đoạn (Uốn, Dập...) như đoạn của lệnh, KCS chấm rồi vào phần dư kho Phôi.',
+        'Đoạn dư có sẵn: khi IT đã bật quản đoạn theo lệnh, đoạn dư đúng cỡ và đúng công đoạn đang có ở kho Phôi của xưởng được trừ vào nhu cầu TRƯỚC khi tính cắt và mua sắt. Bảng tổng kết ghi "30 (có sẵn 5, cắt 25)"; đoạn được giữ cho lệnh lúc Giám đốc duyệt. Lệnh khác lấy mất trước lúc duyệt thì phương án không duyệt được, báo "Tính lại".',
         '"Hao hụt tối đa" (vd 1%) là mức chung của công ty, áp cho mọi lượt tính và KHÔNG sửa được tại màn này. Đợt gấp cần hao hụt cao hơn thì chọn "Chấp nhận hao hụt cao hơn" — Giám đốc duyệt riêng cho đợt đó.',
         'Đợt vượt ngưỡng hao hụt vẫn tính và tạo lệnh được, nhưng QLSX/Giám đốc sẽ thấy cảnh báo khi duyệt.',
         'Loại sắt có nhãn "đặt riêng" ở cột Chiều dài cây = cây không phải cỡ chuẩn có sẵn, phải chờ nhà cung cấp cán. Hệ thống dò chiều dài đặt riêng từ cây chuẩn ra hai phía (vd 6000, 5950, 6050, 5900…) trong dải Admin đặt (mặc định 4000–6500 mm) và lấy chiều dài đầu tiên đạt ngưỡng hao hụt, tức gần cây chuẩn nhất.',
@@ -319,7 +321,7 @@ export const productionPlanGroup: GuideGroup = {
       warnings: [
         'Ô hạn nào chưa từng được đặt tay sẽ hiển thị nhạt kèm "(đề xuất)"/"(từ PO)" — nếu bấm Lưu mà không sửa, hệ thống KHÔNG ghi đè giá trị đề xuất này thành ngày chính thức.',
         'Ngày đề xuất theo mốc Phú An, tính từ N = ngày bắt đầu phôi: Mua vật tư khung cơ khí và đan N−1, Phôi N, Hàn N+1, Sơn N+2, Khung cơ khí (xuất đan đủ) N+2, Đan (thu mảnh về đủ) N+12, Đóng gói N+14. N = Khung cơ khí − 2 nếu Khung đã có ngày; chưa có thì N = hạn giao − 17 (đóng gói xong trước hạn giao 3 ngày). Riêng Mua vật tư còn lại tính từ ngày Đóng gói: Đóng gói − 7. Đổi Khung, hạn giao hoặc Đóng gói thì các ô đề xuất tự tính lại. Đây chỉ là đề xuất — KHSX sửa ngày thật theo thực tế; ô đã chốt mà khác đề xuất có nút "đề xuất dd/mm" để điền nhanh.',
-        'Với lệnh gộp ("ĐỢT GỘP"): mốc cần sắt (ngày Mua vật tư khung cơ khí và đan, chưa có thì ngày Khung cơ khí) của các SKU chỉ được gộp trong khung 5 ngày (Admin đổi được; ngày 10 gộp được ngày 14, không gộp được ngày 15) — xa hơn thì nút Lưu bị khoá và hộp báo SKU sớm/muộn nhất; dời mốc lại hoặc tách SKU ra lệnh riêng.',
+        'Với lệnh gộp ("ĐỢT GỘP"): từ 24/11/2026 không còn chặn theo số ngày chênh của mốc cần sắt (ngày Mua vật tư khung cơ khí và đan, chưa có thì ngày Khung cơ khí) - mốc cách xa vẫn gộp và lưu được. Nên giữ mốc các SKU gần nhau; gợi ý gộp ở "Tối ưu cắt sắt" vẫn ưu tiên SKU có mốc gần.',
         'Hai mốc vật tư (Sếp chốt 2026-10-27): Mua vật tư khung cơ khí và đan — sắt, la, tán rút, đá cắt, dây hàn, CO2, sơn bột, hoá chất, dây đan, đinh, nút; Mua vật tư còn lại — thùng, xốp, nệm, gỗ, phụ kiện, nhãn. Ô ngày là HẠN CHÓT hàng về kho; dòng "về từ" bên dưới là ngày sớm nhất hàng được về (hạn chót − 4 ngày), chỉ để xem, không lưu. Trên thẻ SKU, cột Mua vật tư còn lại nằm giữa Đan và Đóng gói nên ngày của nó thường SỚM hơn ngày Đan — đó là đúng, không phải lỗi.',
         'Từ 2026-08-24, không gửi lẻ từng SKU được nữa — luôn gửi cả lệnh một lần (hệ thống tự lọc SKU đủ điều kiện, ví dụ SKU vừa bị QLSX từ chối cần gửi lại).',
         'Dòng SKU có màu dây/màu vải nệm hiện kèm nhãn màu Sales đã chọn. Màu này được CHỐT vào lệnh khi Giám đốc duyệt; từ đó mua hàng và xuất đan chỉ tính đúng màu đó (xem bài "Màu dây & màu vải nệm theo từng dòng đơn").',
@@ -550,7 +552,7 @@ export const productionPlanGroup: GuideGroup = {
       purpose: 'Khi khách huỷ hoặc đổi một SKU của lệnh Giám đốc đã duyệt, Kế hoạch SX đề nghị huỷ đúng SKU đó kèm lý do. Giám đốc duyệt thì SKU mới bị huỷ; các SKU khác của lệnh vẫn chạy tiếp.',
       preconditions: [
         'Tài khoản Kế hoạch sản xuất (Admin cũng làm được).',
-        'SKU đã được Giám đốc duyệt (đã có lệnh sản xuất) và chưa giao hàng.',
+        'SKU đã được Giám đốc duyệt (đã có lệnh sản xuất), chưa giao hàng và QLSX chưa bấm "Kết thúc" lệnh.',
       ],
       screenshot: '/guide-screens/pp-huy-lenh-de-nghi.png',
       extraScreenshots: [{ src: '/guide-screens/pp-huy-lenh.png', caption: 'Lệnh gộp sau khi đề nghị: SKU đang chờ Giám đốc có nhãn "Chờ Sếp duyệt huỷ" kèm nút "Rút lại"; SKU đã được duyệt huỷ có nhãn "Đã huỷ". Số liệu trong ảnh là dữ liệu mẫu.' }],
@@ -565,7 +567,9 @@ export const productionPlanGroup: GuideGroup = {
         'Trong lúc chờ, dòng SKU hiện nhãn đỏ "Chờ Sếp duyệt huỷ" (rê chuột vào nhãn để xem lại lý do). Xưởng vẫn làm bình thường tới khi Giám đốc duyệt.',
         'Muốn thôi không huỷ: bấm "Rút lại" ngay trên nhãn đó và xác nhận. Lệnh chạy tiếp như cũ.',
         'Khi Giám đốc quyết, bạn nhận thông báo kết quả. Được duyệt thì dòng SKU hiện nhãn "Đã huỷ"; bị từ chối thì thông báo ghi lý do và lệnh chạy tiếp.',
-        'Sau khi huỷ, dòng đơn hàng của SKU đó quay về "chưa lên lệnh": SKU xuất hiện lại ở màn "Tối ưu cắt sắt" để gom hoặc cắt riêng, rồi lên lệnh lại như một lệnh mới.',
+        'Sau khi huỷ, dòng đơn hàng của SKU đó luôn có thêm 1 dòng SKU mới "chưa lên lệnh", giữ đủ số lượng cũ nhưng KHÔNG mang mốc cũ: SKU xuất hiện lại ở màn "Tối ưu cắt sắt" để gom hoặc cắt riêng, đặt mốc mới khi lên lệnh lại. Bớt số lượng (vd giao luôn phần đã đóng gói) thì sửa ở dòng mới.',
+        'Khách huỷ hẳn SKU: báo Kinh doanh bấm "Huỷ dòng" trên đơn hàng cho dòng mới đó (bài "Huỷ một dòng của đơn hàng") - đơn không còn số đó phải giao.',
+        'Hàng đã đóng gói hoặc khung đã đan của SKU huỷ: chuyển sang dòng SKU đang chạy khác ở tab "Hàng SKU đã huỷ" (bài "Chuyển hàng của SKU đã huỷ sang đơn khác").',
       ],
       result: 'SKU bị huỷ dừng ở xưởng, dòng đơn hàng sẵn sàng lên lệnh lại; các SKU còn lại của lệnh chạy tiếp.',
       tables: [
@@ -573,11 +577,15 @@ export const productionPlanGroup: GuideGroup = {
           title: 'Sau khi Giám đốc duyệt huỷ',
           columns: ['Phần việc', 'Hệ thống làm gì'],
           rows: [
-            ['Xưởng', 'Không báo cắt, báo Hàn / Sơn, chấm KCS, ghi chuyền kiểm hay đóng gói cho SKU này nữa; QLSX không bấm "Bắt đầu" lại được. Các đợt của SKU này không còn hiện ở danh sách chờ KCS.'],
-            ['Hàng đã làm ra', 'Giữ nguyên tại kho của từng công đoạn (đoạn đã cắt, mảnh hàn / sơn, hàng đã đóng gói). Hệ thống ghi lại số lượng ở từng công đoạn lúc huỷ; việc dùng lại số hàng này cho lệnh khác làm ở đợt sau.'],
+            ['Xưởng', 'Không báo cắt (trừ khi QLSX cho cắt tiếp phần sắt đã xuất), không báo Hàn / Sơn, chuyền kiểm hay đóng gói cho SKU này nữa; QLSX không bấm "Bắt đầu" lại được.'],
+            ['KCS', 'Các đợt đã báo của SKU này mà KCS chưa chấm vẫn hiện ở danh sách chờ, có nhãn "(SKU đã huỷ)". KCS chấm nốt; phần đạt vào kho công đoạn như bình thường.'],
+            ['Đoạn đã cắt', 'Đoạn KCS đạt của SKU huỷ tự vào phần dư kho Phôi, lệnh khác cùng cỡ đoạn dùng được (khi IT đã bật quản đoạn theo lệnh; chưa bật thì đoạn nằm ở xưởng, ngoài sổ).'],
+            ['Hàng đóng gói / khung đan', 'KHSX chuyển sang dòng SKU đang chạy cùng sản phẩm, cùng màu dây (hàng đóng gói thêm cùng vải nệm) ở tab "Hàng SKU đã huỷ".'],
+            ['Mảnh hàn / sơn', 'Giữ nguyên tại kho công đoạn; hệ thống ghi lại số lượng lúc huỷ.'],
+            ['Dòng SKU mới', 'Luôn tạo, giữ đủ số lượng cũ, không mang mốc cũ. Khách huỷ hẳn thì Kinh doanh huỷ dòng này.'],
             ['Số LSX', 'Số LSX chưa dùng (lệnh chưa bắt đầu, chưa xuất sắt, xưởng chưa báo gì) thì đi theo dòng mới. Số đã dùng thì ở lại lệnh cũ, dòng mới để trống - bạn nhập số mới khi lên lệnh lại.'],
-            ['Phương án cắt (lệnh gộp)', 'Lệnh chưa xuất sắt: hệ thống tự tính lại phương án cho các SKU còn lại. Nếu phương án mới vượt ngưỡng hao hụt hoặc không cắt được thì giữ phương án cũ và bạn nhận thông báo "giữ phương án cắt cũ" - muốn đổi thì vào "Tính lại" của lệnh. Lệnh đã xuất sắt: giữ phương án, tổ cắt cắt hết, phần của SKU huỷ thành dư.'],
-            ['Mua hàng', 'Dòng mua chưa ký tự giảm theo nhu cầu mới (không còn cần thì đóng). Dòng đã ký NCC: người mua nhận thông báo để liên hệ NCC - bớt được thì "Đóng phần thiếu", không bớt được thì hàng về vào tồn chung, không còn giữ cho lệnh.'],
+            ['Phương án cắt (lệnh gộp)', 'Lệnh chưa xuất sắt: hệ thống tự tính lại phương án cho các SKU còn lại. Nếu phương án mới vượt ngưỡng hao hụt hoặc không cắt được thì giữ phương án cũ và bạn nhận thông báo "giữ phương án cắt cũ" - muốn đổi thì vào "Tính lại" của lệnh. Lệnh đã xuất sắt: giữ phương án; phần sắt tổ cắt đã nhận mà chưa cắt thì QLSX quyết ở tab "Sắt SKU đã huỷ" - cho cắt tiếp (đoạn ra vào dư kho Phôi) hoặc ngưng và nhập trả cây về kho Phôi.'],
+            ['Mua hàng', 'Dòng mua chưa ký tự giảm theo nhu cầu mới (không còn cần thì đóng). Dòng đã ký NCC (kể cả sắt): "số cần" hạ về nhu cầu mới, số đã ký với NCC giữ nguyên; người mua nhận thông báo để liên hệ NCC - bớt được thì "Đóng phần thiếu", không bớt được thì phần về dư vào tồn chung, không giữ cho lệnh.'],
             ['Yêu cầu đổi mốc đang chờ', 'Tự huỷ theo.'],
             ['Cả lệnh', 'Huỷ hết các SKU thì cả lệnh chuyển sang Huỷ và mọi giữ chỗ vật tư của lệnh được nhả.'],
           ],
@@ -588,18 +596,71 @@ export const productionPlanGroup: GuideGroup = {
         { name: 'Đã huỷ', meaning: 'Giám đốc đã duyệt huỷ. Dòng ở lại lệnh cũ để tra cứu, không làm gì thêm được.' },
       ],
       warnings: [
-        'Huỷ được bất kỳ lúc nào trước khi giao hàng. SKU đã xuất hàng theo booking thì không huỷ được.',
-        'SKU còn nằm trong một booking chưa xuất thì Giám đốc chưa duyệt được: nhờ Kinh doanh gỡ SKU khỏi booking trước.',
+        'Huỷ được bất kỳ lúc nào trước khi giao hàng, trừ lệnh QLSX đã bấm "Kết thúc" (xưởng làm xong). SKU đã xuất hàng theo booking thì không huỷ được.',
+        'Trong lúc chờ Giám đốc duyệt, Kinh doanh không xếp được SKU này vào booking. SKU đã nằm sẵn trong một booking chưa xuất thì Giám đốc chưa duyệt được: nhờ Kinh doanh gỡ SKU khỏi booking trước.',
         'Huỷ không hoàn tác được. Muốn làm lại SKU đó thì lên lệnh mới từ "Tối ưu cắt sắt".',
       ],
       commonErrors: [
         { issue: 'Báo "Lệnh này đã có đề nghị huỷ đang chờ Sếp duyệt"', cause: 'SKU đã có một đề nghị chưa được Giám đốc quyết.', fix: 'Chờ Giám đốc quyết, hoặc bấm "Rút lại" rồi gửi đề nghị mới.' },
         { issue: 'Báo "đã xuất ... cái theo booking - không huỷ được"', cause: 'SKU đã giao hàng.', fix: 'Không huỷ qua phần mềm được nữa; báo Giám đốc xử lý ngoài hệ thống.' },
+        { issue: 'Báo "Lệnh đã Kết thúc (xưởng làm xong) - không huỷ được"', cause: 'QLSX đã bấm "Kết thúc" lệnh.', fix: 'Hàng đã làm xong; khách không lấy thì báo Giám đốc xử lý ngoài hệ thống.' },
       ],
-      tags: ['huỷ lệnh', 'hủy lệnh', 'huỷ SKU', 'đề nghị huỷ', 'cancel', 'khách huỷ đơn'],
+      tags: ['huỷ lệnh', 'hủy lệnh', 'huỷ SKU', 'đề nghị huỷ', 'cancel', 'khách huỷ đơn', 'dòng mới chưa lên lệnh'],
       sourceRefs: [
         'src/modules/pages/ProductionPlan/OrderCancelControls.tsx',
         'BE src/modules/production-invoices/order-cancellation/order-cancellation.service.ts',
+      ],
+    },
+    // Huỷ lệnh đợt 2 - Q5 / Q6 (anh Nhân 24/11/2026)
+    {
+      id: 'pp-hang-sku-huy',
+      title: 'Chuyển hàng của SKU đã huỷ sang đơn khác',
+      roles: ['khsx'],
+      purpose: 'Hàng đã đóng gói hoặc khung đã đan của SKU Giám đốc đã duyệt huỷ được chuyển sang một dòng SKU đang chạy (thường là đơn của khách khác), để dùng lại thay vì làm mới.',
+      preconditions: [
+        'Tài khoản Kế hoạch sản xuất (Admin cũng làm được).',
+        'SKU đã được Giám đốc duyệt huỷ và còn hàng đã đóng gói (chưa giao) hoặc khung đã đan đã nhận về từ điểm đan.',
+        'Có dòng SKU đang chạy (đã duyệt, chưa huỷ, chưa Kết thúc) cùng sản phẩm.',
+      ],
+      screenshot: '/guide-screens/pp-hang-sku-huy.png',
+      extraScreenshots: [{ src: '/guide-screens/pp-hang-sku-huy-chuyen.png', caption: 'Hộp chuyển: chỉ hiện dòng SKU đủ điều kiện nhận, chọn dòng rồi nhập số lượng. Số liệu trong ảnh là dữ liệu mẫu.' }],
+      mock: {
+        title: 'Hàng SKU đã huỷ',
+        columns: ['Hàng', 'Còn chuyển được', ''],
+        rows: [['Đã đóng gói', '3 bộ', 'Chuyển'], ['Khung đã đan · PB mảnh đan', '4', 'Chuyển']],
+        buttons: ['Chuyển'],
+      },
+      steps: [
+        'Vào tab "Hàng SKU đã huỷ". Mỗi thẻ là một SKU đã huỷ: lệnh, mã SKU, màu dây, vải nệm và số hàng còn chuyển được.',
+        'Ở dòng "Đã đóng gói" (tính bằng bộ) hoặc dòng "Khung đã đan · <mảnh>" (tính theo mảnh), bấm "Chuyển".',
+        'Trong hộp, chọn dòng SKU nhận. Hộp chỉ liệt kê dòng đang chạy cùng sản phẩm và cùng màu dây; với hàng đã đóng gói còn phải cùng vải nệm. Cột "Đã đóng gói" cho biết dòng nhận đã có bao nhiêu bộ.',
+        { text: 'Nhập số lượng (không quá số còn chuyển được), ghi chú nếu cần rồi bấm "Chuyển". Không hoàn tác được.', critical: true },
+        'Thẻ ghi lại các lần đã chuyển ("Đã chuyển: 2 bộ → lệnh ..."). Hết hàng thì thẻ ghi "Đã chuyển hết."',
+      ],
+      tables: [
+        {
+          title: 'Dòng nhận được tính thêm gì',
+          columns: ['Loại hàng', 'Điều kiện', 'Dòng nhận'],
+          rows: [
+            ['Đã đóng gói', 'Cùng sản phẩm, cùng màu dây, cùng vải nệm. Tổng đã đóng gói của dòng nhận không vượt số lượng của dòng đó.', 'Coi như đã đóng gói thêm số bộ này - Kinh doanh xếp booking giao được. Sản lượng đóng gói theo ngày không tính phần chuyển.'],
+            ['Khung đã đan', 'Cùng sản phẩm, cùng màu dây; mảnh phải là khung đan trong định mức của dòng nhận. Không vượt số khung dòng nhận cần.', 'Coi như đã nhận đan thêm số khung này - Chuyền kiểm làm tiếp được.'],
+          ],
+        },
+      ],
+      result: 'Hàng của SKU đã huỷ về đúng đơn đang cần, có dấu vết ai chuyển, lúc nào, sang lệnh nào.',
+      warnings: [
+        'Chỉ Kế hoạch SX (và Admin) chuyển được. Hàng đã giao theo booking không chuyển được nữa.',
+        'Muốn chuyển sang dòng khác màu dây / vải nệm thì không làm qua màn này được - báo Giám đốc quyết.',
+      ],
+      commonErrors: [
+        { issue: 'Báo "Khác màu dây - không chuyển được" hoặc "Khác vải nệm - không chuyển hàng đã đóng gói được"', cause: 'Dòng nhận không cùng màu dây / vải nệm với SKU đã huỷ.', fix: 'Chọn dòng khác cùng màu.' },
+        { issue: 'Báo "Dòng nhận cần ... bộ, đã đóng ... - nhận thêm tối đa ... bộ"', cause: 'Chuyển quá số dòng nhận còn thiếu.', fix: 'Giảm số lượng hoặc chia sang dòng khác.' },
+        { issue: 'Hộp ghi "Không có dòng SKU nào đủ điều kiện nhận."', cause: 'Không có lệnh đang chạy cùng sản phẩm và cùng màu.', fix: 'Để hàng lại, chuyển khi có đơn mới phù hợp.' },
+      ],
+      tags: ['huỷ lệnh', 'hàng sku đã huỷ', 'chuyển hàng', 'đã đóng gói', 'khung đan', 'đơn khác'],
+      sourceRefs: [
+        'src/modules/pages/ProductionPlan/HangSkuHuyPage.tsx',
+        'BE src/modules/production-invoices/order-cancellation/cancelled-goods.service.ts',
       ],
     },
 

@@ -81,6 +81,37 @@ export const salesGroup: GuideGroup = {
       tags: ['tiến độ', 'cọc', 'xác nhận cọc', 'trạng thái đơn hàng'],
       sourceRefs: ['src/modules/pages/Sales/OrderManagementPage.tsx'],
     },
+    // Huỷ lệnh câu 2 (anh Nhân 24/11/2026)
+    {
+      id: 'sales-huy-dong',
+      title: 'Huỷ một dòng của đơn hàng',
+      roles: ['sales'],
+      purpose: 'Khách không lấy một SKU nữa: Kinh doanh huỷ đúng dòng đó, đơn không còn số lượng đó phải giao. Các dòng khác của đơn giữ nguyên.',
+      preconditions: [
+        'Dòng chưa xuất hàng (số đã xuất = 0) và chưa nằm trong booking nào.',
+        'Dòng chưa có lệnh sản xuất đang chạy. Dòng đã có lệnh thì Kế hoạch SX phải đề nghị huỷ lệnh (Giám đốc duyệt) trước - sau khi duyệt, đơn có dòng SKU mới "chưa lên lệnh", Kinh doanh huỷ dòng mới đó.',
+      ],
+      screenshot: '/guide-screens/sales-huy-dong.png',
+      extraScreenshots: [{ src: '/guide-screens/sales-huy-dong-hop.png', caption: 'Hộp huỷ dòng: ghi lý do (bắt buộc) rồi bấm "Huỷ dòng". Số liệu trong ảnh là dữ liệu mẫu.' }],
+      mock: { title: 'Chi tiết PO > Chi tiết sản xuất', buttons: ['Huỷ dòng'] },
+      steps: [
+        'Mở chi tiết đơn hàng, tab "Chi tiết sản xuất". Dòng huỷ được có nút "Huỷ dòng".',
+        { text: 'Bấm "Huỷ dòng", ghi lý do (bắt buộc, vd "Khách huỷ đơn") rồi bấm "Huỷ dòng". Không hoàn tác được.', critical: true },
+        'Dòng hiện "Đã huỷ dòng <ngày>"; hạn giao của đơn tính lại theo các dòng còn lại.',
+      ],
+      result: 'Đơn không còn số lượng của dòng đó phải giao; dòng không còn hiện ở danh sách chờ lên lệnh của Kế hoạch SX.',
+      warnings: [
+        'Dòng đã huỷ không sửa được nữa. Khách đổi ý thì thêm dòng mới vào đơn.',
+      ],
+      commonErrors: [
+        { issue: 'Báo "... đang có lệnh sản xuất - KHSX đề nghị huỷ lệnh (Sếp duyệt) trước, rồi mới huỷ dòng đơn"', cause: 'Dòng đã được lên lệnh.', fix: 'Nhờ Kế hoạch SX đề nghị huỷ; Giám đốc duyệt xong thì huỷ dòng SKU mới.' },
+        { issue: 'Báo "... đang được KHSX tính phương án cắt - nhờ KHSX bỏ lượt tính đó trước"', cause: 'Dòng nằm trong một lượt tính phương án cắt chưa dùng.', fix: 'Nhờ Kế hoạch SX xoá lượt tính đó ở "Tối ưu cắt sắt".' },
+        { issue: 'Báo "... đang nằm trong booking ... - bỏ khỏi booking trước"', cause: 'Dòng đã được xếp vào booking.', fix: 'Gỡ dòng khỏi booking rồi huỷ.' },
+        { issue: 'Báo "... đã xuất ... bộ - không huỷ được"', cause: 'Dòng đã giao hàng.', fix: 'Không huỷ được qua phần mềm.' },
+      ],
+      tags: ['huỷ dòng', 'hủy dòng', 'khách huỷ', 'huỷ sku đơn hàng', 'cancel line'],
+      sourceRefs: ['src/modules/pages/Sales/OrderManagementPage.tsx', 'BE src/modules/sales-orders/sales-orders.service.ts'],
+    },
     {
       id: 'sales-xoa-po',
       title: 'Xoá đơn hàng',
