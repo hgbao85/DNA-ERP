@@ -8,6 +8,7 @@ import { useRealtimeRefetch } from '../../../realtime/hooks'
 import * as api from '../../../services/api'
 import type { BeWarehouse } from '../../../services/warehouses-api'
 import SearchableSelect from '../../../components/SearchableSelect'
+import LoadErrorState from '../../../components/LoadErrorState'
 import { safeArr } from '../../../utils/array'
 import { warehouseFamilyOf } from '../../../utils/warehouseFamily'
 import { errMsg } from '../../../utils/errors'
@@ -71,7 +72,7 @@ export default function ChuyenKhoTuDoPage({ scope }: { scope: string | null }) {
   // test: dùng `qty` khiến "Thực có" hiển thị CAO HƠN thực tế khi có phiếu khác đang giữ chỗ cùng
   // vật tư - người dùng nhập số trong khoảng đó rồi bị BE từ chối vì vượt khả dụng; từ 19/11 BE báo lỗi kèm số còn, không
   // lập phiếu và không còn cắt bớt).
-  const { data: materialOptions, isLoading: loadingMaterials, refetch: refetchStock } = useFetch<MaterialOption[]>(async () => {
+  const { data: materialOptions, isLoading: loadingMaterials, error: materialsError, refetch: refetchStock } = useFetch<MaterialOption[]>(async () => {
     if (!effectiveFromId) return []
     const [quants, materials] = await Promise.all([
       api.getStockQuants({ warehouseId: effectiveFromId }),
@@ -197,6 +198,12 @@ export default function ChuyenKhoTuDoPage({ scope }: { scope: string | null }) {
             />
           </div>
         </div>
+
+        {/* 26/11/2026: tải danh sách vật tư / tồn kho lỗi (vd 429 "Thao tác quá nhanh") phải báo. Báo cả khi còn danh sách cũ:
+            đổi kho nguồn mà tải lỗi thì useFetch giữ danh sách của kho trước - không báo thì người dùng tưởng đó là tồn kho mới. */}
+        {materialsError && (
+          <div style={{ marginBottom: 14 }}><LoadErrorState error={materialsError} onRetry={refetchStock} /></div>
+        )}
 
         <div style={{ marginBottom: 14 }}>
           <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 6 }}>Vật tư</label>

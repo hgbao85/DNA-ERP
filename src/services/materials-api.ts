@@ -62,7 +62,7 @@ export interface BeMaterialSupplier {
 const MATERIALS_PAGE_SIZE = 100;
 const MATERIALS_MAX_PAGES = 50; // chặn vòng lặp vô hạn nếu BE trả meta sai
 
-export async function getMaterials(): Promise<BeMaterial[]> {
+async function fetchAllMaterials(): Promise<BeMaterial[]> {
   const all: BeMaterial[] = [];
   for (let page = 1; page <= MATERIALS_MAX_PAGES; page += 1) {
     const res = await http.get<BeMaterial[] | { data: BeMaterial[]; meta?: { totalPages?: number } }>(
@@ -76,6 +76,31 @@ export async function getMaterials(): Promise<BeMaterial[]> {
   return all;
 }
 
+/**
+ * 26/11/2026 (lỗi 429 "Thao tác quá nhanh"): 9 màn gọi getMaterials(), mỗi lần tải cả danh mục theo từng trang 100 dòng (409 vật
+ * tư = 5 request) nên đổi qua lại vài màn là chạm trần 100 request / 60 giây của BE. Nay các lần gọi trong 30 giây DÙNG CHUNG 1
+ * lần tải (cả các lần gọi cùng lúc), và xoá bộ nhớ ngay khi có thao tác ghi vật tư ở đây hoặc khi tải lỗi (lần sau tải lại).
+ * Mỗi nơi gọi nhận 1 bản sao mảng riêng nên sắp xếp / lọc tại chỗ không ảnh hưởng nơi khác.
+ */
+export const MATERIALS_CACHE_TTL_MS = 30_000;
+let materialsCache: { at: number; promise: Promise<BeMaterial[]> } | null = null;
+
+export function invalidateMaterialsCache(): void {
+  materialsCache = null;
+}
+
+export function getMaterials(): Promise<BeMaterial[]> {
+  const now = Date.now();
+  if (!materialsCache || now - materialsCache.at > MATERIALS_CACHE_TTL_MS) {
+    const promise = fetchAllMaterials();
+    materialsCache = { at: now, promise };
+    promise.catch(() => {
+      if (materialsCache?.promise === promise) materialsCache = null;
+    });
+  }
+  return materialsCache.promise.then((list) => list.slice());
+}
+
 // AdminEntityPage's <select> cho purchaseRoundUp chỉ gửi được string ("true"/"false") hoặc
 // null/undefined ("— Mặc định —", xem comment ở field config trong MaterialsPage.tsx) - decode
 // về đúng kiểu boolean|null|undefined mà BE mong đợi trước khi gửi.
@@ -86,7 +111,7 @@ function decodeRoundUp(v: unknown): boolean | null | undefined {
 }
 
 export async function createMaterial(data: Record<string, unknown>): Promise<BeMaterial> {
-  return http.post<BeMaterial>('/materials', {
+  const created = await http.post<BeMaterial>('/materials', {
     code: data.code,
     name: data.name,
     unit: data.unit,
@@ -104,10 +129,12 @@ export async function createMaterial(data: Record<string, unknown>): Promise<BeM
     openingQty: data.openingQty || undefined,
     imageUrl: data.imageUrl || undefined,
   });
+  invalidateMaterialsCache();
+  return created;
 }
 
 export async function updateMaterial(id: number | string, data: Record<string, unknown>): Promise<BeMaterial> {
-  return http.patch<BeMaterial>(`/materials/${id}`, {
+  const updated = await http.patch<BeMaterial>(`/materials/${id}`, {
     code: data.code,
     name: data.name,
     unit: data.unit,
@@ -128,6 +155,8 @@ export async function updateMaterial(id: number | string, data: Record<string, u
     imageUrl: data.imageUrl,
     isActive: data.isActive,
   });
+  invalidateMaterialsCache();
+  return updated;
 }
 
 /**
@@ -142,11 +171,14 @@ export async function bulkUpdateMaterialWaste(payload: {
   materialGroupId?: string;
   value: number | null;
 }): Promise<{ updated: number; skippedSteel: number }> {
-  return http.patch<{ updated: number; skippedSteel: number }>('/materials/bulk-waste', payload);
+  const result = await http.patch<{ updated: number; skippedSteel: number }>('/materials/bulk-waste', payload);
+  invalidateMaterialsCache();
+  return result;
 }
 
 export async function deleteMaterial(id: number | string): Promise<{ id: number | string }> {
   await http.del(`/materials/${id}`);
+  invalidateMaterialsCache();
   return { id };
 }
 

@@ -9,6 +9,7 @@ import { useState } from 'react'
 import { PackageOpen } from 'lucide-react'
 import { useFetch } from '../../../hooks/useFetch'
 import { useRealtimeRefetch } from '../../../realtime/hooks'
+import { useAuth } from '../../../context/AuthContext'
 import {
   getCancelledGoods,
   transferCancelledGoods,
@@ -30,6 +31,10 @@ const btn: React.CSSProperties = { padding: '4px 10px', borderRadius: 6, fontSiz
 type Target = { row: CancelledGoodsRow; kind: CancelledGoodsKind; available: number; label: string }
 
 export default function HangSkuHuyPage() {
+  // 26/11/2026: Sếp được XEM màn này (BE cho BOSS đọc GET goods) nhưng KHÔNG chuyển hàng - nút "Chuyển" chỉ hiện với KHSX / Admin.
+  // Tài khoản vừa Sếp vừa KHSX vẫn chuyển được (BE cho vai KHSX).
+  const { isBoss, user } = useAuth()
+  const viewOnly = isBoss && !user?.isProductPlanner
   const { data, isLoading, error, refetch } = useFetch(() => getCancelledGoods(), [])
   useRealtimeRefetch(['production-orders'], refetch)
   const [target, setTarget] = useState<Target | null>(null)
@@ -78,7 +83,11 @@ export default function HangSkuHuyPage() {
                       <tr>
                         <td style={td}>Đã đóng gói</td>
                         <td style={{ ...td, textAlign: 'right' }}>{r.packedAvailable} bộ</td>
-                        <td style={td}><button style={btn} onClick={() => setTarget({ row: r, kind: 'PACKED', available: r.packedAvailable, label: 'hàng đã đóng gói' })}>Chuyển</button></td>
+                        <td style={td}>
+                          {viewOnly
+                            ? <span style={{ fontSize: 12, color: 'var(--text2)' }}>Chỉ KHSX chuyển</span>
+                            : <button style={btn} onClick={() => setTarget({ row: r, kind: 'PACKED', available: r.packedAvailable, label: 'hàng đã đóng gói' })}>Chuyển</button>}
+                        </td>
                       </tr>
                     )}
                     {r.woven.map(w => (
