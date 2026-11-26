@@ -371,3 +371,10 @@ describe('bản in / Excel ghi đoạn dư lấy từ kho (câu 14a)', () => {
     expect(buildPrintSectionHtml(withStock(), false)).toContain('30 (có sẵn 5, cắt 25)');
   });
 });
+
+describe('loại sắt đoạn dư trong kho phủ hết (review IT 26/11 mục 3.5)', () => {
+  it('dòng 0 cây, không kiểu cắt -> "Không phải cắt", không in "Mua — × 0 cây"', () => {
+    const line = { bestStockLengthMm: null, totalBars: 0, patterns: [] }
+    expect(barsLineText(line)).toBe('Không phải cắt - dùng đoạn dư có sẵn trong kho Phôi')
+  })
+})
