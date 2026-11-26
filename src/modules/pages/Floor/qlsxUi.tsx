@@ -10,6 +10,8 @@ import { STAGE_LABEL, STEP_LABEL } from './floorUi'
 export { STAGE_LABEL, STEP_LABEL }
 export const KIND_LABEL: Record<string, string> = {
   CUT: 'Máy cắt', STEP: 'Máy công đoạn phụ', PIECE: 'Điểm làm việc (Hàn/Sơn)', STEEL_RECEIVE: 'Khu nhận sắt',
+  // 24/11/2026 (CK_DG_QR): điểm của kho Thành phẩm.
+  TRANSFER_CHECK: 'Điểm chuyền kiểm', PACKING: 'Khu đóng gói',
 }
 
 /** Nhãn loại máy cắt ("MC Laser" / "MC Tự động"); không phải máy cắt hoặc BE cũ chưa trả thì null. */
@@ -72,7 +74,8 @@ export function workshopsMissingSteelReceive(
 
 /** Số máy / điểm làm việc KHÔNG phải máy cắt, đang hoạt động, chưa gán xưởng (máy cắt đã có dòng tóm tắt riêng). */
 export const countNonCutUnassigned = (list: Pick<BeWorkstation, 'kind' | 'isActive' | 'workshopId'>[]): number =>
-  list.filter((w) => w.kind !== 'CUT' && isWorkshopUnassigned(w)).length
+  // Điểm chuyền kiểm / khu đóng gói (24/11/2026) đi theo kho Thành phẩm, không theo xưởng - không tính.
+  list.filter((w) => w.kind !== 'CUT' && w.kind !== 'TRANSFER_CHECK' && w.kind !== 'PACKING' && isWorkshopUnassigned(w)).length
 
 export const card: CSSProperties = {
   background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 16,
@@ -171,7 +174,16 @@ export const countedOf = <T extends { blocked: string | null }>(rows: T[]): T[] 
  */
 export function qlsxTabForUrl(p: string | null, isProdMgr: boolean): string | null {
   if (isProdMgr && p !== null && teamViewForUrl(p)) return 'xem-cac-to'
+  if (isProdMgr && p !== null && floorTabForUrl(p)) return 'san-luong-xuong'
   return isProdMgr && p !== null && p.startsWith('kcs-') ? 'san-luong-xuong' : p
+}
+
+/**
+ * Link tới tab con của "Sản lượng xưởng" (?p=giao-nhan-giua-to - thông báo STAGE_HANDOVER_OVERRIDE, 24/11/2026): QLSX mở "Sản lượng
+ * xưởng" và nhảy thẳng tab "Giao nhận giữa tổ". Không phải thì null.
+ */
+export function floorTabForUrl(p: string | null): 'handover' | null {
+  return p === 'giao-nhan-giua-to' ? 'handover' : null
 }
 
 /**

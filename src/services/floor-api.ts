@@ -13,13 +13,17 @@ import type { MaterialChoice } from '../types/sku'
 import type { SolverMachine } from '../types/admin'
 
 export type FloorStage = 'PHOI' | 'HAN' | 'SON'
-export type WorkstationKind = 'CUT' | 'STEP' | 'PIECE' | 'STEEL_RECEIVE'
+/** 24/11/2026 (CK_DG_QR): điểm chuyền kiểm / khu đóng gói của kho Thành phẩm thuộc tổ CHUYEN_KIEM / DONG_GOI. */
+export type WorkstationStage = FloorStage | 'CHUYEN_KIEM' | 'DONG_GOI'
+/** Tổ của tài khoản công nhân - thêm Chuyền kiểm, Đóng gói, KCS chuyền kiểm (24/11/2026, chỉ khi BE bật CK_DG_QR_ENABLED). */
+export type FloorAccountStage = FloorStage | 'CHUYEN_KIEM' | 'DONG_GOI' | 'KCS_CHUYEN_KIEM'
+export type WorkstationKind = 'CUT' | 'STEP' | 'PIECE' | 'STEEL_RECEIVE' | 'TRANSFER_CHECK' | 'PACKING'
 
 export interface BeWorkstationBrief {
   id: string
   code: string
   name: string
-  stage: FloorStage
+  stage: WorkstationStage
   kind: WorkstationKind
   processStep: string | null
   /** Loại máy cắt (chỉ máy CUT; 13/11/2026). Thiếu/null = BE cũ hoặc không phải máy cắt. */
@@ -97,6 +101,22 @@ export interface BeScanPieceItem {
   failedQty?: number
   /** KCS ghi thiếu cộng dồn (P1; passedQty đã trừ thiếu). */
   shortQty?: number
+  /**
+   * Giao nhận giữa tổ (24/11/2026, chỉ Hàn / Sơn khi BE bật công tắc): số mảnh theo hàng đã nhận qua phiếu giao của kho. Có trường
+   * này thì `maxNow` = min(còn theo kế hoạch, receivedLeft). Không có / null = không áp dụng (màn như cũ).
+   */
+  handover?: BeScanHandover | null
+}
+
+/** "Đã nhận / Đã làm / Còn" của 1 mảnh ở tổ Hàn / Sơn (BE floor-scan, giao nhận giữa tổ). */
+export interface BeScanHandover {
+  /** SEGMENT = mảnh làm từ đoạn kho Phôi giao; FRAME = mảnh đã hàn kho Hàn giao cho Sơn. */
+  mode: 'SEGMENT' | 'FRAME'
+  receivedQty: number
+  usedQty: number
+  /** Còn báo được theo hàng đã nhận (kể cả phần QLSX mở chặn). */
+  receivedLeft: number
+  overrideQty: number
 }
 
 export interface BeScanPi {
@@ -257,15 +277,21 @@ export interface BeWorkstation extends BeWorkstationBrief {
   createdAt: string
   /** Xưởng đặt máy (13/11/2026); null/thiếu = chưa khai. */
   workshopId?: string | null
+  /** Kho Thành phẩm của điểm chuyền kiểm / khu đóng gói (24/11/2026); null/thiếu với loại khác. */
+  warehouseId?: string | null
+  warehouseCode?: string | null
+  warehouseName?: string | null
 }
 
 export interface CreateWorkstationInput {
   code: string
   /** 21/11/2026: màn bỏ ô Tên gọi - không gửi thì BE lấy tên = mã. */
   name?: string
-  stage: FloorStage
+  stage: WorkstationStage
   kind: WorkstationKind
   processStep?: string
+  /** Bắt buộc với điểm chuyền kiểm / khu đóng gói: id kho Thành phẩm (24/11/2026). */
+  warehouseId?: string
   /** Xưởng đặt máy (id). */
   workshopId?: string
   /** Chỉ cho máy cắt; BE mặc định laser nếu thiếu. */
@@ -289,7 +315,7 @@ export interface BeFloorWorker {
   firstName: string
   lastName: string
   fullName: string | null
-  stage: FloorStage | null
+  stage: FloorAccountStage | null
   isActive: boolean
   createdAt: string
   /** SET = công nhân tự đặt PIN; ADMIN_SET = PIN do QLSX đặt (tài khoản cũ); PENDING = chờ đặt PIN lần đầu; EXPIRED = quá hạn. */
@@ -715,9 +741,9 @@ export const floorAdmin = {
 
   workers: () => http.get<BeFloorWorker[]>('/floor/workers'),
   /** Không có PIN: công nhân tự đặt ở lần đăng nhập đầu (QLSX không biết PIN). */
-  createWorker: (d: { username: string; firstName: string; lastName: string; stage: FloorStage }) =>
+  createWorker: (d: { username: string; firstName: string; lastName: string; stage: FloorAccountStage }) =>
     http.post<BeFloorWorker>('/floor/workers', d),
-  updateWorker: (id: string, d: { firstName?: string; lastName?: string; stage?: FloorStage; isActive?: boolean }) =>
+  updateWorker: (id: string, d: { firstName?: string; lastName?: string; stage?: FloorAccountStage; isActive?: boolean }) =>
     http.patch<BeFloorWorker>(`/floor/workers/${id}`, d),
   /** Cho đặt lại PIN: xoá PIN cũ, công nhân tự đặt PIN mới ở lần đăng nhập kế. */
   resetWorkerPin: (id: string) => http.post<BeFloorWorker>(`/floor/workers/${id}/reset-pin`),

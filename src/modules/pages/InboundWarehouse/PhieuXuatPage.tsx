@@ -27,6 +27,7 @@ import { useIssueSlipCart } from './IssueSlipCart'
 import { printIssueSlip } from './printIssueSlip'
 import LenhCode from '../../../components/LenhCode'
 import { isWorkshopBoundKind, warehouseKindOf } from '../../../utils/warehouseKinds'
+import { handoverStagesOf, recipientPlaceholder, slipKindLabel } from './handoverModel'
 
 const th: React.CSSProperties = { padding: '8px 12px', fontSize: 12, fontWeight: 600, color: 'var(--text2)', textAlign: 'left', whiteSpace: 'nowrap' }
 const td: React.CSSProperties = { padding: '8px 12px', fontSize: 13, verticalAlign: 'middle' }
@@ -39,7 +40,6 @@ const btn = (enabled: boolean, color = 'var(--bg-2563eb)'): React.CSSProperties 
 })
 const ghost: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', fontSize: 12, fontWeight: 600, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)', color: 'var(--text2)', cursor: 'pointer' }
 
-const KIND_LABEL = { STEEL: 'Sắt', CONSUMABLE: 'Tiêu hao', SHARED: 'Dùng chung', WEAVING_PIECE: 'Mảnh đan', WEAVING_MATERIAL: 'Kèm đan', PACKAGING: 'Đóng gói', MATERIAL_YIELD: 'Vật tư TP', MATERIAL_YIELD_RECIPE: 'Vật tư TP' } as const
 const fmtQty = (n: number) => String(Math.round(n * 10_000) / 10_000)
 
 /** `listOnly`: chỉ danh sách phiếu chờ ký / đã xuất, không có giỏ lập phiếu (kho Phụ kiện - phiếu vật tư kèm đan lập ở màn
@@ -61,6 +61,8 @@ export default function PhieuXuatPage({ listOnly = false }: { listOnly?: boolean
   const [sharedNote, setSharedNote] = useState('')
 
   const scope = user?.warehouseScope ?? null
+  // Giao nhận giữa tổ: phiếu có dòng giao đoạn / giao mảnh thì công nhân tổ nhận ký ("Tổ Hàn – <tên>").
+  const hasHandover = handoverStagesOf(cart.lines).length > 0
   // Dòng "Dùng chung": vật tư không phải sắt, nằm ở kho mình phụ trách. Đợt 7: kho Phôi/Hàn Phước An lấy cả vật tư có kho
   // mặc định là kho CÙNG LOẠI ở Phú An (vật tư chỉ khai 1 kho mặc định, BE tự đổi sang kho của xưởng thủ kho).
   // Thêm (anh Nhân 07/11): vật tư kho khác đang CÓ TỒN ở kho mình (đá cắt kho Phôi đã chuyển sang kho Hàn) - BE xuất từ
@@ -103,6 +105,9 @@ export default function PhieuXuatPage({ listOnly = false }: { listOnly?: boolean
         lines: cart.lines.map(l => ({
           kind: l.kind, materialId: l.materialId, productionInvoiceId: l.productionInvoiceId, productionOrderId: l.productionOrderId,
           stage: l.stage, barLengthMm: l.barLengthMm, recipeId: l.recipeId, qty: l.qty, note: l.note,
+          // Giao nhận giữa tổ (24/11/2026): dòng giao đoạn / giao mảnh.
+          ...(l.kind === 'SEGMENT_HANDOVER' ? { segmentSpecId: l.segmentSpecId, segmentSteps: l.segmentSteps ?? '' } : {}),
+          ...(l.kind === 'FRAME_HANDOVER' ? { pieceId: l.pieceId } : {}),
         })),
         recipientName: recipient.trim() || undefined,
         note: note.trim() || undefined,
@@ -124,18 +129,18 @@ export default function PhieuXuatPage({ listOnly = false }: { listOnly?: boolean
         <div style={head}>
           <FileText size={16} color="var(--fg-4527a0)" />
           <b style={{ fontSize: 14 }}>Phiếu đang lập</b>
-          <span style={{ fontSize: 12, color: 'var(--text3)' }}>Thêm dòng từ các tab xuất sắt / vật tư TP / vật tư hàn / vật tư sơn, hoặc dòng dùng chung bên dưới. Mỗi phiếu chỉ cho một kho.</span>
+          <span style={{ fontSize: 12, color: 'var(--text3)' }}>Thêm dòng từ các tab xuất sắt / vật tư TP / vật tư hàn / vật tư sơn{hasHandover ? ' / giao đoạn, giao mảnh' : ''}, hoặc dòng dùng chung bên dưới. Mỗi phiếu chỉ cho một kho.{hasHandover ? ' Được gộp nhiều lệnh.' : ''}</span>
         </div>
         {cart.lines.length === 0 ? (
           <div style={{ padding: 14, fontSize: 13, color: 'var(--text3)' }}>Chưa có dòng nào.</div>
         ) : (
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead><tr><th style={th}>Loại</th><th style={th}>Vật tư</th><th style={th}>Lệnh</th><th style={{ ...th, textAlign: 'right' }}>Số lượng</th><th style={th}>ĐVT</th><th style={th} /></tr></thead>
+              <thead><tr><th style={th}>Loại</th><th style={th}>{hasHandover ? 'Vật tư / Mã đoạn / Mảnh' : 'Vật tư'}</th><th style={th}>Lệnh</th><th style={{ ...th, textAlign: 'right' }}>Số lượng</th><th style={th}>ĐVT</th><th style={th} /></tr></thead>
               <tbody>
                 {cart.lines.map(l => (
                   <tr key={l.key} style={{ borderTop: '1px solid var(--border)' }}>
-                    <td style={td}>{KIND_LABEL[l.kind]}{l.stage ? ` ${l.stage === 'HAN' ? 'Hàn' : 'Sơn'}` : ''}</td>
+                    <td style={td}>{slipKindLabel(l.kind, l.stage)}</td>
                     <td style={{ ...td, fontWeight: 600 }}>{l.materialName}{l.barLengthMm ? <span style={{ fontWeight: 400, color: 'var(--fg-e65100)' }}> · cây {l.barLengthMm}mm</span> : null}</td>
                     <td style={{ ...td, fontFamily: 'monospace', fontSize: 12 }}><LenhCode piCode={l.lenhLabel} /></td>
                     <td style={{ ...td, textAlign: 'right', fontWeight: 700 }}>{fmtQty(l.qty)}</td>
@@ -158,7 +163,7 @@ export default function PhieuXuatPage({ listOnly = false }: { listOnly?: boolean
           <button onClick={addShared} disabled={!sharedMaterialId || !(Number(sharedQty) > 0)} style={ghost}>Thêm dòng</button>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', padding: '10px 14px', borderTop: '1px solid var(--border)' }}>
-          <input value={recipient} onChange={e => setRecipient(e.target.value)} placeholder="Người nhận (tổ / tên)" style={{ ...input, width: 200 }} aria-label="Người nhận" />
+          <input value={recipient} onChange={e => setRecipient(e.target.value)} placeholder={recipientPlaceholder(cart.lines)} style={{ ...input, width: 200 }} aria-label="Người nhận" />
           <input value={note} onChange={e => setNote(e.target.value)} placeholder="Ghi chú phiếu" style={{ ...input, flex: 1, minWidth: 160 }} aria-label="Ghi chú phiếu" />
           {cart.lines.length > 0 && <button onClick={cart.clear} disabled={creating} style={ghost}><Trash2 size={13} /> Xoá hết</button>}
           <button onClick={() => void create()} disabled={cart.lines.length === 0 || creating} style={btn(cart.lines.length > 0 && !creating)}>
@@ -258,9 +263,9 @@ function DraftSlip({ slip, onChanged }: { slip: IssueSlip; onChanged: () => void
           <tbody>
             {slip.lines.map(l => (
               <tr key={l.id} style={{ borderTop: '1px solid var(--border)' }}>
-                <td style={td}>{KIND_LABEL[l.kind]}{l.stage ? ` ${l.stage === 'HAN' ? 'Hàn' : 'Sơn'}` : ''}</td>
+                <td style={td}>{slipKindLabel(l.kind, l.stage)}</td>
                 <td style={{ ...td, fontFamily: 'monospace', fontSize: 12 }}>{l.materialCode}</td>
-                <td style={td}>{l.materialName}{l.barLengthMm ? ` · cây ${l.barLengthMm}mm` : ''}{l.kind === 'WEAVING_MATERIAL' && l.pieceName ? <span style={{ color: 'var(--text3)' }}> · kèm {l.pieceName}</span> : null}{l.note ? <span style={{ color: 'var(--text3)' }}> · {l.note}</span> : null}</td>
+                <td style={td}>{l.kind === 'SEGMENT_HANDOVER' ? (l.segmentLabel ?? l.materialName) : l.materialName}{l.barLengthMm ? ` · cây ${l.barLengthMm}mm` : ''}{l.kind === 'WEAVING_MATERIAL' && l.pieceName ? <span style={{ color: 'var(--text3)' }}> · kèm {l.pieceName}</span> : null}{l.note ? <span style={{ color: 'var(--text3)' }}> · {l.note}</span> : null}</td>
                 <td style={{ ...td, fontFamily: 'monospace', fontSize: 12 }}>{l.lenhCode ?? (l.kind === 'SHARED' ? 'Dùng chung' : '—')}{l.sku ? ` · ${l.sku}` : ''}</td>
                 <td style={{ ...td, textAlign: 'right', fontWeight: 700 }}>{fmtQty(l.qty)}</td>
                 <td style={{ ...td, color: 'var(--text3)' }}>{l.unit}</td>

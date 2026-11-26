@@ -12,6 +12,8 @@ export interface BeWeavingPoint {
   code: string;
   fullName: string | null;
   aliasNote: string | null;
+  /** Người liên hệ (Điều phối đan Đ3, 25/11/2026). */
+  contactPerson: string | null;
   phone: string | null;
   address: string | null;
   dayDaiPercent: number | null;
@@ -30,6 +32,7 @@ export async function createWeavingPoint(data: Record<string, unknown>): Promise
     code: data.code,
     fullName: data.fullName,
     aliasNote: data.aliasNote,
+    contactPerson: data.contactPerson,
     phone: data.phone,
     address: data.address,
     dayDaiPercent: data.dayDaiPercent,
@@ -44,6 +47,7 @@ export async function updateWeavingPoint(id: number | string, data: Record<strin
     code: data.code,
     fullName: data.fullName,
     aliasNote: data.aliasNote,
+    contactPerson: data.contactPerson,
     phone: data.phone,
     address: data.address,
     dayDaiPercent: data.dayDaiPercent,

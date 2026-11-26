@@ -7,7 +7,11 @@ import { ApiError } from '../../../services/core/apiError'
 import type { BeMyOutputRow } from '../../../services/floor-api'
 
 /** Tên tổ và tên công đoạn hiển thị - dùng chung cho màn quét và màn QLSX. */
-export const STAGE_LABEL: Record<string, string> = { PHOI: 'Phôi', HAN: 'Hàn', SON: 'Sơn' }
+export const STAGE_LABEL: Record<string, string> = {
+  PHOI: 'Phôi', HAN: 'Hàn', SON: 'Sơn',
+  // 24/11/2026 (CK_DG_QR): tổ chuyền kiểm / đóng gói / KCS chuyền kiểm (chỉ có khi BE bật công tắc).
+  CHUYEN_KIEM: 'Chuyền kiểm', DONG_GOI: 'Đóng gói', KCS_CHUYEN_KIEM: 'KCS chuyền kiểm',
+}
 export const STEP_LABEL: Record<string, string> = {
   CAT: 'Cắt', UON: 'Uốn', DAP: 'Dập', DUC_LO: 'Đục lỗ', TAN: 'Tán', TOP_DAU: 'Tóp đầu', XE: 'Xẻ', NHAN: 'Nhấn',
 }

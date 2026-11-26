@@ -17,6 +17,8 @@ import { useIsMobile } from '../../../hooks/useMediaQuery'
 import MobileListCards from '../../../components/MobileListCards'
 import { useRealtimeRefetch } from '../../../realtime/hooks'
 import LenhCode from '../../../components/LenhCode'
+import { useCkDgEnabled } from '../../../hooks/useCkDgEnabled'
+import { CkMonitorPanel } from './CkDgKhoPanels'
 
 interface LoiEntry { id: number; lyDo: string; file: File | null }
 
@@ -95,7 +97,31 @@ function DefectListPanel({ defects, onChanged }: {
   )
 }
 
-export default function KhoChuyenKiemPage({ readOnly = false, filterExportOrderId, warehouseScope }: { readOnly?: boolean; filterExportOrderId?: string; warehouseScope?: string | null } = {}) {
+type KhoPageProps = {
+  readOnly?: boolean
+  filterExportOrderId?: string
+  warehouseScope?: string | null
+  /** CK_DG_QR bật: bảng theo lệnh chỉ để xem, đặt dưới màn theo dõi / đối chiếu. */
+  monitorMode?: boolean
+}
+
+/**
+ * 24/11/2026 (CK_DG_QR): bật công tắc thì tab Chuyền kiểm của kho Thành phẩm không còn nhập tay - chỉ theo dõi đợt công nhân báo + KCS chuyền kiểm chấm (CkMonitorPanel),
+ * bảng cũ theo lệnh vẫn hiện bên dưới ở chế độ chỉ xem. Tắt công tắc: y như cũ. Chờ hỏi công tắc thì hiện đang tải (không nháy form nhập tay).
+ */
+export default function KhoChuyenKiemPage(props: KhoPageProps = {}) {
+  const ckDg = useCkDgEnabled()
+  if (ckDg === null) return <LoadingState />
+  if (!ckDg) return <KhoChuyenKiemManual {...props} />
+  return (
+    <>
+      <CkMonitorPanel warehouseScope={props.warehouseScope} />
+      <KhoChuyenKiemManual {...props} readOnly monitorMode />
+    </>
+  )
+}
+
+function KhoChuyenKiemManual({ readOnly = false, filterExportOrderId, warehouseScope, monitorMode = false }: KhoPageProps = {}) {
   // Điện thoại: danh sách PI/PO dạng thẻ (MobileListCards) thay bảng 4-5 cột chiều rộng cố định.
   const isMobile = useIsMobile()
   const { data: skus = [], isLoading, error: skusError, refetch: refetchSkus } = useFetch(() => api.getSkus(), [])
@@ -418,9 +444,9 @@ export default function KhoChuyenKiemPage({ readOnly = false, filterExportOrderI
   // SKU nên chỉ tải khi bấm vào xem chi tiết, tránh N lần gọi API cho mỗi dòng trong danh sách.
   return (
     <div>
-      <h2 style={{ ...pageTitle, margin: 0 }}>Chuyền kiểm</h2>
+      <h2 style={{ ...pageTitle, margin: 0 }}>{monitorMode ? 'Theo lệnh' : 'Chuyền kiểm'}</h2>
       <p style={{ ...pageSubtitle, marginBottom: 'var(--space-5)' }}>
-        Nhấn vào dòng để xem chi tiết mảnh và nhập kết quả kiểm
+        {monitorMode ? 'Nhấn vào dòng để xem từng mảnh: Hiện có, đã qua chuyền kiểm, lỗi (chỉ xem) - mảnh còn Hiện có lớn hơn Đã kiểm là chưa kiểm hết' : 'Nhấn vào dòng để xem chi tiết mảnh và nhập kết quả kiểm'}
       </p>
 
       {isLoading ? <LoadingState /> : skusError ? <LoadErrorState error={skusError} onRetry={refetchSkus} /> : isMobile ? (

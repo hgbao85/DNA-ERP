@@ -15,6 +15,8 @@ const MODULE_STRATEGIES: ModuleStrategy[] = [
   { matches: (u) => !!u.isSale,                              module: 'sales'             },
   { matches: (u) => !!u.isPurchaser,                         module: 'purchasing'        },
   { matches: (u) => !!u.isMaterialsManager,                  module: 'materials_manager' },
+  // Điều phối đan (25/11/2026): tài khoản văn phòng chỉ có vai WEAVING_COORDINATOR - đứng trước nhánh WAREHOUSE_STAFF (vai phẳng mặc định).
+  { matches: (u) => !!u.isWeavingCoordinator && u.role !== 'BOSS', module: 'weaving_coordination' },
   { matches: (u) => u.role === 'WAREHOUSE_STAFF',            module: 'inbound_warehouse' },
   { matches: (u) => u.role === 'BOSS' && !u.mfgRole,        module: 'boss'              },
 ];

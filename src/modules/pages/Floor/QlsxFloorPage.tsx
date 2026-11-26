@@ -5,6 +5,7 @@
  * 23/11/2026 bỏ hàng đợi xưởng: QLSX không xếp lệnh cho tổ nữa (Hàn / Sơn tự chọn lệnh trên màn quét), sản lượng theo lệnh
  * xem ở "Xem các tổ" (Hướng dẫn cắt, Khung hàn, Mảnh chờ đan). Màn còn: (1) chia máy cắt, (2) báo cáo số đạt / lỗi KCS đã
  * chốt theo ngày / tháng / năm, (3) máy + tem QR, (4) tài khoản công nhân.
+ * 24/11/2026: thêm tab "Giao nhận giữa tổ" - chỉ hiện khi BE bật công tắc (GET /stage-handover/board trả enabled).
  */
 
 import { useState } from 'react'
@@ -14,8 +15,12 @@ import QlsxCutAllocation from './QlsxCutAllocation'
 import QlsxSetup from './QlsxSetup'
 import QlsxStats from './QlsxStats'
 import QlsxCutMachineStats from './QlsxCutMachineStats'
+import QlsxHandoverBoard from './QlsxHandoverBoard'
+import { HANDOVER_TAB_LABEL } from './handoverBoardModel'
+import { useFetch } from '../../../hooks/useFetch'
+import { getHandoverBoard } from '../../../services/stage-handover-api'
 
-type Tab = 'cut' | 'stats' | 'machines' | 'workers'
+type Tab = 'cut' | 'stats' | 'machines' | 'workers' | 'handover'
 
 export const FLOOR_TABS: { id: Tab; label: string }[] = [
   { id: 'cut', label: 'Chia máy cắt' },
@@ -30,9 +35,15 @@ export const FLOOR_PAGE_NOTE =
 /** Phần chữ của câu mô tả trước chữ "Xem các tổ" (chữ này là liên kết mở trang xem-cac-to). */
 export const FLOOR_PAGE_NOTE_HEAD = FLOOR_PAGE_NOTE.slice(0, FLOOR_PAGE_NOTE.indexOf('Xem các tổ'))
 
-export default function QlsxFloorPage() {
-  const [tab, setTab] = useState<Tab>('cut')
+/** `initialTab`: link thông báo mở thẳng tab (vd ?p=giao-nhan-giua-to -> 'handover'). */
+export default function QlsxFloorPage({ initialTab }: { initialTab?: 'handover' } = {}) {
+  const [tab, setTab] = useState<Tab>(initialTab ?? 'cut')
   const [, setUrlTab] = useUrlState('p')
+  // Giao nhận giữa tổ: tắt công tắc / lỗi thì không có tab mới, màn như cũ.
+  const { data: handoverBoard, refetch: refetchHandover } = useFetch(() => getHandoverBoard().catch(() => null), [])
+  const handoverOn = !!handoverBoard?.enabled
+  const tabs: { id: Tab; label: string }[] = handoverOn ? [...FLOOR_TABS, { id: 'handover', label: HANDOVER_TAB_LABEL }] : FLOOR_TABS
+  const shownTab: Tab = tab === 'handover' && !handoverOn ? 'cut' : tab
   return (
     <div style={{ padding: 'clamp(12px, 3vw, 28px)', display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div>
@@ -45,22 +56,23 @@ export default function QlsxFloorPage() {
       </div>
 
       <div role="tablist" style={{ display: 'flex', gap: 4, borderBottom: '1px solid var(--border)', flexWrap: 'wrap' }}>
-        {FLOOR_TABS.map((t) => (
-          <button key={t.id} role="tab" aria-selected={tab === t.id} type="button" onClick={() => setTab(t.id)} style={tabBtn(tab === t.id, 'var(--blue)')}>
+        {tabs.map((t) => (
+          <button key={t.id} role="tab" aria-selected={shownTab === t.id} type="button" onClick={() => setTab(t.id)} style={tabBtn(shownTab === t.id, 'var(--blue)')}>
             {t.label}
           </button>
         ))}
       </div>
 
-      {tab === 'cut' && <QlsxCutAllocation />}
-      {tab === 'stats' && (
+      {shownTab === 'cut' && <QlsxCutAllocation />}
+      {shownTab === 'stats' && (
         <>
           <QlsxStats />
           <QlsxCutMachineStats />
         </>
       )}
-      {tab === 'machines' && <QlsxSetup section="machines" />}
-      {tab === 'workers' && <QlsxSetup section="workers" />}
+      {shownTab === 'machines' && <QlsxSetup section="machines" />}
+      {shownTab === 'workers' && <QlsxSetup section="workers" />}
+      {shownTab === 'handover' && handoverBoard && <QlsxHandoverBoard list={handoverBoard} refetchList={refetchHandover} />}
     </div>
   )
 }

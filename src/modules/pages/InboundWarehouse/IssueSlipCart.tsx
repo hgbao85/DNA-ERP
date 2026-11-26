@@ -7,6 +7,7 @@
  */
 import { createContext, useCallback, useContext, useMemo, useState } from 'react'
 import type { IssueSlipLineInput } from '../../../services/issue-slips-api'
+import { handoverCartKey } from './handoverModel'
 
 export interface CartLine extends IssueSlipLineInput {
   /** Khoá gộp: cùng dòng (vật tư + lệnh/SKU + công đoạn + chiều dài) thêm lại thì thay số, không thêm dòng mới. */
@@ -26,8 +27,9 @@ interface CartCtx {
 
 const Ctx = createContext<CartCtx | null>(null)
 
+// Dòng giao nhận giữa tổ (24/11/2026): khoá theo (lệnh, mã đoạn) / (SKU, mảnh) - cùng quy tắc BE "1 phiếu không 2 dòng trùng".
 const keyOf = (l: Omit<CartLine, 'key'>) =>
-  [l.kind, l.materialId, l.productionInvoiceId ?? '', l.productionOrderId ?? '', l.stage ?? '', l.barLengthMm ?? '', l.recipeId ?? ''].join('|')
+  handoverCartKey(l) ?? [l.kind, l.materialId, l.productionInvoiceId ?? '', l.productionOrderId ?? '', l.stage ?? '', l.barLengthMm ?? '', l.recipeId ?? ''].join('|')
 
 export function IssueSlipCartProvider({ children }: { children: React.ReactNode }) {
   const [lines, setLines] = useState<CartLine[]>([])
