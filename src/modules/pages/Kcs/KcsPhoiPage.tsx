@@ -415,7 +415,9 @@ function PiDetail({ pi, reviews, stoppedPis, notice, onBack, onRefetch }: {
     const oid = orderIdOf(x)
     if (!oid) return 'Chưa phân SKU'
     const o = (orderSummary ?? []).find(s => s.productionOrderId === oid)
-    return o ? `${o.poNumber} · ${o.sku}` : '…'
+    // Review IT 26/11 mục 2.8: nhãn "SKU đã huỷ" như màn KCS Hàn / Sơn (KCS vẫn chấm nốt đợt này).
+    const cancelledTag = (x.kind === 'cut' || x.kind === 'step') && x.orderCancelled ? ' (SKU đã huỷ)' : ''
+    return o ? `${o.poNumber} · ${o.sku}${cancelledTag}` : '…'
   }
 
   const reviewByBundle = useMemo(() => {
