@@ -140,13 +140,26 @@ function StopModal({ row, onClose, onDone }: { row: CutSteelRow; onClose: () => 
   const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Review IT 26/11 mục 2.7: không cây nào nhập trả thì hỏi lại 1 lần (ngưng là quyết định cuối).
+  const [confirmNoReturn, setConfirmNoReturn] = useState(false)
   const set = (i: number, p: Partial<DraftLine>) => setLines(ls => ls.map((l, idx) => (idx === i ? { ...l, ...p } : l)))
   const parsed: SteelReturnLine[] = lines
     .filter(l => Number(l.bars) > 0 && Number(l.lengthMm) > 0)
     .map(l => ({ materialId: l.materialId, lengthMm: Math.round(Number(l.lengthMm)), bars: Math.round(Number(l.bars)) }))
+  // Dòng điền dở (có số cây mà thiếu / sai chiều dài, hoặc số cây không phải số nguyên dương) - không bỏ im lặng.
+  const incomplete = lines.filter(l => l.bars.trim() !== '' && !(Number(l.bars) > 0 && Number(l.lengthMm) > 0))
   const matName = (id: string) => row.materials.find(m => m.materialId === id)?.materialCode ?? id
 
   const save = async () => {
+    if (incomplete.length > 0) {
+      setError(`Còn ${incomplete.length} dòng điền dở (có số cây nhưng thiếu chiều dài hoặc số không hợp lệ) - sửa hoặc bấm Bỏ dòng đó.`)
+      return
+    }
+    if (parsed.length === 0 && !confirmNoReturn) {
+      setConfirmNoReturn(true)
+      setError(null)
+      return
+    }
     setBusy(true)
     setError(null)
     try {
@@ -173,12 +186,16 @@ function StopModal({ row, onClose, onDone }: { row: CutSteelRow; onClose: () => 
           const m = row.materials.find(x => x.materialId === l.materialId) ?? first
           return (
             <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-              <select value={l.materialId} onChange={e => set(i, { materialId: e.target.value })} style={{ padding: 6, minWidth: 140 }}>
+              <select value={l.materialId} onChange={e => {
+                const next = row.materials.find(x => x.materialId === e.target.value)
+                set(i, { materialId: e.target.value, lengthMm: String(next?.barLengthsMm[0] ?? '') })
+                setConfirmNoReturn(false)
+              }} style={{ padding: 6, minWidth: 140 }}>
                 {row.materials.map(x => <option key={x.materialId} value={x.materialId}>{x.materialCode}</option>)}
               </select>
               <input type="number" min={1} value={l.lengthMm} onChange={e => set(i, { lengthMm: e.target.value })} placeholder="Dài (mm)" style={{ width: 110, padding: 6 }} />
               <span style={{ fontSize: 12 }}>mm ×</span>
-              <input type="number" min={0} value={l.bars} onChange={e => set(i, { bars: e.target.value })} placeholder="Số cây" style={{ width: 90, padding: 6 }} />
+              <input type="number" min={0} value={l.bars} onChange={e => { set(i, { bars: e.target.value }); setConfirmNoReturn(false) }} placeholder="Số cây" style={{ width: 90, padding: 6 }} />
               <span style={{ fontSize: 12, color: 'var(--text3)' }}>cây · tổ cắt còn {mm(m?.leftoverMm ?? 0)}</span>
               {lines.length > 1 && (
                 <button onClick={() => setLines(ls => ls.filter((_, idx) => idx !== i))} style={{ ...btn, border: 'none', background: 'none', color: 'var(--fg-c62828)' }}>Bỏ</button>
@@ -195,12 +212,18 @@ function StopModal({ row, onClose, onDone }: { row: CutSteelRow; onClose: () => 
           Nhập trả: {parsed.map(p => `${matName(p.materialId)} ${p.lengthMm.toLocaleString('vi-VN')} mm × ${p.bars}`).join('; ')}
         </div>
       )}
+      {confirmNoReturn && parsed.length === 0 && (
+        <div style={{ marginTop: 10, padding: '8px 12px', borderRadius: 6, background: 'var(--bg-fef3c7)', fontSize: 12.5 }}>
+          Không có cây nào nhập trả. Sau khi ngưng, SKU này biến mất khỏi danh sách và không nhập trả bù được nữa. Bấm Ngưng cắt lần
+          nữa nếu tổ cắt thật sự không còn cây nào.
+        </div>
+      )}
       {error && <div style={{ marginTop: 10, color: 'var(--fg-c62828)', fontSize: 12.5 }}>{error}</div>}
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
         <button onClick={onClose} disabled={busy} style={{ ...btn, border: '1px solid var(--border)', background: 'var(--surface)' }}>Hủy</button>
         <button onClick={() => void save()} disabled={busy}
           style={{ ...btn, border: 'none', background: 'var(--bg-c62828)', color: '#fff', fontWeight: 600, opacity: busy ? 0.6 : 1 }}>
-          {busy ? 'Đang lưu...' : 'Ngưng cắt'}
+          {busy ? 'Đang lưu...' : confirmNoReturn && parsed.length === 0 ? 'Ngưng cắt (không nhập trả)' : 'Ngưng cắt'}
         </button>
       </div>
     </Modal>
