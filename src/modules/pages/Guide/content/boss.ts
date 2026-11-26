@@ -143,7 +143,7 @@ export const bossGroup: GuideGroup = {
         'Không đồng ý: bấm "Từ chối", ghi lý do (bắt buộc). Lệnh chạy tiếp, Kế hoạch SX nhận lý do.',
         'Xem lại các đề nghị đã quyết (duyệt, từ chối kèm lý do, Kế hoạch SX tự rút lại) ở nút "Đã quyết".',
       ],
-      result: 'Duyệt: SKU dừng ở xưởng, QLSX - Kế hoạch SX - Mua hàng nhận thông báo; KCS chấm nốt các đợt đã báo, đoạn đã cắt vào dư kho Phôi, hàng đóng gói / khung đan Kế hoạch SX chuyển sang đơn khác; người mua xử lý các dòng đã ký NCC. Từ chối: lệnh chạy tiếp.',
+      result: 'Duyệt: SKU dừng ở xưởng, QLSX - Kế hoạch SX - Mua hàng nhận thông báo; KCS chấm nốt các đợt đã báo, đoạn đã cắt vào dư kho Phôi, hàng đóng gói Kế hoạch SX chuyển sang đơn khác, khung đã đan vào tồn kho Thành phẩm cho lệnh sau cùng mảnh + màu dây tự lấy; người mua xử lý các dòng đã ký NCC. Từ chối: lệnh chạy tiếp.',
       warnings: [
         'Các SKU khác trong cùng lệnh vẫn chạy. Lệnh gộp chưa xuất sắt thì hệ thống tự tính lại phương án cắt cho các SKU còn lại; đã xuất sắt thì giữ phương án, QLSX quyết phần sắt tổ cắt chưa cắt (cho cắt tiếp hoặc ngưng và nhập trả cây).',
         'Dòng mua đã ký NCC không tự huỷ: "số cần" hạ về nhu cầu mới, số đã ký giữ nguyên; người mua liên hệ NCC - bớt được thì "Đóng phần thiếu", không bớt được thì phần về dư vào tồn chung.',

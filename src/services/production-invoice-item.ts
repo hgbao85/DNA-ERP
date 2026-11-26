@@ -33,6 +33,8 @@ export interface BeProductionOrderRaw {
   mfgProductId: string;
   /** Số lượng sản phẩm của lệnh (ProductionOrder.quantity). */
   quantity: number;
+  /** ProductionOrder.status - 'CANCELLED' = SKU đã huỷ. */
+  status?: string;
   salesOrderCode: string | null;
   productionInvoiceId: string;
   productionInvoiceItemId: string;
@@ -257,6 +259,7 @@ export function expandSkusByProductionOrder(skus: Sku[], orders: BeProductionOrd
       productionInvoiceId: o.productionInvoiceId,
       productionInvoiceItemId: o.productionInvoiceItemId,
       productionOrderId: o.id,
+      productionOrderStatus: o.status,
       piCode: o.piCode,
       wireMaterial: o.wireMaterial ?? null,
       cushionMaterial: o.cushionMaterial ?? null,

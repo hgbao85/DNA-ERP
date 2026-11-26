@@ -40,6 +40,9 @@ export interface BeWeavingIssuePlanItem {
   totalQty: number;
   issuedQty: number;
   remainingToIssue: number;
+  /** Khung đã tự lấy từ tồn khung đan kho thành phẩm (khung của SKU đã huỷ, cùng mảnh + màu dây - Q6 huỷ lệnh 26/11/2026): không
+   *  phải xuất đan phần này, Chuyền kiểm đếm như đã nhận đan. remainingToIssue đã trừ. */
+  fromStockQty: number;
   /** Số mảnh đang nằm trên phiếu xuất đan chờ ký. */
   onDraftQty: number;
   /** Trần để lập phiếu xuất đan (09/11/2026): min(định mức còn lại, mảnh đã qua KCS công đoạn cuối còn ở kho giữ mảnh) - đã trừ
@@ -63,11 +66,17 @@ export interface BeWeavingIssuePlanItem {
 
 /** Trả mảng rỗng khi SKU chưa có ProductionOrder (chưa được Sếp duyệt) - chưa có gì để xuất/nhận
  *  đan, không phải lỗi cần báo cho thủ kho. */
-export async function getWeavingIssuePlan(pf: Sku): Promise<BeWeavingIssuePlanItem[]> {
+export async function getWeavingIssuePlan(
+  pf: Sku,
+  opts: { forReceive?: boolean } = {},
+): Promise<BeWeavingIssuePlanItem[]> {
   const orderId = await resolveProductionOrderId(pf);
   if (!orderId) return [];
   try {
-    return await http.get<BeWeavingIssuePlanItem[]>(`/production-orders/${orderId}/weaving-issue-plan`);
+    // forReceive: màn nhập đan vẫn thấy phần điểm đan còn giữ của SKU đã huỷ (Q6 câu 2a, 26/11/2026).
+    return await http.get<BeWeavingIssuePlanItem[]>(
+      `/production-orders/${orderId}/weaving-issue-plan${opts.forReceive ? '?forReceive=1' : ''}`,
+    );
   } catch {
     return [];
   }
@@ -102,6 +111,11 @@ export async function receiveWeaving(
 ): Promise<void> {
   const orderId = await requireOrderId(pf, 'nhập đan');
   await http.post(`/production-orders/${orderId}/weaving-receipts`, data, withIdempotencyKey());
+}
+
+/** Lệnh SX đã huỷ mà điểm đan còn giữ khung (Q6 câu 2a): màn nhập đan vẫn hiện để nhận về, khung thành tồn kho thành phẩm. */
+export function getCancelledPendingWeavingReceipt(): Promise<{ productionOrderId: string; pendingQty: number }[]> {
+  return http.get<{ productionOrderId: string; pendingQty: number }[]>('/weaving-issues/cancelled-pending-receipt');
 }
 
 // ── "Quản lý điểm đan" (QuanLyDiemDanPage) ─────────────────────────────────

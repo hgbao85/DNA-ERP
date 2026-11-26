@@ -2,8 +2,9 @@
 // Huỷ lệnh đợt 2 - Q5 / Q6 (anh Nhân 24/11/2026): KHSX chuyển hàng đã làm của SKU đã huỷ sang 1 dòng SKU đang chạy.
 //  - Q5 hàng đã đóng gói: được giao cho đơn khách khác, điều kiện cùng sản phẩm + màu dây + vải nệm. Dòng nhận coi như đã đóng gói
 //    thêm số đó (booking giao được).
-//  - Q6 khung đã đan (đã nhận về từ điểm đan): cùng sản phẩm + màu dây, theo mảnh - dòng nhận coi như đã nhận đan thêm, Chuyền kiểm
-//    làm tiếp.
+//  - Q6 khung đã đan (anh Nhân trả lời lại 26/11/2026, câu 1b/2a/3a): KHÔNG chuyển tay nữa - khung đã nhận về (kể cả phần điểm đan
+//    trả sau khi huỷ) thành tồn khung đan ở kho thành phẩm của lệnh bị huỷ, theo mảnh + màu dây; lệnh đang chạy cần đúng loại tự lấy
+//    tồn trước, chỉ xuất đan phần còn thiếu. Ở đây chỉ hiện để biết.
 import { useState } from 'react'
 import { PackageOpen } from 'lucide-react'
 import { useFetch } from '../../../hooks/useFetch'
@@ -26,7 +27,7 @@ import { fmtDateTimeVN } from '../Boss/duyetDoiMoc'
 
 const btn: React.CSSProperties = { padding: '4px 10px', borderRadius: 6, fontSize: 12, cursor: 'pointer', border: '1px solid var(--border)', background: 'var(--surface)' }
 
-type Target = { row: CancelledGoodsRow; kind: CancelledGoodsKind; pieceId?: string; available: number; label: string }
+type Target = { row: CancelledGoodsRow; kind: CancelledGoodsKind; available: number; label: string }
 
 export default function HangSkuHuyPage() {
   const { data, isLoading, error, refetch } = useFetch(() => getCancelledGoods(), [])
@@ -43,8 +44,8 @@ export default function HangSkuHuyPage() {
         <RefreshButton onRefresh={refetch} loading={isLoading} />
       </div>
       <p style={{ ...pageSubtitle, marginTop: 0 }}>
-        Hàng đã đóng gói chuyển sang dòng SKU khác cùng sản phẩm, màu dây và vải nệm. Khung đã đan chuyển sang dòng cùng sản phẩm và
-        màu dây.
+        Hàng đã đóng gói chuyển sang dòng SKU khác cùng sản phẩm, màu dây và vải nệm. Khung đã đan nằm ở tồn khung đan kho thành phẩm
+        (theo mảnh + màu dây), lệnh sau cần đúng loại tự lấy trước - không cần chuyển tay.
       </p>
       {notice && <div style={{ margin: '10px 0', padding: '10px 14px', borderRadius: 8, background: 'var(--bg-e8f5e9)', color: 'var(--fg-2e7d32)', fontSize: 13 }}>{notice}</div>}
       {error && !data ? (
@@ -68,7 +69,7 @@ export default function HangSkuHuyPage() {
                   <thead>
                     <tr>
                       <th style={th}>Hàng</th>
-                      <th style={{ ...th, textAlign: 'right' }}>Còn chuyển được</th>
+                      <th style={{ ...th, textAlign: 'right' }}>Còn</th>
                       <th style={th}></th>
                     </tr>
                   </thead>
@@ -84,7 +85,7 @@ export default function HangSkuHuyPage() {
                       <tr key={w.pieceId}>
                         <td style={td}>Khung đã đan · {w.pieceCode} {w.pieceName}</td>
                         <td style={{ ...td, textAlign: 'right' }}>{w.available}</td>
-                        <td style={td}><button style={btn} onClick={() => setTarget({ row: r, kind: 'WOVEN', pieceId: w.pieceId, available: w.available, label: `khung đan ${w.pieceCode}` })}>Chuyển</button></td>
+                        <td style={{ ...td, fontSize: 12, color: 'var(--text2)' }}>Tồn ở {r.warehouseName} - lệnh sau cùng mảnh + màu dây tự lấy</td>
                       </tr>
                     ))}
                     {r.packedAvailable === 0 && r.woven.length === 0 && (
@@ -95,7 +96,7 @@ export default function HangSkuHuyPage() {
               </div>
               {r.transfers.length > 0 && (
                 <div style={{ marginTop: 8, fontSize: 12, color: 'var(--text2)' }}>
-                  Đã chuyển: {r.transfers.map(t => `${t.qty} ${t.kind === 'PACKED' ? 'bộ' : `khung ${t.pieceName ?? ''}`} → lệnh ${t.targetLenhCode} (${fmtDateTimeVN(t.createdAt)})`).join('; ')}
+                  Đã chuyển / đã lấy tồn: {r.transfers.map(t => `${t.qty} ${t.kind === 'PACKED' ? 'bộ' : `khung ${t.pieceName ?? ''}`} → lệnh ${t.targetLenhCode} (${fmtDateTimeVN(t.createdAt)})`).join('; ')}
                 </div>
               )}
             </div>
@@ -114,7 +115,7 @@ export default function HangSkuHuyPage() {
 }
 
 function TransferModal({ t, onClose, onDone }: { t: Target; onClose: () => void; onDone: (msg: string) => void }) {
-  const eligible = t.row.targets.filter(x => x.sameWire && (t.kind === 'WOVEN' || x.sameCushion))
+  const eligible = t.row.targets.filter(x => x.sameWire && x.sameCushion)
   const [targetId, setTargetId] = useState(eligible[0]?.itemId ?? '')
   const [qty, setQty] = useState(String(t.available))
   const [note, setNote] = useState('')
@@ -127,7 +128,7 @@ function TransferModal({ t, onClose, onDone }: { t: Target; onClose: () => void;
     setBusy(true)
     setError(null)
     try {
-      await transferCancelledGoods(t.row.requestId, { kind: t.kind, targetItemId: targetId, pieceId: t.pieceId, qty: n, note: note.trim() || undefined })
+      await transferCancelledGoods(t.row.requestId, { kind: t.kind, targetItemId: targetId, qty: n, note: note.trim() || undefined })
       const dest = eligible.find(x => x.itemId === targetId)
       onDone(`Đã chuyển ${n} ${t.kind === 'PACKED' ? 'bộ' : 'khung'} ${t.label} sang lệnh ${dest?.lenhCode ?? ''}.`)
     } catch (e) {
@@ -141,7 +142,7 @@ function TransferModal({ t, onClose, onDone }: { t: Target; onClose: () => void;
     <Modal open onClose={busy ? undefined : onClose} maxWidth={640}>
       <h3 style={{ margin: '0 0 6px', fontSize: 16, fontWeight: 700 }}>Chuyển {t.label} - lệnh {t.row.lenhCode} · {t.row.factoryCode}</h3>
       <p style={{ margin: '0 0 10px', fontSize: 12.5, color: 'var(--text2)' }}>
-        Còn chuyển được {t.available}. Chỉ hiện dòng SKU đang chạy cùng sản phẩm, cùng màu dây{t.kind === 'PACKED' ? ' và vải nệm' : ''}.
+        Còn chuyển được {t.available}. Chỉ hiện dòng SKU đang chạy cùng sản phẩm, cùng màu dây và vải nệm.
       </p>
       {eligible.length === 0 ? (
         <div style={{ fontSize: 13, color: 'var(--text3)' }}>Không có dòng SKU nào đủ điều kiện nhận.</div>

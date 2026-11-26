@@ -203,7 +203,7 @@ export default function KhoXuatDanPage({ readOnly = false, filterExportOrderId }
               const isMine = mine(piece)
               const q = Number(qty[piece.pieceId]) || 0
               const statusMsg = piece.remainingToIssue <= 0
-                ? { text: 'Đã xuất đủ', tone: 'ok' as const }
+                ? { text: piece.fromStockQty > 0 ? 'Đủ (gồm khung lấy từ tồn kho thành phẩm)' : 'Đã xuất đủ', tone: 'ok' as const }
                 : !isMine
                   ? { text: `Mảnh này do ${fixedWarehouseName(piece.sourceWarehouseCode) ?? piece.sourceWarehouseCode ?? 'kho khác'} xuất`, tone: 'ok' as const }
                   : cap <= 0
@@ -216,6 +216,12 @@ export default function KhoXuatDanPage({ readOnly = false, filterExportOrderId }
                   <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>{piece.pieceName}</div>
                   {piece.sourceWarehouseCode && (
                     <span style={{ fontSize: 12, color: 'var(--text3)' }}>xuất từ {fixedWarehouseName(piece.sourceWarehouseCode) ?? piece.sourceWarehouseCode}</span>
+                  )}
+                  {/* Q6 huỷ lệnh (26/11/2026): khung đan của SKU đã huỷ cùng mảnh + màu dây tự cấp từ tồn kho thành phẩm. */}
+                  {piece.fromStockQty > 0 && (
+                    <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--fg-15803d)' }}>
+                      · đã lấy {piece.fromStockQty} khung từ tồn kho thành phẩm, chỉ xuất đan phần còn thiếu
+                    </span>
                   )}
                 </div>
 

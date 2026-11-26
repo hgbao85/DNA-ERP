@@ -34,7 +34,7 @@ export default function KhoNhapDanPage({ readOnly = false, filterExportOrderId, 
 
   const [selectedPf, setSelectedPf] = useState<Sku | null>(null)
   const { data: planData, isLoading: planLoading, refetch } = useFetch<BeWeavingIssuePlanItem[]>(
-    () => (selectedPf ? api.getWeavingIssuePlan(selectedPf) : Promise.resolve([])),
+    () => (selectedPf ? api.getWeavingIssuePlan(selectedPf, { forReceive: true }) : Promise.resolve([])),
     [productionOrderRowKey(selectedPf)],
   )
   const plan = (planData ?? []).filter(piece => piece.allocations.length > 0)
@@ -52,12 +52,23 @@ export default function KhoNhapDanPage({ readOnly = false, filterExportOrderId, 
     if (!wc) return true
     return wc === warehouseScope
   }
+  // Q6 câu 2a (anh Nhân 26/11/2026): SKU đã huỷ mà điểm đan còn giữ khung vẫn hiện để nhận về (khung thành tồn khung đan kho
+  // thành phẩm, lệnh sau cùng mảnh + màu dây tự lấy). SKU đã huỷ không còn gì ở điểm đan thì ẩn.
+  const { data: cancelledPending, refetch: refetchCancelled } = useFetch(() => api.getCancelledPendingWeavingReceipt(), [])
+  useRealtimeRefetch(['weaving-issues', 'production-orders'], () => { void refetchCancelled() })
+  const pendingCancelled = new Set((cancelledPending ?? []).map(r => r.productionOrderId))
+  const isCancelled = (p: Sku) => p.productionOrderStatus === 'CANCELLED'
   const active = orderRows(skus as Sku[]).filter(p =>
     p.status !== 'DRAFT' &&
     (filterExportOrderId === undefined || p.exportOrderId === filterExportOrderId) &&
-    activePiIds.has(poInfoFor(p)?.productionInvoiceId ?? '') &&
+    (isCancelled(p)
+      ? pendingCancelled.has(p.productionOrderId ?? '')
+      : activePiIds.has(poInfoFor(p)?.productionInvoiceId ?? '')) &&
     inWarehouseScope(p),
   )
+  const cancelledTag = (p: Sku) => isCancelled(p)
+    ? <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 700, padding: '1px 6px', borderRadius: 4, background: 'var(--bg-fee2e2)', color: 'var(--fg-b91c1c)' }}>SKU đã huỷ - nhận về vào tồn</span>
+    : null
 
   const autoSelectedRef = useRef(false)
   useEffect(() => {
@@ -79,7 +90,9 @@ export default function KhoNhapDanPage({ readOnly = false, filterExportOrderId, 
     const q = Number(qty[key])
     if (!q || q <= 0 || q > max) { setMsgs(p => ({ ...p, [key]: 'Số lượng không hợp lệ (không được vượt quá còn phải nhận)' })); return }
     ask(
-      { message: `Xác nhận đã nhận ${q} "${piece.pieceName}" từ ${weavingPointLabel}? Tồn kho thành phẩm sẽ được cộng ngay.` },
+      { message: selectedPf && isCancelled(selectedPf)
+        ? `Xác nhận đã nhận ${q} "${piece.pieceName}" từ ${weavingPointLabel}? SKU này đã huỷ - khung vào tồn khung đan kho thành phẩm, lệnh sau cùng mảnh + màu dây tự lấy.`
+        : `Xác nhận đã nhận ${q} "${piece.pieceName}" từ ${weavingPointLabel}? Tồn kho thành phẩm sẽ được cộng ngay.` },
       async () => {
         if (!selectedPf) return
         setBusy(key)
@@ -115,6 +128,7 @@ export default function KhoNhapDanPage({ readOnly = false, filterExportOrderId, 
                 <span style={{ fontWeight: 400, color: 'var(--text2)', marginLeft: 6 }}>— {selectedPf.mfgProduct.name}</span>
               )}
               <span style={{ marginLeft: 8 }}><MaterialChoiceTags wire={selectedPf.wireMaterial} cushion={selectedPf.cushionMaterial} /></span>
+              {cancelledTag(selectedPf)}
             </h2>
             <div style={{ fontSize: 13, color: 'var(--text3)', marginTop: 2 }}>
               PO: {poInfoFor(selectedPf)?.poCode ?? '—'} · Lệnh: <LenhCode piCode={poInfoFor(selectedPf)?.piCode} fallback="Chưa gắn đơn hàng" />
@@ -197,7 +211,7 @@ export default function KhoNhapDanPage({ readOnly = false, filterExportOrderId, 
       </p>
 
       {isLoading ? <LoadingState /> : skusError ? <LoadErrorState error={skusError} onRetry={refetchSkus} /> : isMobile ? (
-        <MobileListCards emptyText="Không có lệnh nào" items={active.map(pf => ({ key: productionOrderRowKey(pf), onClick: () => setSelectedPf(pf), title: <><b>{pf.mfgProduct?.factoryCode}</b>{pf.mfgProduct?.name && <span style={{ color: 'var(--text3)' }}> — {pf.mfgProduct.name}</span>} <MaterialChoiceTags wire={pf.wireMaterial} cushion={pf.cushionMaterial} /></>, meta: [{ label: 'PO', value: poInfoFor(pf)?.poCode ?? '—' }, { label: 'Lệnh', value: <LenhCode piCode={poInfoFor(pf)?.piCode} fallback="Chưa gắn đơn hàng" /> }, { label: 'Hạn giao', value: poInfoFor(pf)?.deliveryDate ? format(new Date(poInfoFor(pf)!.deliveryDate!), 'dd/MM/yyyy') : '—' }] }))} />
+        <MobileListCards emptyText="Không có lệnh nào" items={active.map(pf => ({ key: productionOrderRowKey(pf), onClick: () => setSelectedPf(pf), title: <><b>{pf.mfgProduct?.factoryCode}</b>{pf.mfgProduct?.name && <span style={{ color: 'var(--text3)' }}> — {pf.mfgProduct.name}</span>} <MaterialChoiceTags wire={pf.wireMaterial} cushion={pf.cushionMaterial} />{cancelledTag(pf)}</>, meta: [{ label: 'PO', value: poInfoFor(pf)?.poCode ?? '—' }, { label: 'Lệnh', value: <LenhCode piCode={poInfoFor(pf)?.piCode} fallback="Chưa gắn đơn hàng" /> }, { label: 'Hạn giao', value: poInfoFor(pf)?.deliveryDate ? format(new Date(poInfoFor(pf)!.deliveryDate!), 'dd/MM/yyyy') : '—' }] }))} />
       ) : (
         <div style={{ ...tableWrap, ...tableScrollBox }}>
           <table style={tbl}>
@@ -230,6 +244,7 @@ export default function KhoNhapDanPage({ readOnly = false, filterExportOrderId, 
                       <><span style={{ color: 'var(--text3)', margin: '0 4px' }}>—</span>{pf.mfgProduct.name}</>
                     )}
                     <span style={{ marginLeft: 6 }}><MaterialChoiceTags wire={pf.wireMaterial} cushion={pf.cushionMaterial} /></span>
+                    {cancelledTag(pf)}
                   </td>
                   <td style={{ ...tdStyle, whiteSpace: 'nowrap', color: 'var(--text2)' }}>
                     {poInfoFor(pf)?.deliveryDate

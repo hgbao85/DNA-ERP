@@ -148,7 +148,7 @@ export {
   getTransferCheckDefects, updateTransferCheckDefectPhoto,
 } from './transfer-check-api';
 export { getPackaging, getPackagingBatch, recordPackaging } from './packaging-api';
-export { getWeavingIssuePlan, getWeavingIssuePlanBatch, receiveWeaving, getWeavingByPoint } from './weaving-issues-api';
+export { getWeavingIssuePlan, getWeavingIssuePlanBatch, receiveWeaving, getWeavingByPoint, getCancelledPendingWeavingReceipt } from './weaving-issues-api';
 export { getMaterialIssuePlan, getMaterialIssuesByStage, receiveMaterialIssue } from './material-issues-api';
 export {
   getMaterialYieldIssuePlan, getMaterialYieldIssuesForOrder, getMaterialYieldIssuesByStatus,

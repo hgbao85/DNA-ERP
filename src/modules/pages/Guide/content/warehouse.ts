@@ -511,11 +511,12 @@ export const warehouseGroup: GuideGroup = {
       warnings: [
         'Không có ảnh phiếu đã ký thì không xác nhận được (khoá cứng). Phiếu in sai: "Huỷ phiếu" rồi lập lại — số "Chờ ký" trả lại ngay.',
         'Mảnh không còn chuyển sang kho Phụ kiện trước khi đi đan.',
+        'Kho Thành phẩm còn khung đan đúng mảnh + màu dây của SKU đã huỷ thì lệnh tự lấy tồn trước: thẻ mảnh ghi "đã lấy N khung từ tồn kho thành phẩm, chỉ xuất đan phần còn thiếu", số "Có thể xuất" đã trừ phần đó.',
         'Mỗi LỆNH sản xuất một dòng. Hai dòng cùng một SKU nhưng khác màu dây/màu vải nệm hiện thành hai dòng riêng, kèm nhãn màu cạnh mã SKU — chọn đúng dòng.',
       ],
       commonErrors: [
         { issue: '"... vượt số mảnh đã qua KCS còn ở kho ... (còn ...)"', cause: 'Số mảnh muốn xuất nhiều hơn số đã qua KCS Sơn trừ phần đã/đang nằm trên phiếu xuất đan khác.', fix: 'Chờ KCS đạt thêm, hoặc kiểm tra các phiếu đang chờ ký.' },
-        { issue: '"... vượt định mức còn lại ..."', cause: 'Tổng đã xuất và đang chờ ký đã chạm định mức của lệnh.', fix: 'Kiểm tra lại định mức mảnh của lệnh.' },
+        { issue: '"... vượt định mức còn lại ..."', cause: 'Tổng đã xuất, đang chờ ký và khung đã lấy từ tồn kho Thành phẩm đã chạm định mức của lệnh.', fix: 'Kiểm tra lại định mức mảnh của lệnh; phần đã lấy tồn không phải xuất đan.' },
         { issue: '"Mảnh ... của lệnh này nằm ở kho ... - bạn đang làm kho ..."', cause: 'Đang làm ở kho khác với kho giữ mảnh.', fix: 'Đổi "Kho đang làm" sang đúng kho giữ mảnh.' },
         { issue: '"Điểm đan ... đã ngừng hoạt động"', cause: 'Điểm đan đã bị vô hiệu hoá.', fix: 'Chọn điểm đan khác đang hoạt động.' },
       ],
@@ -587,10 +588,14 @@ export const warehouseGroup: GuideGroup = {
         buttons: ['Nhận'],
       },
       screenshot: '/guide-screens/wh-nhap-dan.png',
-      extraScreenshots: [{ src: '/guide-screens/wh-nhap-dan-ds.png', caption: 'Màn danh sách: hai dòng cùng SKU khác màu dây/màu vải nệm phân biệt bằng nhãn cạnh mã SKU. Số liệu trong ảnh là dữ liệu mẫu.' }],
+      extraScreenshots: [
+        { src: '/guide-screens/wh-nhap-dan-ds.png', caption: 'Màn danh sách: hai dòng cùng SKU khác màu dây/màu vải nệm phân biệt bằng nhãn cạnh mã SKU. Số liệu trong ảnh là dữ liệu mẫu.' },
+        { src: '/guide-screens/wh-nhap-dan-sku-huy.png', caption: 'SKU đã huỷ mà điểm đan còn giữ khung hiện nhãn đỏ "SKU đã huỷ - nhận về vào tồn". Số liệu trong ảnh là dữ liệu mẫu.' },
+      ],
       steps: [
         'Chọn dòng (mảnh, điểm đan) cần nhận — xem Đã xuất / Đã nhận / Còn phải nhận.',
         { text: 'Nhập số lượng nhận về, bấm "Nhận" — xác nhận "Tồn kho thành phẩm sẽ được cộng ngay".', critical: false },
+        'Dòng có nhãn đỏ "SKU đã huỷ - nhận về vào tồn": SKU đã huỷ nhưng điểm đan còn giữ khung. Vẫn nhận về bình thường; khung vào tồn khung đan kho Thành phẩm, lệnh sau cùng mảnh + màu dây tự lấy. Nhận đủ rồi thì dòng tự ẩn.',
       ],
       result: 'Có bằng chứng đối chiếu đã nhận đủ hàng từ điểm đan — làm căn cứ cho bước Chuyền kiểm tiếp theo.',
       warnings: [

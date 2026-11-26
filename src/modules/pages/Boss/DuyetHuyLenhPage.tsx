@@ -97,7 +97,8 @@ export default function DuyetHuyLenhPage() {
       {view === 'PENDING' && (
         <p style={{ margin: '0 0 14px', fontSize: 12.5, color: 'var(--text3)' }}>
           Kế hoạch SX xin huỷ SKU của lệnh đã duyệt. Duyệt thì xưởng dừng làm SKU đó (KCS chấm nốt đợt đã báo), đoạn đã cắt vào dư kho
-          Phôi, hàng đã đóng gói / khung đã đan Kế hoạch SX chuyển sang đơn khác được, SKU về &quot;chưa lên lệnh&quot; để lên lệnh lại.
+          Phôi, hàng đã đóng gói Kế hoạch SX chuyển sang đơn khác được, khung đã đan vào tồn kho Thành phẩm cho lệnh sau cùng mảnh + màu dây
+          tự lấy, SKU về &quot;chưa lên lệnh&quot; để lên lệnh lại.
         </p>
       )}
       {notice && (
