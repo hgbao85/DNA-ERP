@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getProfile, logoutUser } from '../services/api';
 import { SESSION_EXPIRED_EVENT } from '../services/core/http';
+import { invalidateMaterialsCache } from '../services/materials-api';
 import { isTransientApiError } from '../services/core/apiError';
 import { tokenStorage } from '../services/core/tokenStorage';
 import { normalizeUser } from '../utils/normalizeUser';
@@ -138,6 +139,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // (refresh token hết hạn/không hợp lệ) — tự đăng xuất + điều hướng về /login.
   useEffect(() => {
     const onSessionExpired = () => {
+      invalidateMaterialsCache(); // 26/11/2026: danh mục vật tư dùng chung 30 giây không được sang phiên / người dùng sau
       setToken(null);
       setUser(null);
       // Màn công nhân /floor (2026-10-20, changelog BE 10-08 mục 42a/54): không đẩy sang /login của ERP (tên + mật khẩu) -
@@ -151,6 +153,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = (newToken: string, newUser: User) => {
     const normalized = normalizeUser(newUser);
+    invalidateMaterialsCache();
     tokenStorage.setAccessToken(newToken);
     tokenStorage.setUser(normalized);
     setToken(newToken);
@@ -162,6 +165,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // được đọc đồng bộ ngay khi gọi (trước dòng tokenStorage.clear() dưới đây) nên không
     // có race giữa việc đọc token và việc xoá token.
     void logoutUser().catch(() => {});
+    invalidateMaterialsCache();
     tokenStorage.clear();
     setToken(null);
     setUser(null);

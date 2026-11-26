@@ -11,6 +11,7 @@
  */
 import axios, { type AxiosError, type AxiosRequestConfig, type InternalAxiosRequestConfig } from 'axios';
 import { ApiError, fallbackErrorMessage, isTransientApiError } from './apiError';
+import { retryDelayFor429 } from './retryAfter';
 import { tokenStorage } from './tokenStorage';
 import { newUuid } from './uuid';
 
@@ -31,7 +32,7 @@ interface BeEnvelope<T = unknown> {
   statusCode?: number;
 }
 
-type RetryableConfig = InternalAxiosRequestConfig & { _retry?: boolean };
+type RetryableConfig = InternalAxiosRequestConfig & { _retry?: boolean; _retry429?: number };
 
 // 20s - trước đây không set (axios mặc định 0 = vô hạn), 1 BE treo (deadlock DB, container
 // OOM-kill nhưng TCP chưa reset) làm mọi nút hành động chờ vô thời hạn, không có phản hồi lỗi.
@@ -162,6 +163,19 @@ client.interceptors.response.use(undefined, async (err: AxiosError<BeEnvelope>) 
   // Request retry sau refresh vẫn 401 (vd quyền vừa bị thu hồi) -> phiên không còn hợp lệ.
   if (status === 401 && original?._retry) {
     notifySessionExpired();
+  }
+
+  // 26/11/2026: lưới an toàn - GET bị 429 mà Retry-After <= 9 giây (BE expose header qua CORS) -> chờ rồi tự thử lại tối đa 2 lần.
+  // Thực tế hiếm khi chạy: ThrottlerGuard khoá trọn 60 giây khi vượt trần nên lần chặn đầu báo Retry-After 60 -> báo lỗi như cũ (giảm
+  // 429 chủ yếu nhờ danh mục vật tư dùng chung, xem materials-api.ts). Chỉ GET; POST / PATCH / DELETE KHÔNG bao giờ tự lặp.
+  if (status === 429 && original && (original.method ?? '').toLowerCase() === 'get') {
+    const attempt = original._retry429 ?? 0;
+    const delay = retryDelayFor429(err.response?.headers?.['retry-after'], attempt);
+    if (delay !== null) {
+      original._retry429 = attempt + 1;
+      await new Promise((r) => setTimeout(r, delay));
+      return client.request(original);
+    }
   }
 
   throw toApiError(err);

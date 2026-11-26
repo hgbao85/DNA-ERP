@@ -8,6 +8,7 @@
  */
 import { http } from './core/http';
 import { getAllPages } from './core/getAllPages';
+import { invalidateMaterialsCache } from './materials-api';
 import type { SystemUser } from '../types/admin';
 import type { BeRole, BeUserProfile } from '../types/auth';
 import { deriveRoleIds, hasMfgAttrs, mapBeToFe, mfgAttrsPayload, splitName } from './users-mapper';
@@ -96,5 +97,7 @@ export async function getBuyerMaterials(id: number | string): Promise<BuyerMater
 }
 
 export async function transferBuyerMaterials(id: number | string, toUserId: number | string): Promise<{ count: number }> {
-  return http.post<{ count: number }>(`/users/${id}/transfer-buyer-materials`, { toUserId });
+  const result = await http.post<{ count: number }>(`/users/${id}/transfer-buyer-materials`, { toUserId });
+  invalidateMaterialsCache(); // đổi người phụ trách mua của hàng loạt vật tư -> danh mục dùng chung đã cũ
+  return result;
 }
