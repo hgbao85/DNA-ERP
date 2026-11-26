@@ -7,6 +7,7 @@ import WeavingPointsPage from '../Admin/masterData/WeavingPointsPage'
 import LoadingState from '../../../components/LoadingState'
 import LoadErrorState from '../../../components/LoadErrorState'
 import { pageTitle } from '../../../styles/typography'
+import { useDieuPhoiDanEnabled } from '../../../hooks/useDieuPhoiDanEnabled'
 
 // ── Màn "Quản lý điểm đan" — 2 tab con: Thông tin điểm đan | Mảnh tại điểm đan ──
 // readOnly (giám đốc): cả 2 tab chỉ xem. Đan Trưởng/Quản lý SX: tab Thông tin thêm/sửa được.
@@ -14,6 +15,10 @@ type SubTab = 'info' | 'pieces'
 
 export default function QuanLyDiemDanPage({ readOnly = false }: { readOnly?: boolean }) {
   const [sub, setSub] = useState<SubTab>('info')
+  // Điều phối đan Đ3 (25/11/2026, DIEU_PHOI_DAN_ENABLED): bật thì chỉ tài khoản Điều phối đan (và Admin) thêm / sửa / ngừng điểm đan -
+  // thủ kho Phụ kiện chỉ xem. Đang hỏi BE (null) cũng chỉ xem, tránh hiện nút rồi bấm bị 403.
+  const dieuPhoiDan = useDieuPhoiDanEnabled()
+  const infoReadOnly = readOnly || dieuPhoiDan !== false
 
   const tabs: { id: SubTab; label: string }[] = [
     { id: 'info', label: 'Thông tin điểm đan' },
@@ -40,7 +45,12 @@ export default function QuanLyDiemDanPage({ readOnly = false }: { readOnly?: boo
         })}
       </div>
 
-      {sub === 'info' && <WeavingPointsPage readOnly={readOnly} embedded />}
+      {sub === 'info' && dieuPhoiDan === true && !readOnly && (
+        <div style={{ fontSize: 13, color: 'var(--text2)', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '8px 12px', marginBottom: 12 }}>
+          Danh sách điểm đan do tài khoản <strong>Điều phối đan</strong> quản lý - kho chỉ xem và chọn khi lập phiếu.
+        </div>
+      )}
+      {sub === 'info' && <WeavingPointsPage readOnly={infoReadOnly} embedded />}
       {sub === 'pieces' && <ManhTaiDiemDan />}
     </div>
   )

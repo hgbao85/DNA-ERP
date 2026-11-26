@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import FloorStoppedBanner from '../../../components/FloorStoppedBanner'
 import { useCloseNavOnNotification } from '../../../hooks/useCloseNavOnNotification'
 import { QrCode, ClipboardList, Settings, LogOut, Grid, Package, Boxes, Warehouse, ClipboardCheck, Box, CalendarClock, Wrench, Flame, SprayCan, Check, Frame, Layers, Play, Ruler, Menu, X, AlertTriangle, Eye, Scissors } from 'lucide-react'
@@ -33,7 +33,7 @@ import KcsHanPage from '../Kcs/KcsHanPage'
 import KcsSonPage from '../Kcs/KcsSonPage'
 import ThemeToggle from '../../../components/ThemeToggle'
 import QlsxFloorPage from '../Floor/QlsxFloorPage'
-import { qlsxTabForUrl, teamViewForUrl } from '../Floor/qlsxUi'
+import { floorTabForUrl, qlsxTabForUrl, teamViewForUrl } from '../Floor/qlsxUi'
 
 // ── Module-level constants (không tạo lại mỗi render) ───────────────────────
 
@@ -142,6 +142,10 @@ export default function MfgApp({ onBack }: MfgAppProps) {
   const [tab, setTabState] = useState<TabId>(() => (isTabId(wantedUrlTab) ? wantedUrlTab : initialTab))
   // Link tới màn của tổ (vd ?p=han-khung-han) mà QLSX mở: nhảy sang "Xem các tổ" và nhớ tab con cần mở.
   const [teamSub, setTeamSub] = useState(() => (isProdMgr ? teamViewForUrl(urlTab) : null))
+  // Link thông báo mở tab con của "Sản lượng xưởng" (?p=giao-nhan-giua-to -> tab "Giao nhận giữa tổ", 24/11/2026).
+  const [floorSub, setFloorSub] = useState(() => (isProdMgr ? floorTabForUrl(urlTab) : null))
+  const [floorNonce, setFloorNonce] = useState(0)
+  const urlEffectRan = useRef(false)
   // Màn hình hẹp (< 900px): sidebar ẩn thành drawer mở qua nút ☰ - cùng idiom SalesApp/PurchasingApp/ProductionPlanApp.
   const isCompact = useIsCompact()
   const isMobile = useIsMobile()
@@ -154,6 +158,9 @@ export default function MfgApp({ onBack }: MfgAppProps) {
   // trong cây) - đổi tab theo urlTab khi nó đổi và khác tab hiện tại.
   useEffect(() => {
     if (isProdMgr && teamViewForUrl(urlTab)) setTeamSub(teamViewForUrl(urlTab))
+    // Lần đầu đã lấy từ URL ở useState; các lần sau (bấm thông báo khi đang mở màn) dựng lại màn để mở đúng tab + lệnh.
+    if (isProdMgr && floorTabForUrl(urlTab) && urlEffectRan.current) { setFloorSub(floorTabForUrl(urlTab)); setFloorNonce((n) => n + 1) }
+    urlEffectRan.current = true
     if (isTabId(wantedUrlTab) && wantedUrlTab !== tab) setTabState(wantedUrlTab)
     if (wantedUrlTab !== urlTab) setUrlTab(wantedUrlTab) // sửa luôn ?p= trên thanh địa chỉ cho khớp màn đang mở (MF1)
   }, [urlTab])
@@ -337,7 +344,7 @@ export default function MfgApp({ onBack }: MfgAppProps) {
       <>
         {(isPhoi || isHan || isSon || isKcs) && <FloorStoppedBanner />}
         {tab === 'lenh-sx' && (isDirector || isProdMgr) && <LenhSXPage />}
-        {tab === 'san-luong-xuong' && isProdMgr && <QlsxFloorPage />}
+        {tab === 'san-luong-xuong' && isProdMgr && <QlsxFloorPage key={`${floorSub ?? 'default'}-${floorNonce}`} initialTab={floorSub ?? undefined} />}
         {tab === 'so-bao-vuot-doan' && (isProdMgr || isDirector) && <SoBaoVuotDoanPage canResolve={isProdMgr} />}
         {tab === 'sat-sku-huy' && isProdMgr && <SatSkuHuyPage />}
         {tab === 'xem-cac-to' && isProdMgr && <QlsxTeamViewsPage key={teamSub ?? 'default'} initialSub={teamSub ?? undefined} />}

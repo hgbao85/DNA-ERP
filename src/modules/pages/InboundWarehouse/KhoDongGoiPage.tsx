@@ -16,9 +16,35 @@ import { useIsMobile } from '../../../hooks/useMediaQuery'
 import MobileListCards from '../../../components/MobileListCards'
 import { useRealtimeRefetch } from '../../../realtime/hooks'
 import LenhCode from '../../../components/LenhCode'
+import { useCkDgEnabled } from '../../../hooks/useCkDgEnabled'
+import { DgReconcilePanel } from './CkDgKhoPanels'
 
 
-export default function KhoDongGoiPage({ readOnly = false, filterExportOrderId, warehouseScope }: { readOnly?: boolean; filterExportOrderId?: string; warehouseScope?: string | null } = {}) {
+type KhoPageProps = {
+  readOnly?: boolean
+  filterExportOrderId?: string
+  warehouseScope?: string | null
+  /** CK_DG_QR bật: bảng theo lệnh chỉ để xem, đặt dưới màn theo dõi / đối chiếu. */
+  monitorMode?: boolean
+}
+
+/**
+ * 24/11/2026 (CK_DG_QR): bật công tắc thì tab Đóng gói của kho Thành phẩm không còn nhập tay - đối chiếu lần công nhân báo, huỷ lần báo sai có lý do (DgReconcilePanel),
+ * bảng cũ theo lệnh vẫn hiện bên dưới ở chế độ chỉ xem. Tắt công tắc: y như cũ. Chờ hỏi công tắc thì hiện đang tải (không nháy form nhập tay).
+ */
+export default function KhoDongGoiPage(props: KhoPageProps = {}) {
+  const ckDg = useCkDgEnabled()
+  if (ckDg === null) return <LoadingState />
+  if (!ckDg) return <KhoDongGoiManual {...props} />
+  return (
+    <>
+      <DgReconcilePanel warehouseScope={props.warehouseScope} readOnly={props.readOnly} />
+      <KhoDongGoiManual {...props} readOnly monitorMode />
+    </>
+  )
+}
+
+function KhoDongGoiManual({ readOnly = false, filterExportOrderId, warehouseScope, monitorMode = false }: KhoPageProps = {}) {
   // Điện thoại: danh sách PI/PO dạng thẻ (MobileListCards) thay bảng 4-5 cột chiều rộng cố định.
   const isMobile = useIsMobile()
   const { data: skus = [], isLoading, error: skusError, refetch: refetchSkus } = useFetch(() => api.getSkus(), [])
@@ -233,9 +259,9 @@ export default function KhoDongGoiPage({ readOnly = false, filterExportOrderId, 
   // (cùng pattern với KhoChuyenKiemPage).
   return (
     <div>
-      <h2 style={{ ...pageTitle, margin: 0 }}>Đóng gói</h2>
+      <h2 style={{ ...pageTitle, margin: 0 }}>{monitorMode ? 'Theo lệnh' : 'Đóng gói'}</h2>
       <p style={{ ...pageSubtitle, marginBottom: 'var(--space-5)' }}>
-        Nhấn vào dòng để cập nhật số lượng đóng gói
+        {monitorMode ? 'Nhấn vào dòng để xem số đã đóng của lệnh (chỉ xem)' : 'Nhấn vào dòng để cập nhật số lượng đóng gói'}
       </p>
 
       {isLoading ? <LoadingState /> : skusError ? <LoadErrorState error={skusError} onRetry={refetchSkus} /> : isMobile ? (

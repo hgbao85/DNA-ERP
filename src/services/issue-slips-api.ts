@@ -9,7 +9,9 @@ import { http } from './core/http';
 export type IssueSlipLineKind =
   | 'STEEL' | 'CONSUMABLE' | 'SHARED' | 'WEAVING_PIECE' | 'WEAVING_MATERIAL'
   /** 09/11/2026: xuất vật tư đóng gói, vật tư TP cho Phôi (theo SKU / theo công thức của lệnh) cũng đi phiếu XK. */
-  | 'PACKAGING' | 'MATERIAL_YIELD' | 'MATERIAL_YIELD_RECIPE';
+  | 'PACKAGING' | 'MATERIAL_YIELD' | 'MATERIAL_YIELD_RECIPE'
+  /** 24/11/2026 giao nhận giữa tổ: kho Phôi giao đoạn cho Hàn / Sơn, kho Hàn giao mảnh đã hàn cho Sơn. */
+  | 'SEGMENT_HANDOVER' | 'FRAME_HANDOVER';
 export type IssueSlipStatus = 'DRAFT' | 'ISSUED' | 'CANCELLED';
 
 export interface IssueSlipLineInput {
@@ -19,12 +21,17 @@ export interface IssueSlipLineInput {
   pieceId?: string;
   /** MATERIAL_YIELD_RECIPE: công thức (cùng productionInvoiceId). */
   recipeId?: string;
+  /** SEGMENT_HANDOVER: mã đoạn = cỡ đoạn + bộ công đoạn đã chuẩn hoá ('' = trơn). */
+  segmentSpecId?: string;
+  segmentSteps?: string;
   productionInvoiceId?: string;
   productionOrderId?: string;
   stage?: 'HAN' | 'SON';
   barLengthMm?: number;
   qty: number;
   note?: string;
+  /** WEAVING_PIECE (pallet Sơn, 24/11/2026): pallet Sơn xong quét vào dòng - qty ≤ tổng số đã sơn của các pallet. */
+  palletIds?: string[];
 }
 
 export interface IssueSlipLine {
@@ -47,6 +54,13 @@ export interface IssueSlipLine {
   barLengthMm: number | null;
   qty: number;
   note: string | null;
+  /** SEGMENT_HANDOVER: mã đoạn (nhãn "SAT-005 @ 460mm · Dập"). */
+  segmentSpecId?: string | null;
+  segmentSteps?: string;
+  segmentLabel?: string | null;
+  cutLengthMm?: number | null;
+  /** Pallet Sơn (24/11/2026): pallet nguồn của dòng xuất đan (rỗng / thiếu = không theo pallet). */
+  palletCodes?: string[];
 }
 
 export interface IssueSlip {

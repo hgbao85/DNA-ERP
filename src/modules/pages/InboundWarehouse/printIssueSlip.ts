@@ -1,5 +1,6 @@
 import type { IssueSlip } from '../../../services/issue-slips-api'
 import { box, esc, fmtQty, khoCheckboxes, openSlipPrint } from './slipPrintTemplate'
+import { handoverPrintNote, handoverSpecText, handoverStagesOf } from './handoverModel'
 
 /**
  * In PHIẾU XUẤT KHO theo Mẫu 02-VT (bổ sung IEA) - Đợt 6. Mỗi dòng ghi LSX + mã hàng; dòng dùng chung ghi "DÙNG CHUNG" (quy định
@@ -7,11 +8,13 @@ import { box, esc, fmtQty, khoCheckboxes, openSlipPrint } from './slipPrintTempl
  */
 export function printIssueSlip(slip: IssueSlip): void {
   const kinds = new Set(slip.lines.map(l => (l.kind === 'CONSUMABLE' ? `C-${l.stage}` : l.kind)))
+  // Giao nhận giữa tổ (24/11/2026): dòng giao đoạn / giao mảnh - tổ nhận ký phiếu.
+  const handoverStages = handoverStagesOf(slip.lines)
   const xuatCho = [
     `${box(!!slip.weavingPointName)} Điểm đan: ${slip.weavingPointName ? `<b>${esc(slip.weavingPointName)}</b>` : '..................'}`,
-    `${box(kinds.has('C-HAN'))} Tổ hàn`,
+    `${box(kinds.has('C-HAN') || handoverStages.includes('HAN'))} Tổ hàn`,
     `${box(kinds.has('STEEL') || kinds.has('MATERIAL_YIELD') || kinds.has('MATERIAL_YIELD_RECIPE'))} Tổ phôi`,
-    `${box(kinds.has('C-SON'))} Sơn`,
+    `${box(kinds.has('C-SON') || handoverStages.includes('SON'))} Sơn`,
     `${box(kinds.has('PACKAGING'))} Chuyền kiểm / đóng gói`,
     `${box(false)} Chuyển kho: ..................`,
     `${box(kinds.has('SHARED'))} Khác: ${kinds.has('SHARED') ? 'Dùng chung' : '..........'}`,
@@ -36,7 +39,7 @@ export function printIssueSlip(slip: IssueSlip): void {
     infoRows: [
       ['Kho xuất', khoCheckboxes(slip.warehouseCode, slip.warehouseName), true],
       ['Xuất cho', xuatCho, true],
-      ['Người nhận hàng', `${esc(slip.recipientName ?? '..........................................................')} &nbsp;Bộ phận: ....................`, true],
+      ['Người nhận hàng', `${esc(slip.recipientName ?? '..........................................................')} &nbsp;Bộ phận: ${handoverStages.length > 0 ? `<b>Tổ ${handoverStages.map(s => (s === 'HAN' ? 'Hàn' : 'Sơn')).join(' / ')}</b>` : '....................'}`, true],
       ['Lệnh sản xuất – mã hàng', lenhLine, true],
       ...(slip.pairedSlipCode ? [['Đi cùng phiếu', `Phiếu xuất mảnh <b>${esc(slip.pairedSlipCode)}</b> (cùng chuyến)`, false] as [string, string, boolean]] : []),
     ],
@@ -44,7 +47,7 @@ export function printIssueSlip(slip: IssueSlip): void {
     rows: slip.lines.map(l => [
       esc(l.materialCode),
       esc(l.materialName),
-      l.barLengthMm ? `Cây ${l.barLengthMm}mm` : '',
+      l.barLengthMm ? `Cây ${l.barLengthMm}mm` : esc(handoverSpecText(l)),
       esc(l.unit),
       fmtQty(l.qty),
       fmtQty(l.qty),
@@ -53,6 +56,8 @@ export function printIssueSlip(slip: IssueSlip): void {
       esc([
         l.kind === 'CONSUMABLE' ? (l.stage === 'HAN' ? 'Tổ hàn' : 'Tổ sơn') : '',
         l.kind === 'WEAVING_PIECE' ? 'Mảnh đi đan' : l.kind === 'WEAVING_MATERIAL' ? `Kèm mảnh ${l.pieceName ?? ''}`.trim() : '',
+        l.palletCodes?.length ? `Pallet ${l.palletCodes.join(', ')}` : '',
+        handoverPrintNote(l),
         l.kind === 'PACKAGING' ? 'Đóng gói' : l.kind === 'MATERIAL_YIELD' || l.kind === 'MATERIAL_YIELD_RECIPE' ? 'Tổ phôi (vật tư TP)' : '',
         l.note,
       ].filter(Boolean).join(' - ')),

@@ -9,7 +9,8 @@ import {
   segmentMaxNow, segmentSummary, splitByReceived, type ScanMaterial,
 } from './scanModel'
 import { ActionBar, Banner, ConfirmSheet } from './ScanParts'
-import { cardFlush, chip, chipRow, divider, hint, label, numInput } from './scanUi'
+import { btn, cardFlush, chip, chipRow, divider, hint, label, numInput } from './scanUi'
+import { useOpenScanner } from './scannerContext'
 
 function LeftText({ s, kind }: { s: ScanMaterial['segments'][number]; kind: string }) {
   const left = segmentLeft(s)
@@ -93,6 +94,7 @@ export default function SegmentForm({ materials, orderId, kindLabel, context, on
   context: string
   onSubmit: (materialId: string, segments: { segmentSpecId: string; qty: number }[], summary: string) => Promise<boolean>
 }) {
+  const openScanner = useOpenScanner()
   const forSku = useMemo(() => materialsForSku(materials, orderId), [materials, orderId])
   const [materialId, setMaterialId] = useState<string | null>(null)
   const [qty, setQty] = useState<Record<string, string>>({})
@@ -123,6 +125,9 @@ export default function SegmentForm({ materials, orderId, kindLabel, context, on
     <>
       <MaterialChooser usable={usable} waiting={waiting} current={current} onPick={(id) => { setMaterialId(id); setQty({}) }} />
       {blocked && <Banner tone="warn">Loại sắt này chưa nhận. {WAIT_HELP}</Banner>}
+      {blocked && openScanner && (
+        <button type="button" onClick={openScanner} style={btn(false)}>Quét tem khu nhận sắt</button>
+      )}
       <SegmentRows segments={current.segments} kind={kindLabel} qty={qty} blocked={blocked}
         onQty={(id, v) => setQty((q) => ({ ...q, [id]: v }))} />
       <ActionBar action={segmentAction({ busy, total, blocked, over })}

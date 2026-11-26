@@ -12,6 +12,7 @@ interface WeavingPoint {
   code: string
   fullName?: string
   aliasNote?: string
+  contactPerson?: string
   phone?: string
   address?: string
   isActive: boolean
@@ -33,6 +34,8 @@ export default function WeavingPointsPage({ readOnly = false, embedded = false }
     columns: [
       { key: 'code', label: 'Mã / Tên điểm đan' },
       { key: 'fullName', label: 'Tên đầy đủ' },
+      // Điều phối đan Đ3 (25/11/2026): người liên hệ ở điểm đan.
+      { key: 'contactPerson', label: 'Người liên hệ' },
       { key: 'phone', label: 'Điện thoại' },
       { key: 'address', label: 'Địa chỉ' },
       {
@@ -54,6 +57,7 @@ export default function WeavingPointsPage({ readOnly = false, embedded = false }
     formFields: [
       { name: 'code', label: 'Mã / Tên điểm đan', type: 'text', required: true },
       { name: 'fullName', label: 'Tên đầy đủ', type: 'text' },
+      { name: 'contactPerson', label: 'Người liên hệ', type: 'text' },
       { name: 'phone', label: 'Điện thoại', type: 'text' },
       { name: 'address', label: 'Địa chỉ', type: 'text' },
       { name: 'isActive', label: 'Trạng thái', type: 'checkbox', placeholder: 'Đang hoạt động', defaultValue: true },

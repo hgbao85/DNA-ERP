@@ -4,11 +4,17 @@
  * Người B – Đợt 10b (YC5 5.5–5.8): kho thành phẩm xuất hàng theo booking. Thay nút "Xuất giao" cũ - mọi lần xuất hàng đi qua
  * booking Sales đã xác nhận, gom về đúng kho thành phẩm này. Thủ kho: gom hàng, đóng cont, nhập số THỰC XUẤT từng dòng -> In
  * phiếu xuất (số XK) -> người nhận ký -> tải ảnh -> "Xác nhận đã xuất". Đổi số sau khi in thì phải in lại.
+ * Vị trí kho bật (25/11/2026, VI_TRI_KHO): thẻ booking có thêm "Soạn hàng & load cont" (BookingLoadPanel) - số thực xuất từng dòng TỰ
+ * lấy = hàng đã đóng cont (không sửa tay), chỉ xác nhận được khi mọi cont đã đóng. Xác nhận vẫn đi đúng đường xuất cũ.
  */
 import { useMemo, useRef, useState } from 'react'
 import { format } from 'date-fns'
 import { CheckCircle, Printer, Ship, Upload, X } from 'lucide-react'
 import { useFetch } from '../../../hooks/useFetch'
+import { useViTriKhoEnabled } from '../../../hooks/useViTriKhoEnabled'
+import { getPickList } from '../../../services/vi-tri-kho-api'
+import BookingLoadPanel from './viTriKho/BookingLoadPanel'
+import { shipQtyFromContainers, shipReadiness } from './viTriKho/viTriKhoModel'
 import { useRealtimeRefetch } from '../../../realtime/hooks'
 import { getBookingsToShip, reserveShipSlipCode, shipBooking } from '../../../services/booking-shipments-api'
 import { uploadDocument } from '../../../services/uploads-api'
@@ -74,12 +80,21 @@ function BookingShipCard({ booking, onDone }: { booking: Booking; onDone: () => 
   const [err, setErr] = useState('')
   const [shipKey] = useState(() => newUuid())
   const uploaded = useRef(new WeakMap<File, string>())
+  // Vị trí kho: danh sách lấy hàng + cont của booking; số thực xuất = hàng đã đóng cont.
+  const vtk = useViTriKhoEnabled()
+  const { data: pick, refetch: refetchPick } = useFetch(
+    () => (vtk ? getPickList(booking.id) : Promise.resolve(null)),
+    [vtk, booking.id],
+  )
+  const loadMode = vtk === true && pick?.enabled === true ? pick : null
+  const contQty = useMemo(() => (loadMode ? shipQtyFromContainers(loadMode.containers) : null), [loadMode])
+  const readiness = loadMode ? shipReadiness(loadMode.containers) : null
 
   const plan = useMemo(() => booking.lines.map(l => {
-    const n = Number(qty[l.id] ?? '0')
+    const n = contQty ? (contQty[l.id] ?? 0) : Number(qty[l.id] ?? '0')
     const v = Number.isInteger(n) && n >= 0 ? n : NaN
     return { line: l, qty: v, remain: remainOf(l) }
-  }), [booking.lines, qty])
+  }), [booking.lines, qty, contQty])
   const invalid = plan.find(p => Number.isNaN(p.qty) || p.qty > p.remain || p.qty > p.line.readyQty)
   const total = plan.reduce((s, p) => s + (Number.isNaN(p.qty) ? 0 : p.qty), 0)
   const planKey = plan.map(p => `${p.line.id}:${p.qty}`).join('|')
@@ -91,7 +106,8 @@ function BookingShipCard({ booking, onDone }: { booking: Booking; onDone: () => 
       const { code } = await reserveShipSlipCode(slipCode ?? undefined)
       setSlipCode(code)
       setPrintedKey(planKey)
-      printShipSlip(booking, code, plan.filter(p => p.qty > 0).map(p => ({ line: p.line, qty: p.qty })))
+      printShipSlip(booking, code, plan.filter(p => p.qty > 0).map(p => ({ line: p.line, qty: p.qty })),
+        loadMode?.containers.map(c => `${c.containerNo ?? '?'} / ${c.sealNo ?? '?'}`).join('; '))
     } catch (e) {
       setErr(errMsg(e, 'Không lấy được số phiếu'))
     }
@@ -120,8 +136,9 @@ function BookingShipCard({ booking, onDone }: { booking: Booking; onDone: () => 
     }
   }
 
-  const canConfirm = !busy && !invalid && total > 0 && printedUpToDate && files.length > 0
-  const reason = invalid ? 'Số thực xuất không hợp lệ (vượt số còn của booking hoặc vượt hàng đã đóng gói)'
+  const canConfirm = !busy && !invalid && total > 0 && printedUpToDate && files.length > 0 && (readiness?.ok ?? true)
+  const reason = readiness && !readiness.ok ? (readiness.reason ?? '')
+    : invalid ? 'Số thực xuất không hợp lệ (vượt số còn của booking hoặc vượt hàng đã đóng gói)'
     : total === 0 ? 'Nhập số thực xuất'
     : !printedUpToDate ? (slipCode ? 'Đã đổi số sau khi in - in lại phiếu' : 'In phiếu xuất trước')
     : files.length === 0 ? 'Tải ảnh phiếu đã ký' : ''
@@ -144,7 +161,7 @@ function BookingShipCard({ booking, onDone }: { booking: Booking; onDone: () => 
               <th style={th}>Lệnh</th><th style={th}>PO khách</th><th style={th}>Mã hàng</th>
               <th style={{ ...th, textAlign: 'right' }}>Xếp booking</th>
               <th style={{ ...th, textAlign: 'right' }} title="Đã đóng gói − đã xuất của dòng đơn">Hàng sẵn</th>
-              <th style={{ ...th, textAlign: 'right' }}>Thực xuất (bộ)</th>
+              <th style={{ ...th, textAlign: 'right' }}>{contQty ? 'Đã đóng cont (bộ)' : 'Thực xuất (bộ)'}</th>
             </tr>
           </thead>
           <tbody>
@@ -158,9 +175,11 @@ function BookingShipCard({ booking, onDone }: { booking: Booking; onDone: () => 
                   <td style={{ ...td, textAlign: 'right' }}>{p.remain}</td>
                   <td style={{ ...td, textAlign: 'right', color: p.line.readyQty < p.remain ? 'var(--fg-b45309)' : undefined }}>{p.line.readyQty}</td>
                   <td style={{ ...td, textAlign: 'right' }}>
-                    <input value={qty[p.line.id] ?? ''} inputMode="numeric" aria-label={`Thực xuất ${p.line.factoryCode}`}
-                      onChange={e => setQty(prev => ({ ...prev, [p.line.id]: e.target.value }))}
-                      style={{ ...input, borderColor: bad ? 'var(--fg-c62828)' : 'var(--border)' }} />
+                    {contQty
+                      ? <b title="Bằng hàng đã đóng cont">{p.qty}</b>
+                      : <input value={qty[p.line.id] ?? ''} inputMode="numeric" aria-label={`Thực xuất ${p.line.factoryCode}`}
+                          onChange={e => setQty(prev => ({ ...prev, [p.line.id]: e.target.value }))}
+                          style={{ ...input, borderColor: bad ? 'var(--fg-c62828)' : 'var(--border)' }} />}
                   </td>
                 </tr>
               )
@@ -168,6 +187,7 @@ function BookingShipCard({ booking, onDone }: { booking: Booking; onDone: () => 
           </tbody>
         </table>
       </div>
+      {loadMode && <BookingLoadPanel data={loadMode} onChanged={() => { void refetchPick() }} />}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', padding: '10px 14px', borderTop: '1px solid var(--border)' }}>
         <span style={{ fontSize: 13 }}>Tổng thực xuất: <b>{total}</b> bộ{slipCode ? <> · Phiếu <b style={{ fontFamily: 'monospace' }}>{slipCode}</b></> : null}</span>
         <button onClick={print} disabled={!!invalid || total === 0} style={ghost}><Printer size={13} /> {slipCode ? 'In lại phiếu xuất' : 'In phiếu xuất'}</button>
@@ -191,7 +211,7 @@ function BookingShipCard({ booking, onDone }: { booking: Booking; onDone: () => 
 }
 
 /** Phiếu xuất kho Mẫu 02-VT cho 1 booking: xuất cho khách (đóng cont), mỗi dòng 1 lệnh / mã hàng. */
-function printShipSlip(booking: Booking, code: string, rows: { line: Booking['lines'][number]; qty: number }[]): void {
+function printShipSlip(booking: Booking, code: string, rows: { line: Booking['lines'][number]; qty: number }[], contSeal?: string): void {
   openSlipPrint({
     formCode: 'Mẫu 02-VT (bổ sung IEA)',
     title: 'PHIẾU XUẤT KHO',
@@ -201,7 +221,7 @@ function printShipSlip(booking: Booking, code: string, rows: { line: Booking['li
       ['Kho xuất', khoCheckboxes(booking.warehouseCode ?? '', booking.warehouseName ?? ''), true],
       ['Xuất cho', `${box(false)} Điểm đan &nbsp;${box(false)} Chuyển kho &nbsp;${box(true)} Khác: Xuất hàng cho khách – <b>${esc(booking.customerName)}</b>`, true],
       ['Booking', `Số <b>${esc(booking.bookingNo)}</b> &nbsp;Cont: ${booking.containerQty}×${esc(booking.containerType)} &nbsp;POD: ${esc(booking.pod)} &nbsp;Tàu/chuyến: ${esc(booking.vesselVoyage ?? '..........')}`, true],
-      ['Người nhận hàng', '.......................................................... &nbsp;Số cont / số seal: ....................', true],
+      ['Người nhận hàng', `.......................................................... &nbsp;Số cont / số seal: ${contSeal ? esc(contSeal) : '....................'}`, true],
     ],
     columns: [['Mã hàng', true], ['Tên hàng', true], ['PO khách', false], ['ĐVT', true], ['SL yêu cầu', false], ['SL thực xuất', true], ['LSX', true], ['Mã hàng', false], ['Ghi chú', false]],
     rows: rows.map(r => [

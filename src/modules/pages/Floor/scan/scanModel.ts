@@ -337,11 +337,39 @@ export function segmentConfirmRows(lines: SegmentLine[]): ConfirmRow[] {
 /** Dòng bảng xác nhận của tổ Hàn / Sơn: nhập nhiều hơn số còn báo được thì có `block`. */
 export function pieceConfirmRow(p: BeScanPieceItem, n: number): ConfirmRow {
   const max = pieceMaxNow(p)
+  // Giao nhận giữa tổ: vượt số hàng đã nhận (mà chưa vượt kế hoạch) thì nói rõ phải qua kho lấy thêm.
+  const received = receivedOverText(p, n)
   return {
     label: p.pieceName,
     value: `${n} mảnh`,
-    block: n > max ? `Chỉ còn báo được ${max} mảnh (cần ${p.plannedQty}). Sửa lại số.` : undefined,
+    block: n > max ? (received ?? `Chỉ còn báo được ${max} mảnh (cần ${p.plannedQty}). Sửa lại số.`) : undefined,
   }
+}
+
+// ─── giao nhận giữa tổ (Hàn / Sơn) ───────────────────────────────────────────
+
+/** Còn báo được theo kế hoạch (bỏ qua hàng đã nhận) - dòng "Kế hoạch: còn báo được N". */
+export function piecePlanLeft(p: Pick<BeScanPieceItem, 'plannedQty' | 'passedQty' | 'awaitingQcQty' | 'openQty'>): number {
+  return Math.max(0, p.plannedQty - p.passedQty - p.awaitingQcQty - p.openQty)
+}
+
+export interface HandoverTiles { received: number; used: number; left: number; planLeft: number }
+
+/** 3 ô "Đã nhận / Đã làm / Còn" + số còn theo kế hoạch. null = mảnh không tính theo hàng đã nhận (công tắc tắt). */
+export function handoverTiles(p: BeScanPieceItem): HandoverTiles | null {
+  const h = p.handover
+  if (!h) return null
+  return { received: h.receivedQty, used: h.usedQty, left: Math.max(0, h.receivedLeft), planLeft: piecePlanLeft(p) }
+}
+
+/**
+ * Banner đỏ khi số nhập vượt số mảnh đã nhận còn lại (BE cũng chặn). null = không vượt / không áp dụng. Vượt kế hoạch trước thì
+ * để câu "Chỉ còn báo được" cũ (kế hoạch là trần chặt hơn).
+ */
+export function receivedOverText(p: BeScanPieceItem, n: number): string | null {
+  const t = handoverTiles(p)
+  if (!t || n <= t.left || t.left >= t.planLeft) return null
+  return `Chỉ còn ${fmtQty(t.left)} mảnh đã nhận. Qua kho ký phiếu lấy thêm, hoặc báo QLSX.`
 }
 
 /** "5 đoạn 1200mm, 3 đoạn 800mm" - nội dung dòng "Đã lưu ..." sau khi báo. */

@@ -8,8 +8,11 @@
 import { useEffect, useState } from 'react'
 import { KeyRound, Pencil, Plus, Printer, QrCode, RefreshCw } from 'lucide-react'
 import {
-  floorAdmin, type BeFloorSettings, type BeFloorWorker, type BeWorkstation, type FloorStage, type UpdateWorkstationInput, type WorkstationKind,
+  floorAdmin, type BeFloorSettings, type BeFloorWorker, type BeWorkstation, type FloorAccountStage, type FloorStage, type UpdateWorkstationInput,
+  type WorkstationKind, type WorkstationStage,
 } from '../../../services/floor-api'
+import { getWarehouses, type BeWarehouse } from '../../../services/warehouses-api'
+import { useCkDgEnabled } from '../../../hooks/useCkDgEnabled'
 import { getWorkshops } from '../../../services/workshops-api'
 import type { Workshop } from '../../../types/workshop'
 import type { SolverMachine } from '../../../types/admin'
@@ -27,6 +30,16 @@ import { isLocalOrigin, kindCaption, printTems, qrDataUrl, workstationLink } fro
 import { codeValue, cutTypeChangeMessage, offMessage, workshopChangeMessage } from './workstationConfirm'
 
 const STAGES: FloorStage[] = ['PHOI', 'HAN', 'SON']
+// 24/11/2026 (CK_DG_QR): chỉ hiện khi BE bật công tắc.
+const CK_DG_WS_STAGES: WorkstationStage[] = ['CHUYEN_KIEM', 'DONG_GOI']
+const CK_DG_ACCOUNT_STAGES: FloorAccountStage[] = ['CHUYEN_KIEM', 'DONG_GOI', 'KCS_CHUYEN_KIEM']
+/** Loại điểm làm được của từng tổ (khớp CHECK workstations_stage_chk của BE). */
+const kindsOf = (s: WorkstationStage): WorkstationKind[] =>
+  s === 'PHOI' ? ['CUT', 'STEP', 'PIECE', 'STEEL_RECEIVE']
+    : s === 'CHUYEN_KIEM' ? ['TRANSFER_CHECK']
+      : s === 'DONG_GOI' ? ['PACKING']
+        : ['PIECE']
+const isFgKind = (k: WorkstationKind) => k === 'TRANSFER_CHECK' || k === 'PACKING'
 const STEPS = ['UON', 'DAP', 'DUC_LO', 'TAN', 'TOP_DAU', 'XE', 'NHAN']
 
 /** 21/11/2026: màn chỉ còn mã máy (bỏ tên gọi). */
@@ -123,14 +136,18 @@ function CodeModal({ ws, onSave, onClose }: {
   )
 }
 
-function AddWorkstation({ workshops, defaultWorkshopId, onDone, onCancel }: {
+function AddWorkstation({ workshops, defaultWorkshopId, ckDg, fgWarehouses, onDone, onCancel }: {
   workshops: Workshop[]
   defaultWorkshopId: string | null
+  /** Bật chuyền kiểm / đóng gói QR: thêm tổ Chuyền kiểm / Đóng gói (điểm gắn kho Thành phẩm). */
+  ckDg: boolean
+  fgWarehouses: BeWarehouse[]
   onDone: () => void
   onCancel: () => void
 }) {
   const [code, setCode] = useState('')
-  const [stage, setStage] = useState<FloorStage>('PHOI')
+  const [stage, setStage] = useState<WorkstationStage>('PHOI')
+  const [warehouseId, setWarehouseId] = useState('')
   const [kind, setKind] = useState<WorkstationKind>('CUT')
   const [step, setStep] = useState('UON')
   // Máy cắt: loại máy BẮT BUỘC chọn (không mặc định, tránh khai nhầm laze). Xưởng áp cho mọi loại máy (BE lấy lệnh của tổ theo xưởng
@@ -141,9 +158,10 @@ function AddWorkstation({ workshops, defaultWorkshopId, onDone, onCancel }: {
   const [err, setErr] = useState<string | null>(null)
 
   // Máy cắt / công đoạn phụ / nhận sắt chỉ của tổ Phôi - ép đúng lựa chọn thay vì để BE báo lỗi.
-  const kinds: WorkstationKind[] = stage === 'PHOI' ? ['CUT', 'STEP', 'PIECE', 'STEEL_RECEIVE'] : ['PIECE']
-  const changeStage = (s: FloorStage) => { setStage(s); setKind(s === 'PHOI' ? 'CUT' : 'PIECE') }
-  const valid = code.trim().length >= 2 && (kind !== 'CUT' || cutType !== '')
+  const kinds = kindsOf(stage)
+  const changeStage = (s: WorkstationStage) => { setStage(s); setKind(kindsOf(s)[0]) }
+  const stages: WorkstationStage[] = ckDg ? [...STAGES, ...CK_DG_WS_STAGES] : STAGES
+  const valid = code.trim().length >= 2 && (kind !== 'CUT' || cutType !== '') && (!isFgKind(kind) || warehouseId !== '')
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -154,6 +172,7 @@ function AddWorkstation({ workshops, defaultWorkshopId, onDone, onCancel }: {
         code: code.trim(), stage, kind, processStep: kind === 'STEP' ? step : undefined,
         workshopId: workshopId || undefined,
         ...(kind === 'CUT' ? { cutMachineType: cutType || undefined } : {}),
+        ...(isFgKind(kind) ? { warehouseId } : {}),
       })
       onDone()
     } catch (e2) { setErr(errMsg(e2)); setBusy(false) }
@@ -164,8 +183,8 @@ function AddWorkstation({ workshops, defaultWorkshopId, onDone, onCancel }: {
       <label style={{ display: 'grid', gap: 4 }}>{lab('Mã ngắn (in trên tem)')}
         <input style={input} value={code} onChange={(e) => setCode(e.target.value)} placeholder="LASER-01" maxLength={32} /></label>
       <label style={{ display: 'grid', gap: 4 }}>{lab('Tổ')}
-        <select style={input} value={stage} onChange={(e) => changeStage(e.target.value as FloorStage)}>
-          {STAGES.map((s) => <option key={s} value={s}>{STAGE_LABEL[s]}</option>)}</select></label>
+        <select style={input} value={stage} onChange={(e) => changeStage(e.target.value as WorkstationStage)}>
+          {stages.map((s) => <option key={s} value={s}>{STAGE_LABEL[s]}</option>)}</select></label>
       <label style={{ display: 'grid', gap: 4 }}>{lab('Loại')}
         <select style={input} value={kind} onChange={(e) => setKind(e.target.value as WorkstationKind)}>
           {kinds.map((k) => <option key={k} value={k}>{KIND_LABEL[k]}</option>)}</select></label>
@@ -179,6 +198,12 @@ function AddWorkstation({ workshops, defaultWorkshopId, onDone, onCancel }: {
           <select style={input} value={cutType} onChange={(e) => setCutType(e.target.value as SolverMachine | '')}>
             <option value="">- Chọn loại -</option>
             {CUT_TYPES.map((t) => <option key={t} value={t}>{MACHINE_LABEL[t]}</option>)}</select></label>
+      )}
+      {isFgKind(kind) && (
+        <label style={{ display: 'grid', gap: 4 }}>{lab('Kho Thành phẩm')}
+          <select style={input} value={warehouseId} onChange={(e) => setWarehouseId(e.target.value)}>
+            <option value="">- Chọn kho -</option>
+            {fgWarehouses.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</select></label>
       )}
       <label style={{ display: 'grid', gap: 4 }}>{lab('Xưởng')}
         <select style={input} value={workshopId} onChange={(e) => setWorkshopId(e.target.value)}>
@@ -222,6 +247,12 @@ function Workstations() {
   const { data, isLoading, error, refetch } = useFetch<BeWorkstation[]>(() => floorAdmin.workstations(), [])
   const settings = useFetch<BeFloorSettings>(() => floorAdmin.settings(), [])
   const shops = useFetch<Workshop[]>(() => getWorkshops(), [])
+  // 24/11/2026 (CK_DG_QR): kho Thành phẩm cho điểm chuyền kiểm / khu đóng gói - chỉ tải khi bật công tắc.
+  const ckDg = useCkDgEnabled() === true
+  const fgWh = useFetch<BeWarehouse[]>(
+    () => (ckDg ? getWarehouses().then((l) => l.filter((x) => x.kind === 'THANH_PHAM' && x.isActive && !x.isVirtual)) : Promise.resolve([])),
+    [ckDg],
+  )
   const { scopedWorkshopId } = useScopedWorkshop()
   const { ask, confirmModal } = useConfirm()
   const [adding, setAdding] = useState(false)
@@ -292,6 +323,7 @@ function Workstations() {
     )
   }
   const typeCell = (w: BeWorkstation, full: boolean) => {
+    if (isFgKind(w.kind)) return `${kindWithMachine(w)} · ${w.warehouseName ?? 'chưa gắn kho'}`
     if (w.kind !== 'CUT') return `${kindWithMachine(w)}${w.processStep ? ` · ${STEP_LABEL[w.processStep]}` : ''}`
     return (
       <select style={selStyle(full)} value={w.cutMachineType ?? ''} aria-label={`Loại máy cắt của ${w.code}`}
@@ -359,7 +391,7 @@ function Workstations() {
           {name} chưa có mã “Khu nhận sắt” đang dùng - sắt xuất cho lệnh của xưởng này sẽ không ai nhận được. Thêm máy loại khu nhận sắt và gán đúng xưởng.
         </Notice>
       ))}
-      {adding && <AddWorkstation workshops={workshops} defaultWorkshopId={scopedWorkshopId} onCancel={() => setAdding(false)} onDone={() => { setAdding(false); void refetch() }} />}
+      {adding && <AddWorkstation workshops={workshops} defaultWorkshopId={scopedWorkshopId} ckDg={ckDg} fgWarehouses={fgWh.data ?? []} onCancel={() => setAdding(false)} onDone={() => { setAdding(false); void refetch() }} />}
       {err && <Notice tone="err">{err}</Notice>}
       {isLoading ? <LoadingState /> : error ? <LoadErrorState error={error} onRetry={() => void refetch()} /> : list.length === 0 ? (
         <div style={{ ...card, textAlign: 'center', color: 'var(--text3)', padding: 28 }}>
@@ -432,10 +464,13 @@ function AddWorker({ onDone, onCancel }: { onDone: (w: BeFloorWorker) => void; o
   const [lastName, setLastName] = useState('')
   const [firstName, setFirstName] = useState('')
   const [username, setUsername] = useState('')
-  const [stage, setStage] = useState<FloorStage>('PHOI')
+  const [stage, setStage] = useState<FloorAccountStage>('PHOI')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const valid = firstName.trim() && username.trim().length >= 3
+  // 24/11/2026 (CK_DG_QR): thêm tổ Chuyền kiểm / Đóng gói / KCS chuyền kiểm khi BE bật công tắc.
+  const ckDg = useCkDgEnabled() === true
+  const stages: FloorAccountStage[] = ckDg ? [...STAGES, ...CK_DG_ACCOUNT_STAGES] : STAGES
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -453,8 +488,8 @@ function AddWorker({ onDone, onCancel }: { onDone: (w: BeFloorWorker) => void; o
       <label style={{ display: 'grid', gap: 4 }}>{lab('Tên đăng nhập')}
         <input style={input} value={username} autoCapitalize="none" onChange={(e) => setUsername(e.target.value.replace(/[^a-zA-Z0-9_.-]/g, ''))} placeholder="phoi.an" /></label>
       <label style={{ display: 'grid', gap: 4 }}>{lab('Tổ')}
-        <select style={input} value={stage} onChange={(e) => setStage(e.target.value as FloorStage)}>
-          {STAGES.map((s) => <option key={s} value={s}>{STAGE_LABEL[s]}</option>)}</select></label>
+        <select style={input} value={stage} onChange={(e) => setStage(e.target.value as FloorAccountStage)}>
+          {stages.map((s) => <option key={s} value={s}>{STAGE_LABEL[s]}</option>)}</select></label>
       <div style={{ gridColumn: '1 / -1', fontSize: 12, color: 'var(--text3)' }}>
         Không cần đặt PIN: công nhân tự đặt PIN riêng ở lần đăng nhập đầu tiên.
       </div>

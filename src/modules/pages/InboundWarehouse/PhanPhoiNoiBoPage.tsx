@@ -6,6 +6,10 @@
  *   2. Xuất vật tư TP       — Sắt La (→ Pat) / Thanh nhôm (→ chân nhôm) cho Phôi (thêm 2026-09-04).
  *   3. Xuất vật tư hàn      — vật tư tiêu hao cho Hàn (khí CO2, dây hàn, đá cắt…).
  *   4. Xuất vật tư sơn      — vật tư tiêu hao cho Sơn (bột sơn, dung môi, băng keo…).
+ *   + Giao nhận giữa tổ (24/11/2026, chỉ khi BE bật STAGE_HANDOVER_ENABLED): kho Phôi "Giao đoạn cho Hàn", kho Hàn Phú An "Giao
+ *     khung cho Sơn" - xem GiaoNhanToPage.tsx.
+ *   + Pallet Sơn (24/11/2026, chỉ khi BE bật PALLET_SON_ENABLED): kho Sơn có tab "Pallet" (PalletSonPage.tsx) và khối "Xuất đan theo
+ *     pallet" đầu tab Xuất đan (PalletWeavingPanel.tsx).
  *
  * Sắt = WIP có luồng cắt/đồng bộ riêng; vật tư TP = xuất tự do theo PieceMaterialYield (không qua
  * duyệt phương án như Sắt, xem XuatVatTuThanhPhamPage.tsx); vật tư hàn/sơn = tiêu hao (đơn vị
@@ -14,12 +18,19 @@
  */
 
 import { useState } from 'react'
-import { Share2, Scissors, Wrench, Flame, SprayCan, FileText, Waypoints } from 'lucide-react'
+import { Share2, Scissors, Wrench, Flame, SprayCan, FileText, Waypoints, ArrowRightLeft, Layers } from 'lucide-react'
 import XuatSatPage from './XuatSatPage'
 import XuatVatTuThanhPhamPage from './XuatVatTuThanhPhamPage'
 import XuatVatTuTieuHaoPage from './XuatVatTuTieuHaoPage'
 import PhieuXuatPage from './PhieuXuatPage'
 import KhoXuatDanPage from './KhoXuatDanPage'
+import GiaoNhanToPage from './GiaoNhanToPage'
+import PalletSonPage from './PalletSonPage'
+import PalletWeavingPanel from './PalletWeavingPanel'
+import { getPalletLoadPis, getPallets } from '../../../services/pallets-api'
+import { hanWarehouseHasPaint } from './handoverModel'
+import { useFetch } from '../../../hooks/useFetch'
+import { getHandoverPlanList, type HandoverKind } from '../../../services/stage-handover-api'
 import { IssueSlipCartProvider, useIssueSlipCart } from './IssueSlipCart'
 import { pageTitle, pageSubtitle } from '../../../styles/typography'
 import { useAuth } from '../../../context/AuthContext'
@@ -28,13 +39,18 @@ import { warehouseKindOf, type WarehouseKind } from '../../../utils/warehouseKin
 const ACCENT = 'var(--fg-4527a0)'
 const ACCENT_BG = 'var(--bg-ede7f6)'
 
-type Sub = 'sat' | 'vat-tu-tp' | 'han' | 'son' | 'dan' | 'phieu'
+type Sub = 'sat' | 'giao-doan' | 'vat-tu-tp' | 'han' | 'giao-khung' | 'son' | 'pallet' | 'dan' | 'phieu'
 
 const SUBS: { id: Sub; label: string; icon: React.ReactNode }[] = [
   { id: 'sat', label: 'Xuất sắt trong phôi', icon: <Scissors size={15} /> },
+  // Giao nhận giữa tổ (24/11/2026): chỉ hiện khi BE bật công tắc (plan.enabled).
+  { id: 'giao-doan', label: 'Giao đoạn cho Hàn', icon: <ArrowRightLeft size={15} /> },
   { id: 'vat-tu-tp', label: 'Xuất vật tư TP', icon: <Wrench size={15} /> },
   { id: 'han', label: 'Xuất vật tư hàn',     icon: <Flame size={15} /> },
+  { id: 'giao-khung', label: 'Giao khung cho Sơn', icon: <ArrowRightLeft size={15} /> },
   { id: 'son', label: 'Xuất vật tư sơn',     icon: <SprayCan size={15} /> },
+  // Pallet Sơn (24/11/2026): chỉ hiện khi BE bật công tắc (list.enabled).
+  { id: 'pallet', label: 'Pallet', icon: <Layers size={15} /> },
   // Anh Nhân 09/11/2026: mảnh xong (Sơn; mảnh chỉ hàn ở kho Hàn) xuất đan THẲNG từ kho giữ mảnh bằng phiếu XK.
   { id: 'dan', label: 'Xuất đan',            icon: <Waypoints size={15} /> },
   // Đợt 6 (YC4): mọi lần xuất sắt / vật tư hàn, sơn đi qua phiếu xuất XK có số, ký, tải ảnh.
@@ -44,9 +60,9 @@ const SUBS: { id: Sub; label: string; icon: React.ReactNode }[] = [
 /** Đợt 7 (9 kho): mỗi thủ kho chỉ thấy phần xuất của kho mình - kho Phôi: sắt + vật tư TP, kho Hàn: vật tư hàn, kho Sơn: vật tư
  *  sơn. Tổng kho / kho chưa phân loại thấy hết. */
 const SUBS_BY_KIND: Partial<Record<WarehouseKind, Sub[]>> = {
-  PHOI: ['sat', 'vat-tu-tp', 'phieu'],
-  HAN: ['han', 'dan', 'phieu'],
-  SON: ['son', 'dan', 'phieu'],
+  PHOI: ['sat', 'giao-doan', 'vat-tu-tp', 'phieu'],
+  HAN: ['han', 'giao-khung', 'dan', 'phieu'],
+  SON: ['son', 'pallet', 'dan', 'phieu'],
 }
 
 export default function PhanPhoiNoiBoPage() {
@@ -59,7 +75,31 @@ export default function PhanPhoiNoiBoPage() {
 
 function PhanPhoiNoiBo() {
   const { user } = useAuth()
-  const allowed = SUBS_BY_KIND[warehouseKindOf(user?.warehouseScope) as WarehouseKind] ?? SUBS.map(s => s.id)
+  const scope = user?.warehouseScope ?? null
+  const scopeKind = warehouseKindOf(scope)
+  // Giao nhận giữa tổ: chỉ thủ kho gắn kho đang làm (BE lấy kho theo tài khoản) - kho Phôi giao đoạn, kho Hàn của xưởng có kho Sơn
+  // giao mảnh. Hỏi BE 1 lần để biết công tắc có bật không; tắt / lỗi thì 2 tab mới không hiện, màn như cũ.
+  const handoverKind: HandoverKind | null = scopeKind === 'PHOI' ? 'SEGMENT' : hanWarehouseHasPaint(scope) ? 'FRAME' : null
+  const { data: handoverList, refetch: refetchHandover } = useFetch(
+    () => (handoverKind ? getHandoverPlanList(handoverKind).catch(() => null) : Promise.resolve(null)),
+    [handoverKind],
+  )
+  const handoverOn = !!handoverList?.enabled
+  // Pallet Sơn: chỉ thủ kho gắn kho Sơn. Hỏi BE 1 lần (danh sách pallet có `enabled`); tắt / lỗi thì không hiện gì mới.
+  const isSon = scopeKind === 'SON'
+  const { data: palletList, refetch: refetchPallets } = useFetch(
+    () => (isSon ? getPallets().catch(() => null) : Promise.resolve(null)),
+    [isSon],
+  )
+  const palletOn = !!palletList?.enabled
+  const { data: palletLoadPis } = useFetch(
+    () => (palletOn ? getPalletLoadPis().catch(() => null) : Promise.resolve(null)),
+    [palletOn],
+  )
+  const hidden = new Set<Sub>(['giao-doan', 'giao-khung', 'pallet'])
+  if (handoverOn) hidden.delete(handoverKind === 'SEGMENT' ? 'giao-doan' : 'giao-khung')
+  if (palletOn) hidden.delete('pallet')
+  const allowed = (SUBS_BY_KIND[scopeKind as WarehouseKind] ?? SUBS.map(s => s.id)).filter(id => !hidden.has(id))
   const subs = SUBS.filter(s => allowed.includes(s.id))
   const [sub, setSub] = useState<Sub>(allowed[0])
   const cart = useIssueSlipCart()
@@ -94,11 +134,15 @@ function PhanPhoiNoiBo() {
       </div>
 
       {sub === 'sat' && <XuatSatPage embedded />}
+      {sub === 'giao-doan' && handoverOn && handoverList && <GiaoNhanToPage kind="SEGMENT" list={handoverList} refetchList={refetchHandover} />}
+      {sub === 'giao-khung' && handoverOn && handoverList && <GiaoNhanToPage kind="FRAME" list={handoverList} refetchList={refetchHandover} />}
       {sub === 'vat-tu-tp' && <XuatVatTuThanhPhamPage />}
       {sub === 'han' && <XuatVatTuTieuHaoPage stage="HAN"
         desc="Vật tư tiêu hao cấp cho Tổ Hàn theo lệnh sản xuất (khí CO₂, dây hàn, đá cắt…). Bấm “Thêm vào phiếu” → tạo phiếu xuất ở tab Phiếu xuất → ký, tải ảnh, xác nhận xuất là xong (tổ Hàn không phải xác nhận nhận)." />}
       {sub === 'son' && <XuatVatTuTieuHaoPage stage="SON"
         desc="Vật tư tiêu hao cấp cho Tổ Sơn theo lệnh sản xuất (bột sơn, dung môi, băng keo che…). Bấm “Thêm vào phiếu” → tạo phiếu xuất ở tab Phiếu xuất → ký, tải ảnh, xác nhận xuất là xong (tổ Sơn không phải xác nhận nhận)." />}
+      {sub === 'pallet' && palletOn && palletList && <PalletSonPage list={palletList} refetchList={refetchPallets} loadPis={palletLoadPis} />}
+      {sub === 'dan' && palletOn && <PalletWeavingPanel />}
       {sub === 'dan' && <KhoXuatDanPage />}
       {sub === 'phieu' && <PhieuXuatPage />}
     </div>

@@ -2,12 +2,18 @@ import QRCode from 'qrcode'
 import type { BeWorkstation } from '../../../services/floor-api'
 import { machineLabel } from '../../../utils/cutMachine'
 
-const STAGE = { PHOI: 'PHÔI', HAN: 'HÀN', SON: 'SƠN' } as const
+const STAGE: Record<string, string> = {
+  PHOI: 'PHÔI', HAN: 'HÀN', SON: 'SƠN', CHUYEN_KIEM: 'CHUYỀN KIỂM', DONG_GOI: 'ĐÓNG GÓI',
+}
 const STEP: Record<string, string> = { UON: 'Uốn', DAP: 'Dập', DUC_LO: 'Đục lỗ', TAN: 'Tán', TOP_DAU: 'Tóp đầu', XE: 'Xẻ', NHAN: 'Nhấn' }
 
 /** Link trên tem: trang quét của công nhân. Mã chỉ định danh MÁY (không chứa PI). */
 export const workstationLink = (qrToken: string, origin: string = window.location.origin) =>
   `${origin}/floor?ws=${encodeURIComponent(qrToken)}`
+
+/** Link trên tem pallet Sơn (24/11/2026): công nhân Sơn quét -> màn pallet. Tem dán cố định, pallet dùng lại. */
+export const palletLink = (qrToken: string, origin: string = window.location.origin) =>
+  `${origin}/floor?pallet=${encodeURIComponent(qrToken)}`
 
 /** Địa chỉ nội bộ (localhost / IP mạng LAN) - điện thoại ngoài mạng đó, hoặc chính điện thoại với "localhost", không mở được. */
 export function isLocalOrigin(origin: string): boolean {
@@ -30,12 +36,18 @@ export function kindCaption(w: Pick<BeWorkstation, 'kind' | 'processStep'>): str
   if (w.kind === 'CUT') return 'BÁO SỐ ĐOẠN CẮT'
   if (w.kind === 'STEP') return `BÁO ${(STEP[w.processStep ?? ''] ?? 'CÔNG ĐOẠN').toUpperCase()}`
   if (w.kind === 'STEEL_RECEIVE') return 'XÁC NHẬN NHẬN SẮT'
+  if (w.kind === 'TRANSFER_CHECK') return 'BÁO CHUYỀN KIỂM'
+  if (w.kind === 'PACKING') return 'BÁO ĐÓNG GÓI'
   return 'BÁO SỐ MẢNH'
 }
 
 /** Dòng loại máy cắt + xưởng trên tem (13/11/2026); không có gì để ghi thì bỏ dòng. */
 function temMachineLine(w: BeWorkstation): string {
-  const parts = [w.kind === 'CUT' ? machineLabel(w.cutMachineType) : null, w.workshopName ?? null].filter(Boolean)
+  const parts = [
+    w.kind === 'CUT' ? machineLabel(w.cutMachineType) : null,
+    // Điểm chuyền kiểm / khu đóng gói: ghi kho Thành phẩm thay xưởng.
+    w.kind === 'TRANSFER_CHECK' || w.kind === 'PACKING' ? (w.warehouseName ?? null) : (w.workshopName ?? null),
+  ].filter(Boolean)
   return parts.length > 0 ? `<div class="mach">${esc(parts.join(' · '))}</div>` : ''
 }
 
@@ -64,6 +76,11 @@ export async function printTems(list: BeWorkstation[], origin: string = window.l
     .how { font-size: 9pt; color: #333; margin-top: auto }
   </style></head><body>${cards.join('')}</body></html>`
 
+  await printHtml(html)
+}
+
+/** Mở hộp thoại in của trình duyệt qua iframe ẩn (dùng chung tem máy + tem pallet). */
+async function printHtml(html: string): Promise<void> {
   const frame = document.createElement('iframe')
   frame.setAttribute('aria-hidden', 'true')
   frame.style.cssText = 'position:fixed;width:0;height:0;border:0;right:0;bottom:0'
@@ -76,4 +93,78 @@ export async function printTems(list: BeWorkstation[], origin: string = window.l
   frame.contentWindow.focus()
   frame.contentWindow.print()
   setTimeout(() => frame.remove(), 60_000)
+}
+
+/** HTML tem pallet (khổ ~10×10cm, 2 cột / trang A4) - tách riêng để test được. */
+export function palletTemsHtml(cards: { code: string; img: string; warehouseName?: string | null }[]): string {
+  const body = cards.map((c) => `<section class="tem">
+      <div class="top">PALLET SƠN</div>
+      <img src="${c.img}" alt="">
+      <div class="code">${esc(c.code)}</div>
+      ${c.warehouseName ? `<div class="mach">${esc(c.warehouseName)}</div>` : ''}
+      <div class="how">Công nhân Sơn: quét mã, bấm “Sơn xong pallet này”. Dán cố định - pallet dùng lại.</div>
+    </section>`).join('')
+  return `<!doctype html><html lang="vi"><head><meta charset="utf-8"><title>Tem pallet Sơn</title><style>
+    @page { size: A4; margin: 10mm }
+    * { box-sizing: border-box; font-family: Arial, sans-serif }
+    body { margin: 0; display: grid; grid-template-columns: repeat(2, 1fr); gap: 8mm }
+    .tem { border: 2px dashed #000; padding: 5mm; text-align: center; break-inside: avoid; height: 125mm; display: flex; flex-direction: column; align-items: center; gap: 3mm }
+    .top { font-weight: 700; font-size: 15pt; background: #000; color: #fff; padding: 2mm 4mm; border-radius: 2mm }
+    img { width: 72mm; height: 72mm }
+    .code { font-size: 30pt; font-weight: 800; letter-spacing: 1px }
+    .mach { font-size: 12pt; font-weight: 700 }
+    .how { font-size: 9pt; color: #333; margin-top: auto }
+  </style></head><body>${body}</body></html>`
+}
+
+/** In tem QR pallet Sơn (mỗi pallet 1 tem). */
+export async function printPalletTems(
+  list: { code: string; qrToken: string; warehouseName?: string | null }[],
+  origin: string = window.location.origin,
+): Promise<void> {
+  const cards = await Promise.all(list.map(async (p) => ({
+    code: p.code,
+    warehouseName: p.warehouseName ?? null,
+    img: await qrDataUrl(palletLink(p.qrToken, origin), 480),
+  })))
+  await printHtml(palletTemsHtml(cards))
+}
+
+/** Link trên tem vị trí kho Thành phẩm (25/11/2026, VI_TRI_KHO): công nhân đóng gói / thủ kho quét khi cất, chuyển ô, lấy hàng. */
+export const locationLink = (qrToken: string, origin: string = window.location.origin) =>
+  `${origin}/floor?loc=${encodeURIComponent(qrToken)}`
+
+/** HTML tem vị trí kho (khổ ~10×9cm, 2 cột / trang A4, mã ô chữ to để nhìn từ xa) - tách riêng để test được. */
+export function locationTemsHtml(cards: { code: string; img: string; warehouseName?: string | null }[]): string {
+  const body = cards.map((c) => `<section class="tem">
+      <div class="top">VỊ TRÍ KHO</div>
+      <div class="code">${esc(c.code)}</div>
+      <img src="${c.img}" alt="">
+      ${c.warehouseName ? `<div class="mach">${esc(c.warehouseName)}</div>` : ''}
+      <div class="how">Cất / lấy thùng ở ô này: quét mã bằng app DNA-ERP. Dán cố định ở ô.</div>
+    </section>`).join('')
+  return `<!doctype html><html lang="vi"><head><meta charset="utf-8"><title>Tem vị trí kho</title><style>
+    @page { size: A4; margin: 10mm }
+    * { box-sizing: border-box; font-family: Arial, sans-serif }
+    body { margin: 0; display: grid; grid-template-columns: repeat(2, 1fr); gap: 8mm }
+    .tem { border: 2px dashed #000; padding: 5mm; text-align: center; break-inside: avoid; height: 125mm; display: flex; flex-direction: column; align-items: center; gap: 3mm }
+    .top { font-weight: 700; font-size: 14pt; background: #000; color: #fff; padding: 2mm 4mm; border-radius: 2mm }
+    img { width: 64mm; height: 64mm }
+    .code { font-size: 34pt; font-weight: 800; letter-spacing: 1px }
+    .mach { font-size: 12pt; font-weight: 700 }
+    .how { font-size: 9pt; color: #333; margin-top: auto }
+  </style></head><body>${body}</body></html>`
+}
+
+/** In tem QR vị trí kho (mỗi ô 1 tem). */
+export async function printLocationTems(
+  list: { code: string; qrToken: string; warehouseName?: string | null }[],
+  origin: string = window.location.origin,
+): Promise<void> {
+  const cards = await Promise.all(list.map(async (l) => ({
+    code: l.code,
+    warehouseName: l.warehouseName ?? null,
+    img: await qrDataUrl(locationLink(l.qrToken, origin), 440),
+  })))
+  await printHtml(locationTemsHtml(cards))
 }

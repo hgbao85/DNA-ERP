@@ -8,7 +8,9 @@ import { isTransientApiError } from '../services/core/apiError';
 import { tokenStorage } from '../services/core/tokenStorage';
 import { normalizeUser } from '../utils/normalizeUser';
 
-export type MfgRole = 'PRODUCTION_MANAGER' | 'PHOI' | 'HAN' | 'SON' | 'KCS' | 'SPEC_STEEL' | 'SPEC_ACCESSORY' | 'SPEC_PACKAGING';
+export type MfgRole = 'PRODUCTION_MANAGER' | 'PHOI' | 'HAN' | 'SON' | 'KCS' | 'SPEC_STEEL' | 'SPEC_ACCESSORY' | 'SPEC_PACKAGING'
+  // 24/11/2026 (CK_DG_QR): tổ chuyền kiểm / đóng gói / KCS chuyền kiểm - tài khoản PIN ở màn /floor.
+  | 'CHUYEN_KIEM' | 'DONG_GOI' | 'KCS_CHUYEN_KIEM';
 
 // 3 nhóm kho thật + kho thành phẩm phụ tạo động (id dạng 'thanh-pham-{n}') —
 // tài khoản kho bị giới hạn vào đúng 1 nhóm (null = tổng kho, thấy hết). Giữ literal
@@ -68,6 +70,8 @@ export interface User {
   isMaterialsManager?: boolean;
   /** Tài khoản công nhân xưởng (role BE FLOOR_WORKER, 2026-10-13) - chỉ dùng màn quét QR `/floor`. */
   isFloorWorker?: boolean;
+  /** Tài khoản Điều phối đan (role BE WEAVING_COORDINATOR, 25/11/2026) - phân hệ `weaving_coordination`. */
+  isWeavingCoordinator?: boolean;
   /** QLSX theo xưởng (2026-11-12): xưởng phụ trách (chỉ QLSX); null/thiếu = không giới hạn. */
   workshopId?: string | null;
   workshopName?: string | null;

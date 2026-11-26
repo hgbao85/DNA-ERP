@@ -11,6 +11,7 @@ import SalesApp from '../modules/pages/Sales/SalesApp';
 import MfgApp from '../modules/pages/Manufacturing/MfgApp';
 import PurchasingApp from '../modules/pages/Purchasing/PurchasingApp';
 import MaterialsManagerApp from '../modules/pages/MaterialsManager/MaterialsManagerApp';
+import WeavingCoordinationApp from '../modules/pages/WeavingCoordination/WeavingCoordinationApp';
 import InboundWarehouseApp from '../modules/pages/InboundWarehouse/InboundWarehouseApp';
 import ProductionPlanApp from '../modules/pages/ProductionPlan/ProductionPlanApp';
 import BossApp from '../modules/pages/Boss/BossApp';
@@ -100,7 +101,7 @@ function MainERP() {
   useEffect(() => {
     if (!user || isDirector) return;
     setActiveModule(resolveDefaultModule(user));
-  }, [user?.id, user?.isProductPlanner, user?.isPurchaser, user?.isSale, user?.isMaterialsManager, user?.mfgRole, user?.role, isDirector]);
+  }, [user?.id, user?.isProductPlanner, user?.isPurchaser, user?.isSale, user?.isMaterialsManager, user?.isWeavingCoordinator, user?.mfgRole, user?.role, isDirector]);
 
   // Điều hướng TỪ BÊN NGOÀI (NotificationCenter gọi router.push('/?m=...') từ sâu trong cây, không
   // có setActiveModule trực tiếp) - đổi activeModule theo urlModule khi nó đổi và khác giá trị hiện
@@ -144,6 +145,8 @@ function MainERP() {
     content = <PurchasingApp onBack={isDirector ? () => setActiveModule(null) : undefined} />;
   } else if (activeModule === 'materials_manager') {
     content = <MaterialsManagerApp onBack={isDirector ? () => setActiveModule(null) : undefined} />;
+  } else if (activeModule === 'weaving_coordination') {
+    content = <WeavingCoordinationApp onBack={isDirector ? () => setActiveModule(null) : undefined} />;
   } else if (activeModule === 'inbound_warehouse') {
     content = <InboundWarehouseApp onBack={isDirector ? () => setActiveModule(null) : undefined} />;
   } else if (activeModule === 'production_plan') {
