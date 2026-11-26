@@ -128,6 +128,7 @@ export const bossGroup: GuideGroup = {
       purpose: 'Kế hoạch SX đề nghị huỷ một SKU của lệnh đã duyệt (kèm lý do); Giám đốc duyệt thì SKU đó mới bị huỷ. Huỷ được bất kỳ lúc nào trước khi giao hàng.',
       preconditions: ['Kế hoạch SX đã gửi đề nghị huỷ.'],
       screenshot: '/guide-screens/boss-duyet-huy-lenh.png',
+      extraScreenshots: [{ src: '/guide-screens/boss-duyet-huy-lenh-hop.png', caption: 'Hộp Duyệt huỷ: sắt đã xuất cho lệnh, dòng mua đã ký NCC và hàng SKU này đã làm ra. Số liệu trong ảnh là dữ liệu mẫu.' }],
       mock: {
         title: 'Tổng hợp chờ duyệt > Huỷ lệnh SX',
         columns: ['Lệnh', 'SKU', 'SL', 'Lý do', 'Người đề nghị', 'Thao tác'],
@@ -137,14 +138,17 @@ export const bossGroup: GuideGroup = {
       steps: [
         'Vào tab "Tổng hợp chờ duyệt" > "Huỷ lệnh SX" (số đỏ cho biết có bao nhiêu đề nghị đang chờ). Bấm vào thông báo cũng mở thẳng mục này.',
         'Mỗi dòng là một SKU: lệnh, SKU, số lượng, lý do Kế hoạch SX ghi, người đề nghị và lúc gửi.',
-        { text: 'Đồng ý huỷ: bấm "Duyệt huỷ", đọc hộp xác nhận rồi bấm "Duyệt huỷ". Không hoàn tác được: xưởng dừng làm SKU này, SKU về "chưa lên lệnh" để Kế hoạch SX lên lệnh lại.', critical: true },
+        'Bấm "Duyệt huỷ" (hoặc "Xem sắt / mua / hàng" ở đề nghị đã quyết) để mở hộp số liệu: sắt đã xuất cho lệnh (loại sắt, chiều dài cây, số cây xuất, tổ cắt đã nhận chưa), dòng mua đã ký NCC (vật tư, NCC / đơn, số đã ký, đã nhận, thành tiền) và hàng SKU này đã làm ra ở từng công đoạn. Lệnh chưa xuất sắt thì hộp ghi "Chưa xuất sắt".',
+        { text: 'Đồng ý huỷ: đọc hộp số liệu rồi bấm "Duyệt huỷ". Không hoàn tác được: xưởng dừng làm SKU này, đơn hàng có dòng SKU mới "chưa lên lệnh" để Kế hoạch SX lên lệnh lại.', critical: true },
         'Không đồng ý: bấm "Từ chối", ghi lý do (bắt buộc). Lệnh chạy tiếp, Kế hoạch SX nhận lý do.',
         'Xem lại các đề nghị đã quyết (duyệt, từ chối kèm lý do, Kế hoạch SX tự rút lại) ở nút "Đã quyết".',
       ],
-      result: 'Duyệt: SKU dừng ở xưởng, hàng đã làm ra giữ nguyên tại kho công đoạn, QLSX - Kế hoạch SX - Mua hàng nhận thông báo; người mua xử lý các dòng đã ký NCC. Từ chối: lệnh chạy tiếp.',
+      result: 'Duyệt: SKU dừng ở xưởng, QLSX - Kế hoạch SX - Mua hàng nhận thông báo; KCS chấm nốt các đợt đã báo, đoạn đã cắt vào dư kho Phôi, hàng đóng gói / khung đan Kế hoạch SX chuyển sang đơn khác; người mua xử lý các dòng đã ký NCC. Từ chối: lệnh chạy tiếp.',
       warnings: [
-        'Các SKU khác trong cùng lệnh vẫn chạy. Lệnh gộp chưa xuất sắt thì hệ thống tự tính lại phương án cắt cho các SKU còn lại; đã xuất sắt thì giữ phương án, phần của SKU huỷ thành dư.',
-        'Dòng mua đã ký NCC không tự huỷ: người mua liên hệ NCC - bớt được thì "Đóng phần thiếu", không bớt được thì hàng về vào tồn chung.',
+        'Các SKU khác trong cùng lệnh vẫn chạy. Lệnh gộp chưa xuất sắt thì hệ thống tự tính lại phương án cắt cho các SKU còn lại; đã xuất sắt thì giữ phương án, QLSX quyết phần sắt tổ cắt chưa cắt (cho cắt tiếp hoặc ngưng và nhập trả cây).',
+        'Dòng mua đã ký NCC không tự huỷ: "số cần" hạ về nhu cầu mới, số đã ký giữ nguyên; người mua liên hệ NCC - bớt được thì "Đóng phần thiếu", không bớt được thì phần về dư vào tồn chung.',
+        'Lệnh QLSX đã bấm "Kết thúc" thì không huỷ được.',
+        'Số trong hộp của đề nghị đã quyết là số chụp lúc Giám đốc duyệt ("Số chụp lúc Sếp duyệt"); đề nghị đang chờ là số tính lúc mở hộp.',
       ],
       commonErrors: [
         { issue: 'Báo "SKU này còn nằm trong booking ... - gỡ SKU khỏi booking trước"', cause: 'SKU đang được xếp vào một booking chưa xuất.', fix: 'Nhờ Kinh doanh gỡ SKU khỏi booking rồi bấm "Duyệt huỷ" lại.' },

@@ -323,7 +323,7 @@ export const manufacturingGroup: GuideGroup = {
         'Tổ Phôi (máy cắt/máy công đoạn phụ): chọn loại sắt, nhập số đoạn đã làm cho từng cỡ. Tổ Hàn/Sơn: chạm chọn đúng mảnh rồi nhập số mảnh.',
         'Từ 17/11/2026 số "Đã cắt" của từng cỡ đoạn đã trừ đoạn KCS chấm "Bỏ, cắt lại" và đoạn KCS ghi thiếu; dòng "còn báo được N" là số còn báo thêm được. Lỗi công đoạn phụ chọn "Làm lại" thì không phải cắt bù.',
         'Nút chính ở cuối màn ("Nhập số đoạn" hoặc "Nhập số mảnh") mờ khi chưa đủ thông tin; dòng chữ ngay trên nút ghi còn thiếu gì, ví dụ "Chọn lệnh ở Việc của máy trước", "Gõ số đoạn vào ô ở trên", "Chọn mảnh ở trên trước".',
-        'Báo vượt số cần bị chặn: mỗi cỡ đoạn / mảnh hiện "còn báo được N", gõ quá số đó thì hệ thống không cho lưu; hết số cần thì hiện "đã đủ (vượt N)". Đoạn dư (cắt ra dư) để riêng, không báo. Riêng pat và chân nhôm được báo vượt số cần (làm sẵn) - phần mềm không chặn. Thấy bị chặn mà số cần có vẻ sai (định mức sai) thì báo QLSX.',
+        'Báo vượt số cần bị chặn: mỗi cỡ đoạn / mảnh hiện "còn báo được N", gõ quá số đó thì hệ thống không cho lưu; hết số cần thì hiện "đã đủ (vượt N)". Từ 25/11/2026, "còn báo được" gồm cả đoạn dư theo phương án (cắt từ khúc thừa cây mua cuối): báo cắt và làm công đoạn (Uốn, Dập...) cho các đoạn này như đoạn thường, KCS chấm rồi vào phần dư kho Phôi. Đoạn cắt quá số đó thì để riêng, không báo. Lệnh gộp: đoạn dư tính vào SKU đầu tiên của lệnh, SKU khác chỉ báo được đúng số cần. Riêng pat và chân nhôm được báo vượt số cần (làm sẵn) - phần mềm không chặn. Thấy bị chặn mà số cần có vẻ sai (định mức sai) thì báo QLSX.',
         { text: 'Bấm nút "Lưu …" — hệ thống hiện bảng tóm tắt số sắp lưu. Đúng thì bấm "Đúng, lưu …", sai thì "Sửa lại".', critical: true },
         'Nhận sắt (quét mã khu nhận sắt): đếm số cây thực nhận, gõ vào ô (hoặc bấm "Đủ N cây") → "Xác nhận đã nhận". Phải nhận ít nhất 1 cây; gõ 0 thì không xác nhận được. Đếm lệch thì hệ thống hỏi lại, kho và quản lý sẽ được báo.',
         'Xem lại số mình đã báo và số "Đã kiểm xong" (số được tính cho bạn) ở tab "Sản lượng của tôi" (7 ngày qua / Tháng này / Tháng trước). Dòng "KCS chấm cả đợt: thiếu N · lỗi M" là số của cả đợt, không riêng phần bạn báo; chỉ hiện ở dòng mới nhất của đợt.',
@@ -466,6 +466,7 @@ export const manufacturingGroup: GuideGroup = {
       roles: ['phoi'],
       purpose: 'Các màn chỉ xem, hỗ trợ Tổ Phôi làm việc chính xác hơn.',
       screenshot: '/guide-screens/mfg-phoi-tra-cuu.png',
+      extraScreenshots: [{ src: '/guide-screens/mfg-phoi-huong-dan-cat-du.png', caption: 'Hướng dẫn cắt của lệnh có đoạn dư: cỡ 420 mm cần 10 (+10 có sẵn trong kho - không phải cắt), theo phương án 12 (+2 đoạn dư từ khúc thừa cây mua cuối). Số liệu trong ảnh là dữ liệu mẫu.' }],
       steps: [
         '"Kho phôi": xem tồn đoạn sắt theo MÃ ĐOẠN (loại sắt + chiều dài cắt + công đoạn, vd "SAT-002 — đoạn 800mm · Dập") của kho Phôi từng xưởng (bấm tên kho để đổi). Cột "Tồn" = đoạn thật trong kho, "Giữ cho lệnh" = đoạn đã đủ công đoạn và KCS đạt của các lệnh đang chạy (số lệnh trong ngoặc), "Dư" = đoạn cắt vượt của xưởng, chia cho lệnh sau. Tab "Đoạn chuẩn" / "Đoạn thừa (chờ xử lý)" như trước.',
         '"Hướng dẫn cắt": xem bảng cắt bắt buộc theo phương án đã duyệt cho PO/PI, có thể bấm "In" (Excel/PDF). Dòng "Máy cắt: …" ghi số cây cắt ở mỗi loại máy, vd "6 cây MC Tự động" hoặc "2 cây MC Tự động · 10 cây MC Laser" - khớp cột "Máy" của bảng kiểu cắt (màn, bản in và Excel giống nhau). Kiểu cắt theo bó (MC Tự động) có cột "Cách cắt theo bó cây", vd "16 cây × 12 bó cây + 5 cây cắt tay" = cắt 12 bó, mỗi bó 16 cây, thêm 5 cây cắt tay (từng cây). Trên điện thoại mỗi kiểu cắt hiện thành 1 thẻ, số cây ghi to bên phải. Bảng "Tổng kết cắt" của mỗi loại sắt có thêm các cột Đã cắt · KCS đạt · Lỗi · Còn thiếu (Còn thiếu = Cần − (Đã cắt − Lỗi); ví dụ cần 40, cắt 13, lỗi 2 thì còn thiếu 29), dòng nhỏ công đoạn phụ dưới cỡ đoạn và khối "Mảnh Phôi" cuối trang; danh sách lệnh dạng thẻ có % và "Xong Phôi dd/mm", "Hạn dd/mm", đầu trang chi tiết có dòng tóm tắt "Mảnh Phôi: còn thiếu N". Bản in / Excel không có các cột này.',
@@ -476,8 +477,9 @@ export const manufacturingGroup: GuideGroup = {
       warnings: [
         '"Hướng dẫn cắt" hiện thông báo "Chưa có phương án cắt nào đã duyệt cho PO/PI này" nếu lệnh chưa có phương án cắt dùng được.',
         'Loại sắt có dòng "⚠ Cỡ đặt riêng ...mm — không phải cây chuẩn" = phải cắt trên cây đặt riêng, đừng lấy nhầm cây chuẩn.',
+        'Bảng "Tổng kết cắt": cột "Theo phương án" có dòng nhỏ "(+N đoạn dư)" = số đoạn cắt dư từ khúc thừa cây mua cuối - vẫn cắt, báo và làm đủ công đoạn, KCS chấm rồi vào phần dư kho Phôi. Cột "Cần" có dòng xanh "(+N có sẵn trong kho)" = đoạn dư đã có trong kho Phôi được giữ cho lệnh này: số Cần đã trừ phần đó, không phải cắt; các đoạn này đã nằm trong kho Phôi và được tính như đoạn của lệnh khi Hàn / Sơn dùng. Bản in / Excel ghi "30 (có sẵn 5, cắt 25)".',
       ],
-      tags: ['kho phôi', 'hướng dẫn cắt', 'định mức mảnh', 'giữ cho lệnh', 'dư', 'mã đoạn'],
+      tags: ['kho phôi', 'hướng dẫn cắt', 'định mức mảnh', 'giữ cho lệnh', 'dư', 'mã đoạn', 'đoạn dư', 'có sẵn trong kho', 'cây mua cuối'],
       sourceRefs: ['src/modules/pages/Phoi/KhoPhoiPage.tsx', 'src/modules/pages/Phoi/HuongDanCatPage.tsx'],
     },
     {
@@ -618,6 +620,43 @@ export const manufacturingGroup: GuideGroup = {
       tags: ['kcs', 'duyệt kcs', 'chấm đợt đang mở', 'thực có', 'chất lượng', 'qc review'],
       sourceRefs: ['src/modules/pages/Kcs/KcsHanPage.tsx', 'src/modules/pages/Kcs/KcsSonPage.tsx'],
     },
+    // Huỷ lệnh đợt 2 - Q3 (anh Nhân 24/11/2026)
+    {
+      id: 'mfg-qlsx-sat-sku-huy',
+      title: 'QLSX — sắt của SKU đã huỷ: cho cắt tiếp hay ngưng',
+      roles: ['qlsx'],
+      purpose: 'SKU đã được Giám đốc duyệt huỷ mà lệnh đã xuất sắt cho tổ cắt: QLSX quyết từng trường hợp - cho tổ cắt cắt tiếp (đoạn ra vào phần dư kho Phôi) hoặc ngưng và nhập trả cây còn lại về kho Phôi.',
+      preconditions: ['Đề nghị huỷ đã được Giám đốc duyệt và lệnh đã có phiếu xuất sắt.'],
+      screenshot: '/guide-screens/mfg-qlsx-sat-sku-huy.png',
+      extraScreenshots: [{ src: '/guide-screens/mfg-qlsx-sat-sku-huy-ngung.png', caption: 'Hộp "Ngưng cắt": ghi cây trả về kho Phôi theo loại sắt, chiều dài và số cây. Số liệu trong ảnh là dữ liệu mẫu.' }],
+      mock: {
+        title: 'Sắt SKU đã huỷ',
+        columns: ['Sắt', 'Cây đã xuất (mm)', 'Chưa xác nhận nhận', 'Tổ cắt còn (chưa cắt)', 'Đã nhập trả'],
+        rows: [['SAT-001', '5.800 ×2', '—', '8.200 mm', '—']],
+        buttons: ['Cho cắt tiếp', 'Ngưng - nhập trả cây'],
+      },
+      steps: [
+        'Vào tab "Sắt SKU đã huỷ". Mỗi thẻ là một SKU đã huỷ: lệnh, SKU, từng loại sắt đã xuất, số cây tổ cắt chưa xác nhận nhận, phần sắt tổ cắt còn chưa cắt (mm) và số đã nhập trả. Lệnh còn SKU khác đang chạy thì thẻ nhắc sắt còn lại có thể vẫn cần cho SKU đó.',
+        'Cho cắt tiếp: bấm "Cho cắt tiếp". Tổ cắt báo cắt được cho SKU này (cả trên máy quét QR), KCS chấm, đoạn đạt vào phần dư kho Phôi để lệnh khác dùng. Đổi sang "Ngưng" sau đó vẫn được.',
+        { text: 'Ngưng: bấm "Ngưng - nhập trả cây", ghi các cây tổ cắt trả về kho Phôi - cây nguyên ghi đúng chiều dài cây xuất, cây cắt dở ghi chiều dài phần còn lại (cây lẻ); "+ Thêm dòng (cây lẻ)" cho nhiều chiều dài. Không có cây trả thì để trống. Bấm "Ngưng cắt". Ngưng rồi không đổi lại được.', critical: true },
+        'Cây nhập trả vào kho Phôi của xưởng đúng chiều dài đã ghi; cây lẻ được lệnh sau dùng trước khi mua cây mới (như cây lẻ CS2).',
+      ],
+      result: 'Phần sắt đã xuất của SKU huỷ được dùng hết: thành đoạn dư trong kho Phôi hoặc thành cây trong kho Phôi.',
+      warnings: [
+        'Ngưng và nhập trả chỉ làm được khi tổ cắt đã xác nhận nhận hết sắt của loại đó (cột "Chưa xác nhận nhận" trống).',
+        'Tổng chiều dài cây trả không vượt phần tổ cắt còn chưa cắt; cây trả không dài hơn cây đã xuất.',
+      ],
+      commonErrors: [
+        { issue: 'Báo "Còn phiếu xuất sắt loại này tổ cắt chưa xác nhận nhận - xác nhận nhận trước rồi mới nhập trả"', cause: 'Tổ cắt chưa xác nhận nhận sắt của SKU này.', fix: 'Tổ cắt quét mã khu nhận sắt và xác nhận trước (lệnh đã huỷ hết SKU vẫn nhận được), rồi ngưng.' },
+        { issue: 'Báo "Trả ... mm sắt - vượt sắt tổ cắt đã nhận chưa cắt (... mm)" hoặc "Cây trả dài ... mm - dài hơn cây đã xuất (... mm)"', cause: 'Số cây hoặc chiều dài ghi sai.', fix: 'Đo lại cây trả rồi ghi đúng.' },
+        { issue: 'Báo "Đã ngưng cắt SKU này rồi - không đổi được"', cause: 'SKU đã chọn "Ngưng" trước đó.', fix: 'Không cho cắt tiếp lại được; cây còn lại đã nằm ở kho Phôi.' },
+      ],
+      tags: ['sắt sku đã huỷ', 'huỷ lệnh', 'cho cắt tiếp', 'ngưng cắt', 'nhập trả cây', 'cây lẻ'],
+      sourceRefs: [
+        'src/modules/pages/Manufacturing/SatSkuHuyPage.tsx',
+        'BE src/modules/production-invoices/order-cancellation/order-cancellation.service.ts',
+      ],
+    },
     {
       id: 'mfg-kcs-phoi',
       title: 'KCS — chấm Phôi (cắt sắt): chấm đợt đang mở, ghi số thực có, Bỏ hay Làm lại',
@@ -646,6 +685,8 @@ export const manufacturingGroup: GuideGroup = {
         'Chấm lỗi theo đúng đợt cắt hiện tại — không được chấm số lỗi vượt quá số đã báo của CHÍNH đợt đang chấm (không cộng dồn với các đợt khác trong cùng PI).',
         'Phần "Bỏ, cắt lại" làm tăng số cần Cắt (và các công đoạn đứng trước): tổ Cắt phải cắt thêm đúng số đoạn đó.',
         'Ở "Sản lượng của tôi" của công nhân, dòng "KCS chấm cả đợt: thiếu N · lỗi M" là số của cả đợt, không riêng phần người đó báo; chỉ hiện ở dòng mới nhất của đợt.',
+        'Đợt của SKU đã được Giám đốc duyệt huỷ có nhãn "(SKU đã huỷ)" và vẫn chấm như thường (từ 24/11/2026); phần đạt vào phần dư kho Phôi. Hàn / Sơn cũng vậy.',
+        'Đoạn dư theo phương án (cắt từ khúc thừa cây mua cuối) chấm chung với đoạn thường trong đợt; đạt thì vào phần dư kho Phôi.',
       ],
       commonErrors: [
         { issue: '"Đợt cắt này vừa được chốt để chấm - tải lại trang."', cause: 'Một KCS khác vừa bấm Chấm đợt này.', fix: 'Tải lại trang rồi chấm tiếp.' },
