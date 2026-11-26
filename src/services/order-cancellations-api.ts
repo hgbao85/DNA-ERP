@@ -72,7 +72,11 @@ export interface CancelledGoodsRow {
   sourceItemId: string;
   wireName: string | null;
   cushionName: string | null;
+  /** Kho thành phẩm của lệnh bị huỷ - nơi khung đan thành tồn (Q6 câu 3a, 26/11/2026). */
+  warehouseCode: string;
+  warehouseName: string;
   packedAvailable: number;
+  /** Khung đã đan còn tồn ở kho thành phẩm theo mảnh - tự cấp cho lệnh sau cùng mảnh + màu dây (Q6 câu 1b). */
   woven: { pieceId: string; pieceCode: string; pieceName: string; available: number }[];
   targets: {
     itemId: string;

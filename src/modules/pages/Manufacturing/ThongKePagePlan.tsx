@@ -369,7 +369,8 @@ function buildWeaving(itemsOrNull: BeWeavingIssuePlanItem[] | null, skuQty: numb
     id: Number(it.pieceId),
     name: it.pieceName,
     unit: 'cái',
-    totalQty: it.totalQty,
+    // Q6 huỷ lệnh (26/11/2026): khung đã lấy từ tồn khung đan kho thành phẩm không phải đan - không tính vào phần cần xuất/nhập đan.
+    totalQty: it.totalQty - (it.fromStockQty ?? 0),
     tonThuc: it.remainingToIssue,
     allocations: it.allocations.map((a, ai) => ({
       id: Number(it.pieceId) * 1000 + ai,

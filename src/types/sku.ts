@@ -183,6 +183,8 @@ export interface Sku {
    *  mỗi lệnh là 1 dòng riêng mang đúng id lệnh của nó, để các hàm resolve*() không phải đoán lệnh
    *  theo mfgProductId (luôn ra lệnh đầu tiên trong danh sách, sai với mọi lệnh còn lại). */
   productionOrderId?: string;
+  /** Trạng thái lệnh SX của dòng (ProductionOrder.status) - 'CANCELLED' = SKU đã huỷ (huỷ lệnh theo SKU 23/11/2026). */
+  productionOrderStatus?: string;
   productionInvoiceItemId?: string;
   /** Loại dây (mã SHT)/nệm Sales đã chọn cho lệnh sản xuất này - CHỈ có trên dòng dựng từ lệnh cụ thể
    *  (expandSkusByProductionOrder), để phân biệt 2 lệnh cùng SKU khác dây/nệm. */
