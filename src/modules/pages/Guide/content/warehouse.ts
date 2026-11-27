@@ -398,6 +398,7 @@ export const warehouseGroup: GuideGroup = {
         'Ở tab con "Xuất sắt trong phôi" (tiêu đề "Xuất sắt cho Phôi"), bấm PI cần cấp sắt để xem từng loại sắt: Cần / Đã xuất / Còn được xuất / Tồn kho.',
         'Nhập "Dài cây (mm)" (mặc định lấy theo phương án đã duyệt) và "Số cây".',
         { text: 'Bấm "Thêm vào phiếu", rồi sang tab "Phiếu xuất" tạo phiếu, in, ký, tải ảnh và xác nhận xuất (xem bài "Phiếu xuất").', critical: true },
+        { text: 'Có khối "Sắt tổ cắt trả về - chờ xác nhận" (QLSX ngưng cắt SKU đã huỷ, tổ cắt trả cây về): đếm số cây thực nhận, nhập vào "Đếm được" rồi bấm "Xác nhận" - lúc đó cây mới vào tồn kho Phôi đúng chiều dài. Đếm được nhiều hơn số QLSX ghi thì không xác nhận được - báo QLSX ghi lại.', critical: true },
       ],
       result: 'Khi phiếu xuất được xác nhận, tồn kho sắt bị trừ theo đúng cỡ chiều dài cây; công nhân Phôi nhận sắt cây bằng mã QR "Khu nhận sắt" của xưởng rồi mới cắt; Sắt La và thanh nhôm thì tài khoản Phôi xác nhận ở "Xác nhận nhận sắt". Các lần đã xuất hiện ở bảng lịch sử bên dưới (Thời gian / Vật tư / Dài / Số cây / Trạng thái).',
       warnings: [
@@ -596,6 +597,7 @@ export const warehouseGroup: GuideGroup = {
         'Chọn dòng (mảnh, điểm đan) cần nhận — xem Đã xuất / Đã nhận / Còn phải nhận.',
         { text: 'Nhập số lượng nhận về, bấm "Nhận" — xác nhận "Tồn kho thành phẩm sẽ được cộng ngay".', critical: false },
         'Dòng có nhãn đỏ "SKU đã huỷ - nhận về vào tồn": SKU đã huỷ nhưng điểm đan còn giữ khung. Vẫn nhận về bình thường; khung vào tồn khung đan kho Thành phẩm, lệnh sau cùng mảnh + màu dây tự lấy. Nhận đủ rồi thì dòng tự ẩn.',
+        { text: 'Có khối "Khung đan chuyển từ kho khác - chờ nhận": khung của SKU đã huỷ ở kho Thành phẩm xưởng khác được cấp cho lệnh của kho bạn. Nhận đủ khung và phiếu chuyển đã ký thì chọn ảnh phiếu rồi bấm "Đã nhận" - lúc đó Chuyền kiểm mới đếm số khung này.', critical: true },
       ],
       result: 'Có bằng chứng đối chiếu đã nhận đủ hàng từ điểm đan — làm căn cứ cho bước Chuyền kiểm tiếp theo.',
       warnings: [

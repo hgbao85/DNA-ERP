@@ -625,7 +625,7 @@ export const manufacturingGroup: GuideGroup = {
       id: 'mfg-qlsx-sat-sku-huy',
       title: 'QLSX — sắt của SKU đã huỷ: cho cắt tiếp hay ngưng',
       roles: ['qlsx'],
-      purpose: 'SKU đã được Giám đốc duyệt huỷ mà lệnh đã xuất sắt cho tổ cắt: QLSX quyết từng trường hợp - cho tổ cắt cắt tiếp (đoạn ra vào phần dư kho Phôi) hoặc ngưng và nhập trả cây còn lại về kho Phôi.',
+      purpose: 'SKU đã được Giám đốc duyệt huỷ mà lệnh đã xuất sắt cho tổ cắt: QLSX quyết từng trường hợp - cho tổ cắt cắt tiếp (chỉ hết phần sắt đã xuất, đoạn làm đủ công đoạn rồi vào phần dư kho Phôi) hoặc ngưng và trả cây còn lại về kho Phôi (thủ kho Phôi đếm và xác nhận).',
       preconditions: ['Đề nghị huỷ đã được Giám đốc duyệt và lệnh đã có phiếu xuất sắt.'],
       screenshot: '/guide-screens/mfg-qlsx-sat-sku-huy.png',
       extraScreenshots: [{ src: '/guide-screens/mfg-qlsx-sat-sku-huy-ngung.png', caption: 'Hộp "Ngưng cắt": ghi cây trả về kho Phôi theo loại sắt, chiều dài và số cây. Số liệu trong ảnh là dữ liệu mẫu.' }],
@@ -637,9 +637,9 @@ export const manufacturingGroup: GuideGroup = {
       },
       steps: [
         'Vào tab "Sắt SKU đã huỷ". Mỗi thẻ là một SKU đã huỷ: lệnh, SKU, từng loại sắt đã xuất, số cây tổ cắt chưa xác nhận nhận, phần sắt tổ cắt còn chưa cắt (mm) và số đã nhập trả. Lệnh còn SKU khác đang chạy thì thẻ nhắc sắt còn lại có thể vẫn cần cho SKU đó.',
-        'Cho cắt tiếp: bấm "Cho cắt tiếp". Tổ cắt báo cắt được cho SKU này (cả trên máy quét QR), KCS chấm, đoạn đạt vào phần dư kho Phôi để lệnh khác dùng. Đổi sang "Ngưng" sau đó vẫn được.',
+        'Cho cắt tiếp: bấm "Cho cắt tiếp". Tổ cắt báo cắt được cho SKU này (cả trên máy quét QR) nhưng chỉ trong phần sắt đã xuất còn lại - không cắt tới đủ số cần cũ; số "còn báo được" trên máy cắt đã tính theo sắt còn lại. Đoạn cắt tiếp làm đủ công đoạn như lệnh gốc (máy Uốn / Dập cũng thấy SKU này), KCS chấm, đoạn đạt vào phần dư kho Phôi để lệnh khác dùng. Đổi sang "Ngưng" sau đó vẫn được.',
         { text: 'Ngưng: bấm "Ngưng - nhập trả cây", ghi các cây tổ cắt trả về kho Phôi - cây nguyên ghi đúng chiều dài cây xuất, cây cắt dở ghi chiều dài phần còn lại (cây lẻ); "+ Thêm dòng (cây lẻ)" cho nhiều chiều dài. Không có cây trả thì để trống. Bấm "Ngưng cắt". Ngưng rồi không đổi lại được.', critical: true },
-        'Cây nhập trả vào kho Phôi của xưởng đúng chiều dài đã ghi; cây lẻ được lệnh sau dùng trước khi mua cây mới (như cây lẻ CS2).',
+        'Cây trả về chờ thủ kho Phôi đếm và xác nhận (màn "Xuất sắt", khối "Sắt tổ cắt trả về - chờ xác nhận"). Thủ kho xác nhận rồi cây mới vào kho Phôi của xưởng đúng chiều dài; đếm ít hơn số ghi thì chỉ vào số đếm được. Cây lẻ được lệnh sau dùng trước khi mua cây mới (như cây lẻ CS2).',
       ],
       result: 'Phần sắt đã xuất của SKU huỷ được dùng hết: thành đoạn dư trong kho Phôi hoặc thành cây trong kho Phôi.',
       warnings: [
