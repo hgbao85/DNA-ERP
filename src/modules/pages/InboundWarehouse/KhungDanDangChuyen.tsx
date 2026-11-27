@@ -1,7 +1,9 @@
 'use client'
 // Nhân trả lời 26/11 câu 1: khung đã đan của SKU huỷ - lệnh ở kho thành phẩm KHÁC cũng tự lấy được, nhưng phải chuyển giữa 2 xưởng.
 // Dòng lấy khác kho ở trạng thái "đang chuyển": kho nguồn đã trừ, lệnh nhận không phải xuất đan phần đó; thủ kho thành phẩm nơi nhận
-// nhận khung + phiếu chuyển đã ký thì bấm "Đã nhận" (kèm ảnh phiếu) - lúc đó Chuyền kiểm mới đếm. Không có dòng chờ thì không hiện gì.
+// nhận khung + phiếu chuyển đã ký thì nhập số thực nhận và bấm "Nhận" (kèm ảnh phiếu) - lúc đó Chuyền kiểm mới đếm; phần không nhận
+// về lại kho nguồn. Lệnh nhận bị huỷ khi khung còn đang chuyển (Nhân 27/11 cách 2): vẫn chờ xác nhận, phần nhận thành tồn kho này.
+// Không có dòng chờ thì không hiện gì.
 import { useRef, useState } from 'react'
 import { Paperclip, Truck } from 'lucide-react'
 import { useFetch } from '../../../hooks/useFetch'
@@ -22,6 +24,7 @@ export default function KhungDanDangChuyen() {
   const { data, refetch } = useFetch(() => getWovenInTransit(), [])
   useRealtimeRefetch(['production-orders'], refetch)
   const [files, setFiles] = useState<Record<string, File[]>>({})
+  const [counts, setCounts] = useState<Record<string, string>>({})
   const [busyId, setBusyId] = useState<string | null>(null)
   const [error, setError] = useState<{ id: string; msg: string } | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
@@ -30,9 +33,17 @@ export default function KhungDanDangChuyen() {
   const rows = data ?? []
   if (rows.length === 0 && !notice) return null
 
+  const countOf = (r: WovenInTransit) => counts[r.id] ?? String(r.qty)
+
   const receive = async (r: WovenInTransit) => {
+    const raw = countOf(r).trim()
+    const got = Number(raw)
+    if (raw === '' || !Number.isInteger(got) || got < 0 || got > r.qty) {
+      setError({ id: r.id, msg: `Số thực nhận phải từ 0 đến ${r.qty}` })
+      return
+    }
     const mine = files[r.id] ?? []
-    if (mine.length === 0) {
+    if (got > 0 && mine.length === 0) {
       setError({ id: r.id, msg: 'Cần ảnh phiếu chuyển đã ký' })
       return
     }
@@ -48,8 +59,16 @@ export default function KhungDanDangChuyen() {
         }
         urls.push(u)
       }
-      await confirmWovenReceived(r.id, urls)
-      setNotice(`Đã nhận ${r.qty} khung ${r.pieceCode} cho SKU ${r.targetFactoryCode}. Chuyền kiểm đếm được số khung này.`)
+      await confirmWovenReceived(r.id, got > 0 ? urls : [], got)
+      const back = r.qty - got
+      const backMsg = back > 0 ? ` ${back} khung không nhận về lại ${r.fromWarehouseName}.` : ''
+      setNotice(
+        got === 0
+          ? `Không nhận khung nào - ${r.qty} khung ${r.pieceCode} về lại ${r.fromWarehouseName}.`
+          : r.targetCancelled
+            ? `Đã nhận ${got} khung ${r.pieceCode} - lệnh nhận đã huỷ nên thành tồn khung đan ở ${r.toWarehouseName}.${backMsg}`
+            : `Đã nhận ${got} khung ${r.pieceCode} cho SKU ${r.targetFactoryCode}. Chuyền kiểm đếm được số khung này.${backMsg}`,
+      )
       refetch()
     } catch (e) {
       setError({ id: r.id, msg: errMsg(e) })
@@ -65,8 +84,8 @@ export default function KhungDanDangChuyen() {
         <strong>Khung đan chuyển từ kho khác - chờ nhận ({rows.length})</strong>
       </div>
       <p style={{ margin: '0 0 10px', fontSize: 12.5, color: 'var(--text2)' }}>
-        Khung đã đan của SKU bị huỷ ở kho thành phẩm xưởng khác được cấp cho lệnh của kho này. Nhận đủ khung và phiếu chuyển đã ký thì tải
-        ảnh phiếu rồi bấm Đã nhận - lúc đó Chuyền kiểm mới đếm số khung này.
+        Khung đã đan của SKU bị huỷ ở kho thành phẩm xưởng khác được cấp cho lệnh của kho này. Đếm khung thực nhận, tải ảnh phiếu chuyển
+        đã ký rồi bấm Nhận - lúc đó Chuyền kiểm mới đếm số khung này; khung không nhận về lại kho nguồn.
       </p>
       {notice && (
         <div style={{ margin: '0 0 10px', padding: '8px 12px', borderRadius: 6, background: 'var(--bg-e8f5e9)', color: 'var(--fg-2e7d32)', fontSize: 12.5 }}>
@@ -80,6 +99,7 @@ export default function KhungDanDangChuyen() {
               <tr>
                 <th style={th}>Mảnh</th>
                 <th style={{ ...th, textAlign: 'right' }}>Số khung</th>
+                <th style={{ ...th, textAlign: 'right' }}>Thực nhận</th>
                 <th style={th}>Từ kho</th>
                 <th style={th}>Về kho</th>
                 <th style={th}>Cho lệnh</th>
@@ -93,9 +113,28 @@ export default function KhungDanDangChuyen() {
                 <tr key={r.id}>
                   <td style={td}>{r.pieceCode} <span style={{ color: 'var(--text3)' }}>{r.pieceName}</span></td>
                   <td style={{ ...td, textAlign: 'right' }}>{r.qty}</td>
+                  <td style={{ ...td, textAlign: 'right' }}>
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      min={0}
+                      max={r.qty}
+                      value={countOf(r)}
+                      onChange={e => setCounts(c => ({ ...c, [r.id]: e.target.value }))}
+                      aria-label={`Số khung thực nhận ${r.pieceCode}`}
+                      style={{ width: 64, padding: '3px 6px', textAlign: 'right', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13 }}
+                    />
+                  </td>
                   <td style={td}>{r.fromWarehouseName}</td>
                   <td style={td}>{r.toWarehouseName}</td>
-                  <td style={td}><LenhCode piCode={r.targetLenhCode} /> · {r.targetFactoryCode}</td>
+                  <td style={td}>
+                    <LenhCode piCode={r.targetLenhCode} /> · {r.targetFactoryCode}
+                    {r.targetCancelled && (
+                      <div style={{ marginTop: 2, fontSize: 11.5, color: 'var(--fg-c62828)' }}>
+                        Lệnh đã huỷ - khung nhận thành tồn kho này
+                      </div>
+                    )}
+                  </td>
                   <td style={td}><LenhCode piCode={r.sourceLenhCode} /> · {r.sourceFactoryCode}</td>
                   <td style={td}>
                     <label style={{ display: 'inline-flex', alignItems: 'center', gap: 4, cursor: 'pointer', fontSize: 12 }}>
@@ -119,7 +158,7 @@ export default function KhungDanDangChuyen() {
                       onClick={() => void receive(r)}
                       style={{ ...btn, border: 'none', background: 'var(--accent, #1565c0)', color: '#fff', fontWeight: 600, opacity: busyId === r.id ? 0.6 : 1 }}
                     >
-                      {busyId === r.id ? 'Đang lưu...' : 'Đã nhận'}
+                      {busyId === r.id ? 'Đang lưu...' : 'Nhận'}
                     </button>
                     {error?.id === r.id && <div style={{ color: 'var(--fg-c62828)', fontSize: 12, marginTop: 4 }}>{error.msg}</div>}
                   </td>

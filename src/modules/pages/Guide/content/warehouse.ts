@@ -597,7 +597,7 @@ export const warehouseGroup: GuideGroup = {
         'Chọn dòng (mảnh, điểm đan) cần nhận — xem Đã xuất / Đã nhận / Còn phải nhận.',
         { text: 'Nhập số lượng nhận về, bấm "Nhận" — xác nhận "Tồn kho thành phẩm sẽ được cộng ngay".', critical: false },
         'Dòng có nhãn đỏ "SKU đã huỷ - nhận về vào tồn": SKU đã huỷ nhưng điểm đan còn giữ khung. Vẫn nhận về bình thường; khung vào tồn khung đan kho Thành phẩm, lệnh sau cùng mảnh + màu dây tự lấy. Nhận đủ rồi thì dòng tự ẩn.',
-        { text: 'Có khối "Khung đan chuyển từ kho khác - chờ nhận": khung của SKU đã huỷ ở kho Thành phẩm xưởng khác được cấp cho lệnh của kho bạn. Nhận đủ khung và phiếu chuyển đã ký thì chọn ảnh phiếu rồi bấm "Đã nhận" - lúc đó Chuyền kiểm mới đếm số khung này.', critical: true },
+        { text: 'Có khối "Khung đan chuyển từ kho khác - chờ nhận": khung của SKU đã huỷ ở kho Thành phẩm xưởng khác được cấp cho lệnh của kho bạn. Đếm khung thực nhận, nhập vào cột "Thực nhận", chọn ảnh phiếu chuyển đã ký rồi bấm "Nhận" - lúc đó Chuyền kiểm mới đếm số khung này; khung không nhận về lại kho nguồn (nhận 0 thì không cần ảnh). Dòng ghi "Lệnh đã huỷ" thì khung nhận thành tồn khung đan ở kho bạn.', critical: true },
       ],
       result: 'Có bằng chứng đối chiếu đã nhận đủ hàng từ điểm đan — làm căn cứ cho bước Chuyền kiểm tiếp theo.',
       warnings: [

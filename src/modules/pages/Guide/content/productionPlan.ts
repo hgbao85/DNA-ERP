@@ -581,7 +581,7 @@ export const productionPlanGroup: GuideGroup = {
             ['KCS', 'Các đợt đã báo của SKU này mà KCS chưa chấm vẫn hiện ở danh sách chờ, có nhãn "(SKU đã huỷ)". KCS chấm nốt; phần đạt vào kho công đoạn như bình thường.'],
             ['Đoạn đã cắt', 'Đoạn KCS đạt của SKU huỷ tự vào phần dư kho Phôi, lệnh khác cùng cỡ đoạn dùng được (khi IT đã bật quản đoạn theo lệnh; chưa bật thì đoạn nằm ở xưởng, ngoài sổ).'],
             ['Hàng đã đóng gói', 'KHSX chuyển sang dòng SKU đang chạy cùng sản phẩm, cùng màu dây, cùng vải nệm ở tab "Hàng SKU đã huỷ".'],
-            ['Khung đã đan', 'Khung đã nhận về thành tồn khung đan ở kho Thành phẩm của lệnh bị huỷ, theo mã mảnh + màu dây. Khung còn ở điểm đan vẫn nhận về bình thường rồi vào tồn. Lệnh đang chạy cần đúng mảnh + màu dây (kho Thành phẩm nào cũng được, cùng kho lấy trước) tự lấy tồn trước, chỉ xuất đan phần còn thiếu. Lấy khác kho thì khung ở trạng thái đang chuyển: thủ kho Thành phẩm nơi nhận xác nhận đã nhận (kèm ảnh phiếu chuyển đã ký) thì Chuyền kiểm mới đếm.'],
+            ['Khung đã đan', 'Khung đã nhận về thành tồn khung đan ở kho Thành phẩm của lệnh bị huỷ, theo mã mảnh + màu dây. Khung còn ở điểm đan vẫn nhận về bình thường rồi vào tồn. Lệnh đang chạy cần đúng mảnh + màu dây (kho Thành phẩm nào cũng được, cùng kho lấy trước) tự lấy tồn trước, chỉ xuất đan phần còn thiếu. Lấy khác kho thì khung ở trạng thái đang chuyển: thủ kho Thành phẩm nơi nhận nhập số khung thực nhận (kèm ảnh phiếu chuyển đã ký) thì Chuyền kiểm mới đếm, phần không nhận về lại kho nguồn. Lệnh nhận bị huỷ khi khung còn đang chuyển thì vẫn chờ thủ kho xác nhận: phần nhận thành tồn ở kho nhận.'],
             ['Mảnh hàn / sơn', 'Giữ nguyên tại kho công đoạn; hệ thống ghi lại số lượng lúc huỷ.'],
             ['Dòng SKU mới', 'Luôn tạo, giữ đủ số lượng cũ, không mang mốc cũ. Khách huỷ hẳn thì Kinh doanh huỷ dòng này.'],
             ['Số LSX', 'Số LSX chưa dùng (lệnh chưa bắt đầu, chưa xuất sắt, xưởng chưa báo gì) thì đi theo dòng mới. Số đã dùng thì ở lại lệnh cũ, dòng mới để trống - bạn nhập số mới khi lên lệnh lại.'],
@@ -662,7 +662,7 @@ export const productionPlanGroup: GuideGroup = {
       result: 'Hàng của SKU đã huỷ được dùng lại, có dấu vết ai chuyển / lệnh nào lấy, lúc nào.',
       warnings: [
         'Chỉ Kế hoạch SX (và Admin) chuyển được hàng đã đóng gói. Hàng đã giao theo booking không chuyển được nữa.',
-        'Khung đã đan không chuyển tay được nữa (chốt 26/11/2026). Lệnh ở kho Thành phẩm khác cũng lấy được: kho nguồn trừ ngay, khung phải chuyển giữa 2 xưởng kèm phiếu chuyển đã ký; thủ kho Thành phẩm nơi nhận bấm "Đã nhận" ở màn Nhập đan.',
+        'Khung đã đan không chuyển tay được nữa (chốt 26/11/2026). Lệnh ở kho Thành phẩm khác cũng lấy được: kho nguồn trừ ngay, khung phải chuyển giữa 2 xưởng kèm phiếu chuyển đã ký; thủ kho Thành phẩm nơi nhận nhập số thực nhận rồi bấm "Nhận" ở màn Nhập đan.',
         'Khung đã qua Chuyền kiểm của SKU huỷ không tính vào tồn.',
       ],
       commonErrors: [
