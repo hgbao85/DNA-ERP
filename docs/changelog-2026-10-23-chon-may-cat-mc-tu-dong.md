@@ -263,7 +263,7 @@ Kiểm tra: `tsc --noEmit` sạch; eslint file sửa 0 lỗi. Câu mới trên m
 - Chưa làm / còn treo: FE chưa dùng `solverMergeMaxSkus` ở nơi nào ngoài Admin (chặn tối đa M SKU khi gộp là việc màn "Tối ưu cắt sắt" — `GomDotCatPage.tsx`,
   `CuttingDefaults` ở `cutting-batch-api.ts` do người khác đang sửa). PI gộp cũ đã vi phạm luật sẽ bị khoá nút Lưu cho tới khi KHSX dời mốc lại.
 
-### 2l-b. Làm rõ luật của Sếp Nhân (2026-10-24, cùng ngày) — khung gộp tính CẢ HAI ĐẦU — phần "còn treo" đã xong ở mục 2m
+### 2l-b. Làm rõ luật của quản lý (2026-10-24, cùng ngày) — khung gộp tính CẢ HAI ĐẦU — phần "còn treo" đã xong ở mục 2m
 - Lời Sếp: "bắt buộc chỉ được gộp tối đa 2 lệnh có ngày cắt sắt cách nhau không quá 3 ngày (ví dụ: ngày 1 gộp được ngày 3, ngày 1 không được gộp với ngày 4)".
   → `solverMergeWindowDays = N` là **khung N ngày tính cả hai đầu**: mốc sớm nhất và muộn nhất chênh tối đa **N−1** ngày (N=3: ngày 1 + ngày 3 được, ngày 1 + ngày 4
   chặn; N=1: chỉ cùng ngày). Bản đầu của mục 2l hiểu là chênh tối đa N ngày — SAI một ngày so với ý Sếp, đã sửa. BE đồng bộ: `maxGapDays(N) = max(0, N−1)`,

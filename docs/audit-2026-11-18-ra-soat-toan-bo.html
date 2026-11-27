@@ -73,7 +73,7 @@
   <p class="lead">Lượt đọc độc lập sau khi 2 danh sách 14/11 và 16/11 đã sửa xong. 8 agent đọc theo vùng (chỉ đọc), mỗi phát hiện đã được đối chiếu lại trên code. Không gồm các mục đã có ở 2 file cũ, trừ chỗ bản sửa cũ còn sót (ghi rõ "mục cũ … sót").</p>
 
   <div class="note">
-    <b>Cách đọc.</b> Nhãn <span class="tag ask">Cần nghiệp vụ</span> = code chắc chắn chạy như mô tả nhưng có thể là chủ đích - cần anh Nhân/Sếp chốt trước khi sửa. "Đã kiểm" = đã tự đọc lại đúng dòng code; "Khá chắc" = đường code đúng nhưng chưa chạy thử / cần thao tác đồng thời. Những gì agent đã đọc và thấy ổn ghi ở cuối trang.
+    <b>Cách đọc.</b> Nhãn <span class="tag ask">Cần nghiệp vụ</span> = code chắc chắn chạy như mô tả nhưng có thể là chủ đích - cần quản lý/Sếp chốt trước khi sửa. "Đã kiểm" = đã tự đọc lại đúng dòng code; "Khá chắc" = đường code đúng nhưng chưa chạy thử / cần thao tác đồng thời. Những gì agent đã đọc và thấy ổn ghi ở cuối trang.
   </div>
 
   <div class="stats">
@@ -125,7 +125,7 @@
   </div>
 
   <div class="item done"><h3><span class="id">CS2</span>1 cây tồn lẻ ở bất kỳ kho Phôi nào kéo cả lệnh sang chiều dài lẻ <span class="tag mid">Trung bình</span><span class="tag ask">Cần nghiệp vụ</span><span class="tag done">Đã sửa 20/11</span></h3>
-    <p class="fix"><b>Anh Nhân 20/11 (chốt sau 3 câu hỏi thêm):</b> chiều dài mua không ép 6 m - KHSX chọn theo quy cách, mỗi loại sắt 1 chiều dài mua; cây lẻ dùng trước, tối đa đúng số cây đang có, chỉ ở kho Phôi của xưởng làm lệnh; cây lẻ làm vượt ngưỡng hao hụt thì KHSX xin đặc cách; KHSX đã tự chọn chiều dài vẫn dùng cây lẻ trước.</p>
+    <p class="fix"><b>Quản lý 20/11 (chốt sau 3 câu hỏi thêm):</b> chiều dài mua không ép 6 m - KHSX chọn theo quy cách, mỗi loại sắt 1 chiều dài mua; cây lẻ dùng trước, tối đa đúng số cây đang có, chỉ ở kho Phôi của xưởng làm lệnh; cây lẻ làm vượt ngưỡng hao hụt thì KHSX xin đặc cách; KHSX đã tự chọn chiều dài vẫn dùng cây lẻ trước.</p>
     <p class="fix"><b>Đã sửa 20/11</b> (BE main 5a85c2c, FE demo 4b5aa84; migration <code>20261120120000_cutting_pattern_stock_length</code> đã lên DB dev): bộ giải nhận cây lẻ kho Phôi đúng xưởng kèm số cây tối đa, không còn đưa chiều dài tồn mọi xưởng vào chiều dài mua; mỗi kiểu cắt lưu chiều dài cây riêng. Duyệt giữ chỗ theo từng chiều dài, chỉ mua phần cây chiều dài mua (cây lẻ bị lệnh khác giữ mất trước lúc duyệt thì báo Tính lại, không mua bù). Xuất sắt tách Cần / Đã xuất / Tồn theo chiều dài và chặn quá số cây từng chiều dài (kể cả loại chỉ cắt cây lẻ). Màn KHSX, Hướng dẫn cắt (cả bản in / Excel), Admin, bảng chia máy cắt hiện "Cây lẻ kho Phôi … · Mua …" và cột Dài cây. Thử sống trên bản sao: lệnh xưởng Phú An dùng đúng 1 cây lẻ 5800 + 1 cây 5650 kho Phôi PA, không dùng 3 cây 5450 kho Phôi Phước An (và ngược lại); duyệt giữ chỗ 5800×1, mua 1 cây 6000; phiếu XK 2 cây 5800 bị chặn, 1 cây được, xác nhận trừ đúng ô 5800; phiếu chờ ký thứ 2 bị chặn lúc xác nhận.</p>
     <p>Chiều dài nào còn ≥ 1 cây khả dụng ở BẤT KỲ kho Phôi đều vào danh sách bộ giải (code ghi rõ chủ đích). Kho PhA còn 1 cây 5450, lệnh xưởng PA cần 120 cây ở chế độ "chỉ cây chuẩn": nếu 5450 hao hụt thấp hơn 6000, bộ giải chốt cả 120 cây 5450 → lúc duyệt đọc tồn kho PA (không có) → đẩy mua 120 cây 5450 - cây đặt riêng phải chờ NCC cán, đúng thứ chế độ này muốn tránh.</p>
     <p class="where">BE <code>cutting-proposals/steel-stock-lengths.util.ts:60-196</code>; <code>solver-ts/optimize-one-material.ts:298-333</code>; <code>cutting-proposals.service.ts:2745-2752</code>. Đã kiểm phần nạp chiều dài.</p>
@@ -133,7 +133,7 @@
   </div>
 
   <div class="item done"><h3><span class="id">PH2</span>"Xong Phôi" tự tính theo cả PI, không theo từng SKU <span class="tag mid">Trung bình</span><span class="tag ask">Cần nghiệp vụ</span><span class="tag done">Đã chốt 20/11 - giữ nguyên</span></h3>
-    <p class="fix"><b>Đã chốt 20/11 - giữ nguyên:</b> anh Nhân chọn phương án B: chỉ cần đủ TỔNG cả lệnh là tính xong Phôi (không xét theo từng SKU). Code hiện tại đúng như vậy - không sửa.</p>
+    <p class="fix"><b>Đã chốt 20/11 - giữ nguyên:</b> quản lý chọn phương án B: chỉ cần đủ TỔNG cả lệnh là tính xong Phôi (không xét theo từng SKU). Code hiện tại đúng như vậy - không sửa.</p>
     <p>Tự đóng hàng đợi Phôi dùng tổng cỡ đoạn cả PI. PI gộp 2 lệnh cùng cỡ 600mm, mỗi lệnh 10: báo cả 20 vào SKU 1 → dòng 600mm đạt 20/20 → KCS xong là nền tự đóng hàng đợi và kéo lệnh kế lên, trong khi màn quét vẫn báo SKU 2 thiếu 10 (trái nguyên tắc "dòng báo vượt không che dòng còn thiếu").</p>
     <p class="where">BE <code>floor/floor-admin.service.ts:165-195</code> (<code>progressFrom</code>); <code>floor-alerts.service.ts:264-289</code>; FE <code>Floor/progressModel.ts</code>. Khá chắc.</p>
     <p class="fix"><b>Hỏi:</b> SKU có phải đơn vị thật của Phôi trong lệnh gộp? <b>Hướng sửa:</b> mỗi dòng = cỡ đoạn × SKU từ <code>byOrder</code>, cả BE và FE.</p>
@@ -161,7 +161,7 @@
   </div>
 
   <div class="item done"><h3><span class="id">KH1</span>Hàng mua về sau khi lệnh đã Kết thúc bị giữ chỗ vĩnh viễn cho lệnh đã xong <span class="tag mid">Trung bình</span><span class="tag ask">Cần nghiệp vụ</span><span class="tag done">Đã chốt 20/11 - giữ nguyên</span></h3>
-    <p class="fix"><b>Đã chốt 20/11 - giữ nguyên:</b> anh Nhân: "không thể có chuyện vật tư về sau khi lệnh đã kết thúc" - không xảy ra trong thực tế. Không sửa code.</p>
+    <p class="fix"><b>Đã chốt 20/11 - giữ nguyên:</b> quản lý: "không thể có chuyện vật tư về sau khi lệnh đã kết thúc" - không xảy ra trong thực tế. Không sửa code.</p>
     <p>Nhả giữ chỗ chỉ chạy lúc bấm Kết thúc. Nhận nốt 20 kg của PI A đã DONE: <code>creditPool</code> cộng vào dòng ACTIVE đã tiêu hết (dòng tiêu hết không bị nhả) hoặc MỞ LẠI dòng đã nhả (code ghi chủ đích "PI xong rồi vẫn nhận tiếp thì mở lại"). 20 kg đứng tên PI DONE mãi → PI khác bị trừ oan khi xuất tiêu hao / đóng gói / kèm đan, và lượt tính mua của PI khác mua thêm.</p>
     <p class="where">BE <code>stock/stock-reservations.service.ts:397-470, 889-903</code>; <code>production-orders.service.ts:497-538</code>. Đã kiểm.</p>
     <p class="fix"><b>Hỏi:</b> hàng về muộn cho lệnh đã xong nên vào tồn tự do? <b>Hướng sửa:</b> <code>creditPool</code> không giữ chỗ khi PI đã DONE (hoặc nhả ngay sau khi cộng).</p>
