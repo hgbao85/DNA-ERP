@@ -402,7 +402,7 @@ export default function CuttingProposalsPage() {
                         </td>
                         <td style={{ ...td, textAlign: 'right' }}>
                           {(() => {
-                            // CS2 (review Sang 21/11): cây lẻ kho Phôi cắt trước, không phải mua - số chính là cây MUA.
+                            // CS2 (review IT 21/11): cây lẻ kho Phôi cắt trước, không phải mua - số chính là cây MUA.
                             const leftover = stockLengthBreakdown(l).filter(e => e.leftover).reduce((s, e) => s + e.bars, 0)
                             if (l.totalBars == null || leftover === 0) return fmtNum(l.totalBars)
                             return (

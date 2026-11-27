@@ -49,7 +49,7 @@ describe('auditRecordName', () => {
   })
 
   it('người dùng hiện họ tên, bản ghi đã xoá lấy từ ảnh chụp cũ', () => {
-    expect(auditRecordName(entry({ tableName: 'User', newValue: { firstName: 'Nhàn', lastName: 'Trần', username: 'nhan' } }))).toBe('Trần Nhàn')
+    expect(auditRecordName(entry({ tableName: 'User', newValue: { firstName: 'A', lastName: 'Người mua', username: 'mua-a' } }))).toBe('Người mua A')
     expect(auditRecordName(entry({ action: 'DELETE', oldValue: { name: 'Cũ' } }))).toBe('Cũ')
   })
 

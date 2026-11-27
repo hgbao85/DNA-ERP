@@ -1,8 +1,8 @@
 'use client'
-// Nhân trả lời 26/11 câu 1: khung đã đan của SKU huỷ - lệnh ở kho thành phẩm KHÁC cũng tự lấy được, nhưng phải chuyển giữa 2 xưởng.
+// Nghiệp vụ trả lời 26/11 câu 1: khung đã đan của SKU huỷ - lệnh ở kho thành phẩm KHÁC cũng tự lấy được, nhưng phải chuyển giữa 2 xưởng.
 // Dòng lấy khác kho ở trạng thái "đang chuyển": kho nguồn đã trừ, lệnh nhận không phải xuất đan phần đó; thủ kho thành phẩm nơi nhận
 // nhận khung + phiếu chuyển đã ký thì nhập số thực nhận và bấm "Nhận" (kèm ảnh phiếu) - lúc đó Chuyền kiểm mới đếm; phần không nhận
-// về lại kho nguồn. Lệnh nhận bị huỷ khi khung còn đang chuyển (Nhân 27/11 cách 2): vẫn chờ xác nhận, phần nhận thành tồn kho này.
+// về lại kho nguồn. Lệnh nhận bị huỷ khi khung còn đang chuyển (nghiệp vụ 27/11 cách 2): vẫn chờ xác nhận, phần nhận thành tồn kho này.
 // Không có dòng chờ thì không hiện gì.
 import { useRef, useState } from 'react'
 import { Paperclip, Truck } from 'lucide-react'

@@ -183,7 +183,7 @@ export function buildRuleReason(p: {
 }): string | null {
   if (p.beReason) return p.beReason
   if (p.selectedCount > p.mergeMax) return `Đợt gồm ${p.selectedCount} SKU, tối đa ${p.mergeMax} SKU mỗi đợt/lệnh gộp.`
-  // 24/11/2026 (anh Nhân): bỏ chặn "chênh tối đa N ngày" khi gộp - mốc cách xa vẫn gộp được, gợi ý gộp chỉ ưu tiên mốc gần.
+  // 24/11/2026 (nghiệp vụ): bỏ chặn "chênh tối đa N ngày" khi gộp - mốc cách xa vẫn gộp được, gợi ý gộp chỉ ưu tiên mốc gần.
   void p.mergeWindow
   void p.span
   return null

@@ -9,7 +9,7 @@ export type LineWithPatternLengths = {
   patterns?: ReadonlyArray<{ stockLengthMm?: number | null; barCount: number }> | null;
 };
 
-/** CS2 (anh Nhân 20/11/2026): số cây theo từng chiều dài cây của 1 loại sắt - cây lẻ đang có ở kho Phôi (dùng trước, khác
+/** CS2 (nghiệp vụ 20/11/2026): số cây theo từng chiều dài cây của 1 loại sắt - cây lẻ đang có ở kho Phôi (dùng trước, khác
  *  chiều dài mua) và cây chiều dài mua (`bestStockLengthMm`). Tăng dần theo chiều dài; cây không rõ chiều dài tính vào chiều
  *  dài mua. Phương án cũ / không có cây lẻ thì đúng 1 phần tử (chiều dài mua). */
 export function stockLengthBreakdown(line: LineWithPatternLengths): { lengthMm: number; bars: number; leftover: boolean }[] {

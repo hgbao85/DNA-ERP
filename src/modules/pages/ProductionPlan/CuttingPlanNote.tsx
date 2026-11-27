@@ -71,7 +71,7 @@ export default function CuttingPlanNote({
   // Chi tiết đã nạp có nhãn máy từng kiểu cắt (MC Tự động / MC Laser theo loại cây): dòng "Máy cắt: MC Laser" bên cạnh dễ bị hiểu là máy thứ hai
   // -> đổi thành câu nói đó là máy dùng để TÍNH (13/11/2026).
   const hasPatternMachines = detail?.lines?.some((l) => l.patterns?.some((pt) => (pt.machineGroups?.length ?? 0) > 0)) ?? false
-  // CS2 (review Sang 21/11): cây lẻ có sẵn ở kho Phôi nằm trong tổng số cây cắt nhưng KHÔNG phải mua - nói rõ khi chi tiết đã nạp.
+  // CS2 (review IT 21/11): cây lẻ có sẵn ở kho Phôi nằm trong tổng số cây cắt nhưng KHÔNG phải mua - nói rõ khi chi tiết đã nạp.
   const leftoverBars = (detail?.lines ?? []).reduce(
     (s, l) => s + (l.feasible ? stockLengthBreakdown(l).filter((e) => e.leftover).reduce((t, e) => t + e.bars, 0) : 0),
     0,

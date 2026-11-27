@@ -1,8 +1,8 @@
 'use client'
-// Huỷ lệnh đợt 2 - Q5 / Q6 (anh Nhân 24/11/2026): KHSX chuyển hàng đã làm của SKU đã huỷ sang 1 dòng SKU đang chạy.
+// Huỷ lệnh đợt 2 - Q5 / Q6 (nghiệp vụ 24/11/2026): KHSX chuyển hàng đã làm của SKU đã huỷ sang 1 dòng SKU đang chạy.
 //  - Q5 hàng đã đóng gói: được giao cho đơn khách khác, điều kiện cùng sản phẩm + màu dây + vải nệm. Dòng nhận coi như đã đóng gói
 //    thêm số đó (booking giao được).
-//  - Q6 khung đã đan (anh Nhân trả lời lại 26/11/2026, câu 1b/2a/3a): KHÔNG chuyển tay nữa - khung đã nhận về (kể cả phần điểm đan
+//  - Q6 khung đã đan (nghiệp vụ trả lời lại 26/11/2026, câu 1b/2a/3a): KHÔNG chuyển tay nữa - khung đã nhận về (kể cả phần điểm đan
 //    trả sau khi huỷ) thành tồn khung đan ở kho thành phẩm của lệnh bị huỷ, theo mảnh + màu dây; lệnh đang chạy cần đúng loại tự lấy
 //    tồn trước, chỉ xuất đan phần còn thiếu. Ở đây chỉ hiện để biết.
 import { useState } from 'react'

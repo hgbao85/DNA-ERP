@@ -769,7 +769,7 @@ function PODetailView({ po, onBack, onDeleted, onUpdated, canWrite }: { po: Sale
   )
 }
 
-/** Huỷ lệnh câu 2 (anh Nhân 24/11/2026): khách huỷ hẳn thì Sales huỷ 1 dòng đơn, bắt buộc ghi lý do. Dòng đang có lệnh sản xuất
+/** Huỷ lệnh câu 2 (nghiệp vụ 24/11/2026): khách huỷ hẳn thì Sales huỷ 1 dòng đơn, bắt buộc ghi lý do. Dòng đang có lệnh sản xuất
  *  thì BE báo để KHSX đề nghị huỷ lệnh (Sếp duyệt) trước - huỷ lệnh không tự huỷ dòng đơn. */
 function ItemCancelModal({ orderId, item, onClose, onSaved }: {
   orderId: string

@@ -270,7 +270,7 @@ const haoHut: GuideArticle = {
   highlight: {
     label: 'Công thức',
     text: 'Số cần mua = Số cần × (1 + % hao hụt / 100) − Tồn khả dụng',
-    note: 'Phần trăm cộng vào TOÀN BỘ số cần của lệnh, rồi mới trừ tồn kho chưa giữ cho lệnh khác (công thức anh Nhân chốt, áp dụng từ 04/11/2026). Kết quả âm thì không mua.',
+    note: 'Phần trăm cộng vào TOÀN BỘ số cần của lệnh, rồi mới trừ tồn kho chưa giữ cho lệnh khác (công thức nghiệp vụ chốt, áp dụng từ 04/11/2026). Kết quả âm thì không mua.',
   },
   tables: [
     {
@@ -286,7 +286,7 @@ const haoHut: GuideArticle = {
     },
     {
       title: 'Bảng % đang áp dụng',
-      intro: 'Anh Nhân chốt (bản yêu cầu v8, mục 7.9), đã nạp cho toàn bộ vật tư ngày 04/11/2026. Vật tư mới nên theo đúng bảng này trừ khi có chỉ đạo khác.',
+      intro: 'Nghiệp vụ chốt (bản yêu cầu v8, mục 7.9), đã nạp cho toàn bộ vật tư ngày 04/11/2026. Vật tư mới nên theo đúng bảng này trừ khi có chỉ đạo khác.',
       columns: ['% hao hụt', 'Áp cho'],
       rows: [
         ['0%', 'Carton, thùng, tem, nhãn, gối, HDLR (và poster, barcode, tờ label đi kèm).'],

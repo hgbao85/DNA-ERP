@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * Xuất đan - PHIẾU 2 (anh Nhân 09/11/2026): kho Phụ kiện cấp dây, gỗ, đinh, nút kèm mảnh cho CÙNG điểm đan, giao cùng chuyến.
+ * Xuất đan - PHIẾU 2 (nghiệp vụ 09/11/2026): kho Phụ kiện cấp dây, gỗ, đinh, nút kèm mảnh cho CÙNG điểm đan, giao cùng chuyến.
  * Khi kho Sơn lập phiếu xuất mảnh, hệ thống tính số vật tư cần cấp kèm (định mức / mảnh × số mảnh trên phiếu) và báo kho Phụ kiện.
  * Thủ kho Phụ kiện mở phiếu mảnh ở đây, sửa số thực cấp nếu cần, "Lập phiếu vật tư kèm" -> phiếu XK có số, in, điểm đan ký,
  * tải ảnh rồi mới trừ tồn (phần "Phiếu chờ ký" bên dưới).

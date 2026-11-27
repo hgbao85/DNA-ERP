@@ -23,7 +23,7 @@ import { CkMonitorPanel } from './CkDgKhoPanels'
 interface LoiEntry { id: number; lyDo: string; file: File | null }
 
 /**
- * Danh sách lỗi ĐÃ GHI của 1 mảnh, kèm sửa/xóa ảnh - 2026-09-11 lần 2 (theo Sếp Trương Văn Nhân:
+ * Danh sách lỗi ĐÃ GHI của 1 mảnh, kèm sửa/xóa ảnh - 2026-09-11 lần 2 (theo quản lý:
  * "cho người nhập được sửa luôn"). Trước đây trang này chỉ hiện SỐ LƯỢNG lỗi (`defectCount`),
  * không có chỗ nào xem lại/sửa từng lỗi cụ thể - đây là UI MỚI hoàn toàn (không có sẵn để tái dùng
  * như KCS/Mua hàng). Lấy danh sách qua `getTransferCheckDefects()` (đã có sẵn cho trang Admin,

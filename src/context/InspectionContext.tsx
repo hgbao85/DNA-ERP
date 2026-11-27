@@ -124,8 +124,8 @@ export interface PurchaseProposalItem {
   /** Trạng thái CỦA RIÊNG DÒNG NÀY (2026-08-25) - nguồn sự thật cho mọi gate nghiệp vụ (báo giá,
    *  gửi Sếp, duyệt, từ chối, nhận hàng). `PurchaseProposal.status` giờ chỉ còn là rollup hiển thị
    *  tổng quát - KHÔNG dùng để quyết định 1 dòng vật tư cụ thể làm được gì, vì 1 đề xuất gộp có
-   *  thể có vật tư của nhiều người mua hàng ở nhiều trạng thái khác nhau cùng lúc (Nhàn đã
-   *  SUBMITTED trong khi Trâm còn QUOTING). Mặc định 'new' cho item cũ/mock chưa có field này. */
+   *  thể có vật tư của nhiều người mua hàng ở nhiều trạng thái khác nhau cùng lúc (người mua A đã
+   *  SUBMITTED trong khi người mua B còn QUOTING). Mặc định 'new' cho item cũ/mock chưa có field này. */
   status: ProposalStatus
   submittedAt?: string
   approvedAt?: string

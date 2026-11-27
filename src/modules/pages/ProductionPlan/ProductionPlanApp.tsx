@@ -80,7 +80,7 @@ export default function ProductionPlanApp({ onBack }: Props) {
     { page: 'warehouses', icon: <Warehouse size={16} />,       label: 'Tổng hợp kho' },
     // Phần A – Đợt 4: chỉ xem, KHÔNG badge (Sếp 05/11).
     { page: 'vat-tu-can-ve', icon: <PackageCheck size={16} />, label: 'Vật tư cần về' },
-    // Tồn đoạn theo lệnh - anh Nhân 14/11: KHSX xem sổ báo vượt (QLSX mới đóng dòng).
+    // Tồn đoạn theo lệnh - nghiệp vụ 14/11: KHSX xem sổ báo vượt (QLSX mới đóng dòng).
     { page: 'so-bao-vuot-doan', icon: <AlertTriangle size={16} />, label: 'Sổ báo vượt đoạn' },
     // Huỷ lệnh đợt 2 - Q5/Q6 (24/11/2026): chuyển hàng đã đóng gói / khung đã đan của SKU đã huỷ sang SKU khác.
     { page: 'hang-sku-huy', icon: <PackageOpen size={16} />, label: 'Hàng SKU đã huỷ' },

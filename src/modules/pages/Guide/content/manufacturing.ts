@@ -620,7 +620,7 @@ export const manufacturingGroup: GuideGroup = {
       tags: ['kcs', 'duyệt kcs', 'chấm đợt đang mở', 'thực có', 'chất lượng', 'qc review'],
       sourceRefs: ['src/modules/pages/Kcs/KcsHanPage.tsx', 'src/modules/pages/Kcs/KcsSonPage.tsx'],
     },
-    // Huỷ lệnh đợt 2 - Q3 (anh Nhân 24/11/2026)
+    // Huỷ lệnh đợt 2 - Q3 (nghiệp vụ 24/11/2026)
     {
       id: 'mfg-qlsx-sat-sku-huy',
       title: 'QLSX — sắt của SKU đã huỷ: cho cắt tiếp hay ngưng',

@@ -51,7 +51,7 @@ const SUBS: { id: Sub; label: string; icon: React.ReactNode }[] = [
   { id: 'son', label: 'Xuất vật tư sơn',     icon: <SprayCan size={15} /> },
   // Pallet Sơn (24/11/2026): chỉ hiện khi BE bật công tắc (list.enabled).
   { id: 'pallet', label: 'Pallet', icon: <Layers size={15} /> },
-  // Anh Nhân 09/11/2026: mảnh xong (Sơn; mảnh chỉ hàn ở kho Hàn) xuất đan THẲNG từ kho giữ mảnh bằng phiếu XK.
+  // Nghiệp vụ 09/11/2026: mảnh xong (Sơn; mảnh chỉ hàn ở kho Hàn) xuất đan THẲNG từ kho giữ mảnh bằng phiếu XK.
   { id: 'dan', label: 'Xuất đan',            icon: <Waypoints size={15} /> },
   // Đợt 6 (YC4): mọi lần xuất sắt / vật tư hàn, sơn đi qua phiếu xuất XK có số, ký, tải ảnh.
   { id: 'phieu', label: 'Phiếu xuất',       icon: <FileText size={15} /> },

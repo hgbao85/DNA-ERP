@@ -433,7 +433,7 @@ export interface CuttingDefaults {
   solverBundleFactors?: number[];
   solverMaxManualCuts?: number;
   solverMaxSizesPerPattern?: number;
-  /** Luật gộp (Sếp Nhân 2026-10-24): mốc cần sắt các SKU trong 1 đợt nằm trong khung N ngày TÍNH CẢ NGÀY ĐẦU (chênh ≤ N−1). */
+  /** Luật gộp (quản lý 2026-10-24): mốc cần sắt các SKU trong 1 đợt nằm trong khung N ngày TÍNH CẢ NGÀY ĐẦU (chênh ≤ N−1). */
   solverMergeWindowDays?: number;
   /** Luật gộp: tối đa M SKU mỗi đợt / lệnh gộp (mặc định 2). */
   solverMergeMaxSkus?: number;

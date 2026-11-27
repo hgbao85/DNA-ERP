@@ -3,7 +3,7 @@
 /**
  * Kho phôi (Phôi) — READ-ONLY.
  *
- * 13/11/2026 (anh Nhân trả lời 11 câu tồn đoạn): tồn đoạn quản theo MÃ ĐOẠN (cỡ đoạn + bộ công đoạn: trơn / dập / tán…), theo kho
+ * 13/11/2026 (nghiệp vụ trả lời 11 câu tồn đoạn): tồn đoạn quản theo MÃ ĐOẠN (cỡ đoạn + bộ công đoạn: trơn / dập / tán…), theo kho
  * Phôi của TỪNG XƯỞNG, và giữ theo LỆNH - đọc GET /segment-stock/balances:
  *  - Tồn = đoạn thật trong kho; Giữ cho lệnh = đoạn đủ công đoạn + KCS đạt của các lệnh đang chạy, chờ Hàn / Sơn dùng;
  *    Dư = tồn - giữ, đoạn cắt vượt chung của xưởng, chia cho lệnh sau.

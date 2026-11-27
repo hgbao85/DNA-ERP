@@ -123,7 +123,7 @@ export default function XuatSatPage({ embedded = false }: { embedded?: boolean }
   const [msgs, setMsgs] = useState<Record<string, string>>({})
   const cart = useIssueSlipCart()
 
-  // CS2 (anh Nhân 20/11/2026): phương án có thể dùng cây lẻ đang có ở kho Phôi (dùng trước) cùng cây chiều dài mua — mỗi
+  // CS2 (nghiệp vụ 20/11/2026): phương án có thể dùng cây lẻ đang có ở kho Phôi (dùng trước) cùng cây chiều dài mua — mỗi
   // chiều dài có số cây riêng. Hiện theo từng chiều dài khi có hơn 1 chiều dài HOẶC có cây lẻ (kể cả loại sắt chỉ cắt cây lẻ);
   // chỉ 1 chiều dài mua thì giữ hiển thị/kiểm tra như cũ.
   const multiLen = (item: BeSteelIssuePlanItem) =>

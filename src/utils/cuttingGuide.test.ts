@@ -350,7 +350,7 @@ describe('CS2 20/11 - cây lẻ kho Phôi + cây chiều dài mua', () => {
   });
 });
 
-describe('demandText - đoạn dư lấy từ kho (anh Nhân câu 14a, 24/11/2026)', () => {
+describe('demandText - đoạn dư lấy từ kho (nghiệp vụ câu 14a, 24/11/2026)', () => {
   it('có đoạn dư trong kho: "30 (có sẵn 5, cắt 25)"', () => {
     expect(demandText({ size: 1990, demand: 25, produced: 26, names: [], fromStock: 5 })).toBe('30 (có sẵn 5, cắt 25)');
   });

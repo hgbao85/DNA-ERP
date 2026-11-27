@@ -228,7 +228,7 @@ export interface WorkshopMoveLine {
   qty: number;
 }
 
-/** STEEL = sắt (chờ KHSX "Đã kiểm" phương án cắt); OTHER = vật tư khác (chuyển ngay) - anh Nhân 10/11/2026. */
+/** STEEL = sắt (chờ KHSX "Đã kiểm" phương án cắt); OTHER = vật tư khác (chuyển ngay) - nghiệp vụ 10/11/2026. */
 export type WorkshopMovePart = 'STEEL' | 'OTHER';
 
 export interface WorkshopMovePlan {
@@ -278,13 +278,13 @@ export async function rejectWarehouseTransfer(id: string | number, reason: strin
   return toTransfer(t, []);
 }
 
-/** (a) anh Nhân 16/11: kho GỬI huỷ phiếu chuyển hàng của lệnh chưa nhận - hàng chưa rời kho / xe quay về. */
+/** (a) nghiệp vụ 16/11: kho GỬI huỷ phiếu chuyển hàng của lệnh chưa nhận - hàng chưa rời kho / xe quay về. */
 export async function cancelWarehouseTransfer(id: string | number, reason: string): Promise<WarehouseTransfer> {
   const t = await http.post<BeWarehouseTransfer>(`/warehouse-transfers/${id}/cancel`, { reason });
   return toTransfer(t, []);
 }
 
-/** (b) anh Nhân 16/11: kho GỬI đổi nơi nhận sang kho cùng loại của xưởng hiện tại của lệnh - hàng đang trên đường tới xưởng mới. */
+/** (b) nghiệp vụ 16/11: kho GỬI đổi nơi nhận sang kho cùng loại của xưởng hiện tại của lệnh - hàng đang trên đường tới xưởng mới. */
 export async function changeWarehouseTransferDestination(id: string | number): Promise<WarehouseTransfer> {
   const t = await http.post<BeWarehouseTransfer>(`/warehouse-transfers/${id}/change-destination`, {});
   return toTransfer(t, []);
@@ -298,7 +298,7 @@ export interface PendingWorkshopMove {
   toWarehouseName: string;
 }
 
-/** Cảnh báo lúc đổi xưởng (anh Nhân 16/11): phiếu chuyển hàng của lệnh còn chờ nhận. Cho hộp thoại đổi xưởng. */
+/** Cảnh báo lúc đổi xưởng (nghiệp vụ 16/11): phiếu chuyển hàng của lệnh còn chờ nhận. Cho hộp thoại đổi xưởng. */
 export function getPendingWorkshopMoves(productionInvoiceId: string): Promise<PendingWorkshopMove[]> {
   return http.get<PendingWorkshopMove[]>('/warehouse-transfers/workshop-moves/pending', {
     params: { productionInvoiceId },

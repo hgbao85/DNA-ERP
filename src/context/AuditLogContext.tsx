@@ -7,7 +7,7 @@ import type { AuditLogEntry as PersistedAuditLogEntry } from '../types/admin'
 // còn bảng nhãn/màu cho AuditLogTimeline (lịch sử SKU, lịch sử lô KCS, vết đề xuất mua).
 //
 // Cấu hình mapping action -> nhãn + màu hiển thị. Đây là điểm mở rộng duy nhất:
-// nghiệp vụ mới (không chỉ PurchaseProposal) chỉ cần thêm 1 dòng ở đây (key phải khớp đúng
+// Nghiệp vụ mới (không chỉ PurchaseProposal) chỉ cần thêm 1 dòng ở đây (key phải khớp đúng
 // giá trị BE trả về),
 // không phải viết lại cơ chế ghi log hay màn hiển thị "Hoạt động". Màu lấy theo đúng bảng màu
 // ngữ nghĩa đã dùng sẵn trong app (xanh dương = tạo/tiếp nhận, tím = chờ duyệt, cam = làm lại,

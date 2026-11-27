@@ -42,7 +42,7 @@ const ACTION_ICON: Record<AuditAction, LucideIcon> = {
 }
 
 /**
- * Đổi/xóa ảnh minh hoạ - 2026-09-11 lần 2 (theo Sếp Trương Văn Nhân: "cho người nhập được sửa
+ * Đổi/xóa ảnh minh hoạ - 2026-09-11 lần 2 (theo quản lý: "cho người nhập được sửa
  * luôn"), CHỈ hiện khi caller truyền `onEditPhoto`/`onDeletePhoto` (mọi nơi khác dùng
  * AuditLogTimeline không có ảnh nên không đụng gì). BE (`QcReviewsService.updatePhoto()`) tự kiểm
  * actor có đúng người đã chấm review này hay Admin không - component này không đoán trước, lỗi

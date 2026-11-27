@@ -183,7 +183,7 @@ export async function updateSalesOrderItemChoice(
   return toSalesOrder(await http.get<BeSalesOrder>(`/sales-orders/${orderId}`));
 }
 
-/** Huỷ lệnh câu 2 (anh Nhân 24/11/2026): khách huỷ hẳn - Sales huỷ 1 dòng đơn (bắt buộc lý do). BE chặn khi dòng đã xuất,
+/** Huỷ lệnh câu 2 (nghiệp vụ 24/11/2026): khách huỷ hẳn - Sales huỷ 1 dòng đơn (bắt buộc lý do). BE chặn khi dòng đã xuất,
  *  còn lệnh sản xuất sống (KHSX đề nghị huỷ lệnh trước), đang tính phương án cắt hoặc đang nằm trong booking. */
 export async function cancelSalesOrderItem(
   orderId: number | string,

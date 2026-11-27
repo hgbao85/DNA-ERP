@@ -45,7 +45,7 @@ export interface BeStepBundleSegment {
 
 /**
  * "Đợt gửi KCS" cho 1 CÔNG ĐOẠN PHỤ (Uốn/Dập/Đục lỗ/Tán/Tóp đầu/Xẻ) của 1 LOẠI SẮT trong 1 PI
- * (2026-09-07, đổi scope lần 2 theo Sếp Trương Văn Nhân - Phôi làm các công đoạn SONG SONG, không
+ * (2026-09-07, đổi scope lần 2 theo quản lý - Phôi làm các công đoạn SONG SONG, không
  * cần biết đúng đợt cắt nào ra đoạn đó - KHÔNG còn `cutBundleId`, scope theo PI + vật tư mirror
  * `BeStepBatch`/getStepProgress()).
  */

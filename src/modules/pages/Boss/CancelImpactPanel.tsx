@@ -1,5 +1,5 @@
 'use client'
-// Câu 8 (anh Nhân 24/11/2026): hộp duyệt huỷ lệnh của Sếp hiện đã xuất bao nhiêu sắt, dòng mua đã ký (kèm tiền) và hàng đã làm ở
+// Câu 8 (nghiệp vụ 24/11/2026): hộp duyệt huỷ lệnh của Sếp hiện đã xuất bao nhiêu sắt, dòng mua đã ký (kèm tiền) và hàng đã làm ở
 // từng công đoạn. Sắt + dòng mua đi theo CẢ lệnh (lệnh gộp gồm cả phần của SKU khác); hàng công đoạn là của riêng SKU xin huỷ.
 import { useFetch } from '../../../hooks/useFetch'
 import { getOrderCancelImpact, type CancelImpactDto } from '../../../services/order-cancellations-api'

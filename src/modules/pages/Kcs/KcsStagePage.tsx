@@ -135,7 +135,7 @@ export default function KcsStagePage({ cfg, stage, showPieceSteps }: {
 
     let seq = 1
     const out: KcsRow[] = []
-    // Câu 4 (anh Nhân 24/11/2026, đảo cách ẩn 23/11): KCS chấm nốt đợt của SKU đã huỷ - không xám theo lệnh dừng, gắn nhãn.
+    // Câu 4 (nghiệp vụ 24/11/2026, đảo cách ẩn 23/11): KCS chấm nốt đợt của SKU đã huỷ - không xám theo lệnh dừng, gắn nhãn.
     const cancelled = new Set(review?.cancelledOrderIds ?? [])
     for (const productionOrderId of order) {
       const orderCancelled = cancelled.has(productionOrderId)
@@ -320,7 +320,7 @@ export default function KcsStagePage({ cfg, stage, showPieceSteps }: {
     refetchAll()
   }
 
-  // Sửa/xóa ảnh lỗi của 1 review ĐÃ CHẤM (2026-09-11 lần 2, theo Sếp Trương Văn Nhân: "cho người
+  // Sửa/xóa ảnh lỗi của 1 review ĐÃ CHẤM (2026-09-11 lần 2, theo quản lý: "cho người
   // nhập được sửa luôn") - BE (QcReviewsService.updatePhoto()) tự kiểm actor có đúng người đã chấm
   // review này hay Admin không, ở đây không cần đoán trước. Lỗi (vd không phải người nhập) ném lên
   // cho AuditLogTimeline.EditPhotoActions tự alert - cùng idiom AttachmentsPage.tsx.

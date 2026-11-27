@@ -213,7 +213,7 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
   const { data: warehouses } = useFetch<Wh[]>(() => api.getWarehouses(), [])
   const myWarehouse = safeArr(warehouses).find(w => w.code === scope) ?? null
 
-  // Anh Nhân 09/11/2026: mảnh KHÔNG đan chuyển thẳng sang kho Thành phẩm của lệnh (QLSX đã chọn cho từng SKU) - kho đích lấy
+  // Nghiệp vụ 09/11/2026: mảnh KHÔNG đan chuyển thẳng sang kho Thành phẩm của lệnh (QLSX đã chọn cho từng SKU) - kho đích lấy
   // theo lệnh; lệnh cũ chưa chọn kho thì thủ kho chọn trong các kho Thành phẩm. Mảnh cần đan không còn ở đây (xuất đan bằng phiếu).
   const [pieceDestCode, setPieceDestCode] = useState('')
   // Đợt 7: kho Hàn của xưởng KHÔNG có kho Sơn (Phước An) - mảnh cần sơn hàn xong chuyển sang kho Sơn Phú An (chặng 'TO_PAINT');
@@ -290,7 +290,7 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
     if (!order || !line) return
     const qty = Math.max(0, Number(line.inputQty) || 0)
     if (qty <= 0) return
-    // 19/11 (việc nhận từ Sang): nhập vượt số được chuyển thì báo trên dòng, không tự hạ về mức tối đa rồi lập phiếu ít hơn
+    // 19/11 (việc nhận từ IT): nhập vượt số được chuyển thì báo trên dòng, không tự hạ về mức tối đa rồi lập phiếu ít hơn
     // số đã nhập (BE cũng chặn và báo, không còn cắt bớt).
     if (qty > line.availableQty) {
       setTransferErrors(prev => ({ ...prev, [lineId]: `Nhập ${qty} vượt số được chuyển (${line.availableQty}) - sửa lại số` }))

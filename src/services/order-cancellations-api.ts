@@ -1,5 +1,5 @@
 /**
- * Huỷ lệnh theo SKU - đợt 1 (23/11/2026, anh Nhân trả lời 7 câu): KHSX đề nghị huỷ 1 SKU (1 lệnh sản xuất) kèm lý do, Sếp duyệt mới
+ * Huỷ lệnh theo SKU - đợt 1 (23/11/2026, nghiệp vụ trả lời 7 câu): KHSX đề nghị huỷ 1 SKU (1 lệnh sản xuất) kèm lý do, Sếp duyệt mới
  * huỷ. BE `/production-order-cancellations` (src/modules/production-invoices/order-cancellation). Kiểu dưới CHÉP theo
  * OrderCancelRequestDto bên BE.
  */
@@ -58,7 +58,7 @@ export interface CutSteelRow {
   returns: { materialCode: string; lengthMm: number; bars: number; createdAt: string }[];
 }
 
-/** Nhân 26/11 câu 2: 1 dòng sắt tổ cắt trả về chờ thủ kho Phôi xác nhận (chép PendingSteelReturnDto bên BE). */
+/** Nghiệp vụ 26/11 câu 2: 1 dòng sắt tổ cắt trả về chờ thủ kho Phôi xác nhận (chép PendingSteelReturnDto bên BE). */
 export interface PendingSteelReturn {
   id: string;
   productionInvoiceId: string;
@@ -81,7 +81,7 @@ export function confirmSteelReturn(id: string, countedBars: number): Promise<Pen
   return http.post<PendingSteelReturn[]>(`/production-order-cancellations/steel-returns/${id}/confirm`, { countedBars });
 }
 
-/** Nhân 26/11 câu 1: khung đan lấy tồn khác kho thành phẩm - đang chuyển (chép WovenInTransitDto bên BE). */
+/** Nghiệp vụ 26/11 câu 1: khung đan lấy tồn khác kho thành phẩm - đang chuyển (chép WovenInTransitDto bên BE). */
 export interface WovenInTransit {
   id: string;
   qty: number;
@@ -166,7 +166,7 @@ export async function getOrderCancelRequests(
   return http.get<OrderCancelRequestDto[]>('/production-order-cancellations', { params: q });
 }
 
-/** Câu 8 (anh Nhân 24/11/2026) - chép theo CancelImpactDto bên BE. */
+/** Câu 8 (nghiệp vụ 24/11/2026) - chép theo CancelImpactDto bên BE. */
 export interface CancelImpactDto {
   requestId: string;
   fromSnapshot: boolean;

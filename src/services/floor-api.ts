@@ -516,7 +516,7 @@ export interface BeFloorReview {
   materialYieldGroups?: BeReviewMaterialYieldGroup[]
   /** PI của tổ đang có đợt chờ KCS mà không còn SKU nào chạy (P1, MF2). KCS tô xám dòng AWAITING_QC của các PI này và khoá nút Chấm. BE cũ không trả. */
   stoppedPis?: { productionInvoiceId: string; code: string }[]
-  /** Id lệnh SX đã huỷ. Câu 4 (anh Nhân 24/11/2026): KCS vẫn chấm nốt đợt của các lệnh này - FE chỉ bỏ xám + gắn nhãn. BE cũ không trả. */
+  /** Id lệnh SX đã huỷ. Câu 4 (nghiệp vụ 24/11/2026): KCS vẫn chấm nốt đợt của các lệnh này - FE chỉ bỏ xám + gắn nhãn. BE cũ không trả. */
   cancelledOrderIds?: string[]
 }
 
