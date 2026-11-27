@@ -581,11 +581,11 @@ export const productionPlanGroup: GuideGroup = {
             ['KCS', 'Các đợt đã báo của SKU này mà KCS chưa chấm vẫn hiện ở danh sách chờ, có nhãn "(SKU đã huỷ)". KCS chấm nốt; phần đạt vào kho công đoạn như bình thường.'],
             ['Đoạn đã cắt', 'Đoạn KCS đạt của SKU huỷ tự vào phần dư kho Phôi, lệnh khác cùng cỡ đoạn dùng được (khi IT đã bật quản đoạn theo lệnh; chưa bật thì đoạn nằm ở xưởng, ngoài sổ).'],
             ['Hàng đã đóng gói', 'KHSX chuyển sang dòng SKU đang chạy cùng sản phẩm, cùng màu dây, cùng vải nệm ở tab "Hàng SKU đã huỷ".'],
-            ['Khung đã đan', 'Khung đã nhận về thành tồn khung đan ở kho Thành phẩm của lệnh bị huỷ, theo mã mảnh + màu dây. Khung còn ở điểm đan vẫn nhận về bình thường rồi vào tồn. Lệnh đang chạy cần đúng mảnh + màu dây (cùng kho Thành phẩm) tự lấy tồn trước, chỉ xuất đan phần còn thiếu.'],
+            ['Khung đã đan', 'Khung đã nhận về thành tồn khung đan ở kho Thành phẩm của lệnh bị huỷ, theo mã mảnh + màu dây. Khung còn ở điểm đan vẫn nhận về bình thường rồi vào tồn. Lệnh đang chạy cần đúng mảnh + màu dây (kho Thành phẩm nào cũng được, cùng kho lấy trước) tự lấy tồn trước, chỉ xuất đan phần còn thiếu. Lấy khác kho thì khung ở trạng thái đang chuyển: thủ kho Thành phẩm nơi nhận xác nhận đã nhận (kèm ảnh phiếu chuyển đã ký) thì Chuyền kiểm mới đếm.'],
             ['Mảnh hàn / sơn', 'Giữ nguyên tại kho công đoạn; hệ thống ghi lại số lượng lúc huỷ.'],
             ['Dòng SKU mới', 'Luôn tạo, giữ đủ số lượng cũ, không mang mốc cũ. Khách huỷ hẳn thì Kinh doanh huỷ dòng này.'],
             ['Số LSX', 'Số LSX chưa dùng (lệnh chưa bắt đầu, chưa xuất sắt, xưởng chưa báo gì) thì đi theo dòng mới. Số đã dùng thì ở lại lệnh cũ, dòng mới để trống - bạn nhập số mới khi lên lệnh lại.'],
-            ['Phương án cắt (lệnh gộp)', 'Lệnh chưa xuất sắt: hệ thống tự tính lại phương án cho các SKU còn lại. Nếu phương án mới vượt ngưỡng hao hụt hoặc không cắt được thì giữ phương án cũ và bạn nhận thông báo "giữ phương án cắt cũ" - muốn đổi thì vào "Tính lại" của lệnh. Lệnh đã xuất sắt: giữ phương án; phần sắt tổ cắt đã nhận mà chưa cắt thì QLSX quyết ở tab "Sắt SKU đã huỷ" - cho cắt tiếp (đoạn ra vào dư kho Phôi) hoặc ngưng và nhập trả cây về kho Phôi.'],
+            ['Phương án cắt (lệnh gộp)', 'Lệnh chưa xuất sắt: hệ thống tự tính lại phương án cho các SKU còn lại. Nếu phương án mới vượt ngưỡng hao hụt hoặc không cắt được thì giữ phương án cũ và bạn nhận thông báo "giữ phương án cắt cũ" - muốn đổi thì vào "Tính lại" của lệnh. Lệnh đã xuất sắt: giữ phương án; phần sắt tổ cắt đã nhận mà chưa cắt thì QLSX quyết ở tab "Sắt SKU đã huỷ" - cho cắt tiếp (chỉ hết phần sắt đã xuất, đoạn ra vào dư kho Phôi) hoặc ngưng và trả cây về kho Phôi (thủ kho Phôi xác nhận).'],
             ['Mua hàng', 'Dòng mua chưa ký tự giảm theo nhu cầu mới (không còn cần thì đóng). Dòng đã ký NCC (kể cả sắt): "số cần" hạ về nhu cầu mới, số đã ký với NCC giữ nguyên; người mua nhận thông báo để liên hệ NCC - bớt được thì "Đóng phần thiếu", không bớt được thì phần về dư vào tồn chung, không giữ cho lệnh.'],
             ['Yêu cầu đổi mốc đang chờ', 'Tự huỷ theo.'],
             ['Cả lệnh', 'Huỷ hết các SKU thì cả lệnh chuyển sang Huỷ và mọi giữ chỗ vật tư của lệnh được nhả.'],
@@ -645,7 +645,7 @@ export const productionPlanGroup: GuideGroup = {
           columns: ['Loại hàng', 'Điều kiện', 'Dòng nhận'],
           rows: [
             ['Đã đóng gói', 'KHSX chuyển tay. Cùng sản phẩm, cùng màu dây, cùng vải nệm. Tổng đã đóng gói của dòng nhận không vượt số lượng của dòng đó.', 'Coi như đã đóng gói thêm số bộ này - Kinh doanh xếp booking giao được. Sản lượng đóng gói theo ngày không tính phần chuyển.'],
-            ['Khung đã đan', 'Tự động. Cùng mã mảnh, cùng màu dây, cùng kho Thành phẩm (không cần cùng sản phẩm hay vải nệm); mảnh phải là khung đan trong định mức của lệnh nhận. Lệnh cũ hơn lấy trước, mỗi lệnh lấy tối đa phần còn thiếu (định mức - đã xuất đan - đang trên phiếu xuất đan chờ ký - đã lấy tồn).', 'Coi như đã nhận đan thêm số khung này - Chuyền kiểm làm tiếp được; kho Sơn chỉ xuất đan phần còn thiếu.'],
+            ['Khung đã đan', 'Tự động. Cùng mã mảnh, cùng màu dây (không cần cùng sản phẩm, vải nệm hay kho Thành phẩm - cùng kho lấy trước); mảnh phải là khung đan trong định mức của lệnh nhận. Lệnh cũ hơn lấy trước, mỗi lệnh lấy tối đa phần còn thiếu (định mức - đã xuất đan - đang trên phiếu xuất đan chờ ký - đã lấy tồn).', 'Coi như đã nhận đan thêm số khung này - Chuyền kiểm làm tiếp được (lấy khác kho: sau khi thủ kho nơi nhận xác nhận đã nhận); kho Sơn chỉ xuất đan phần còn thiếu.'],
           ],
         },
         {
@@ -662,13 +662,13 @@ export const productionPlanGroup: GuideGroup = {
       result: 'Hàng của SKU đã huỷ được dùng lại, có dấu vết ai chuyển / lệnh nào lấy, lúc nào.',
       warnings: [
         'Chỉ Kế hoạch SX (và Admin) chuyển được hàng đã đóng gói. Hàng đã giao theo booking không chuyển được nữa.',
-        'Khung đã đan không chuyển tay được nữa (anh Nhân chốt 26/11/2026). Khung chỉ cấp cho lệnh cùng kho Thành phẩm với lệnh bị huỷ; lệnh ở kho Thành phẩm khác không lấy được.',
+        'Khung đã đan không chuyển tay được nữa (chốt 26/11/2026). Lệnh ở kho Thành phẩm khác cũng lấy được: kho nguồn trừ ngay, khung phải chuyển giữa 2 xưởng kèm phiếu chuyển đã ký; thủ kho Thành phẩm nơi nhận bấm "Đã nhận" ở màn Nhập đan.',
         'Khung đã qua Chuyền kiểm của SKU huỷ không tính vào tồn.',
       ],
       commonErrors: [
         { issue: 'Báo "Khác màu dây - không chuyển được" hoặc "Khác vải nệm - không chuyển hàng đã đóng gói được"', cause: 'Dòng nhận không cùng màu dây / vải nệm với SKU đã huỷ.', fix: 'Chọn dòng khác cùng màu.' },
         { issue: 'Báo "Dòng nhận cần ... bộ, đã đóng ... - nhận thêm tối đa ... bộ"', cause: 'Chuyển quá số dòng nhận còn thiếu.', fix: 'Giảm số lượng hoặc chia sang dòng khác.' },
-        { issue: 'Khung đã đan nằm tồn lâu không lệnh nào lấy', cause: 'Chưa có lệnh đang chạy cần đúng mảnh + màu dây ở cùng kho Thành phẩm, hoặc các lệnh đó đã xuất đan đủ.', fix: 'Để tồn chờ lệnh sau; lệnh mới bấm "Bắt đầu" sẽ tự lấy.' },
+        { issue: 'Khung đã đan nằm tồn lâu không lệnh nào lấy', cause: 'Chưa có lệnh đang chạy cần đúng mảnh + màu dây, hoặc các lệnh đó đã xuất đan đủ.', fix: 'Để tồn chờ lệnh sau; lệnh mới bấm "Bắt đầu" sẽ tự lấy.' },
       ],
       tags: ['huỷ lệnh', 'hàng sku đã huỷ', 'chuyển hàng', 'đã đóng gói', 'khung đan', 'tồn khung đan', 'đơn khác'],
       sourceRefs: [

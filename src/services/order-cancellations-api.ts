@@ -58,6 +58,52 @@ export interface CutSteelRow {
   returns: { materialCode: string; lengthMm: number; bars: number; createdAt: string }[];
 }
 
+/** Nhân 26/11 câu 2: 1 dòng sắt tổ cắt trả về chờ thủ kho Phôi xác nhận (chép PendingSteelReturnDto bên BE). */
+export interface PendingSteelReturn {
+  id: string;
+  productionInvoiceId: string;
+  lenhCode: string;
+  factoryCode: string;
+  materialCode: string;
+  materialName: string;
+  lengthMm: number;
+  bars: number;
+  warehouseName: string;
+  createdByName: string;
+  createdAt: string;
+}
+
+export function getPendingSteelReturns(): Promise<PendingSteelReturn[]> {
+  return http.get<PendingSteelReturn[]>('/production-order-cancellations/steel-returns/pending');
+}
+
+export function confirmSteelReturn(id: string, countedBars: number): Promise<PendingSteelReturn[]> {
+  return http.post<PendingSteelReturn[]>(`/production-order-cancellations/steel-returns/${id}/confirm`, { countedBars });
+}
+
+/** Nhân 26/11 câu 1: khung đan lấy tồn khác kho thành phẩm - đang chuyển (chép WovenInTransitDto bên BE). */
+export interface WovenInTransit {
+  id: string;
+  qty: number;
+  pieceCode: string;
+  pieceName: string;
+  targetLenhCode: string;
+  targetFactoryCode: string;
+  sourceLenhCode: string;
+  sourceFactoryCode: string;
+  fromWarehouseName: string;
+  toWarehouseName: string;
+  createdAt: string;
+}
+
+export function getWovenInTransit(): Promise<WovenInTransit[]> {
+  return http.get<WovenInTransit[]>('/production-order-cancellations/woven-transfers/pending');
+}
+
+export function confirmWovenReceived(id: string, signedSlipUrls: string[]): Promise<WovenInTransit[]> {
+  return http.post<WovenInTransit[]>(`/production-order-cancellations/woven-transfers/${id}/receive`, { signedSlipUrls });
+}
+
 export async function getCutSteel(): Promise<CutSteelRow[]> {
   return http.get<CutSteelRow[]>('/production-order-cancellations/cut-steel');
 }

@@ -94,7 +94,7 @@ export default function HangSkuHuyPage() {
                       <tr key={w.pieceId}>
                         <td style={td}>Khung đã đan · {w.pieceCode} {w.pieceName}</td>
                         <td style={{ ...td, textAlign: 'right' }}>{w.available}</td>
-                        <td style={{ ...td, fontSize: 12, color: 'var(--text2)' }}>Tồn ở {r.warehouseName} - lệnh sau cùng mảnh + màu dây tự lấy</td>
+                        <td style={{ ...td, fontSize: 12, color: 'var(--text2)' }}>Tồn ở {r.warehouseName} - lệnh sau cùng mảnh + màu dây (xưởng nào cũng được) tự lấy; khác kho thì chuyển giữa 2 xưởng</td>
                       </tr>
                     ))}
                     {r.packedAvailable === 0 && r.woven.length === 0 && (

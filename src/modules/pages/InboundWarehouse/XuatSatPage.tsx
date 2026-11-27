@@ -35,6 +35,7 @@ import MobileListCards from '../../../components/MobileListCards'
 import { pageTitle, pageSubtitle } from '../../../styles/typography'
 import { useRealtimeRefetch } from '../../../realtime/hooks'
 import LenhCode from '../../../components/LenhCode'
+import SatTraVeChoXacNhan from './SatTraVeChoXacNhan'
 
 const ACCENT = 'var(--fg-4527a0)'
 
@@ -367,6 +368,7 @@ export default function XuatSatPage({ embedded = false }: { embedded?: boolean }
       <p style={{ ...pageSubtitle, marginBottom: 'var(--space-5)' }}>
         Nhấn vào dòng để xem loại sắt cần xuất cho cả lệnh (theo phương án cắt sắt đã duyệt) và xuất theo chiều dài/số cây.
       </p>
+      <SatTraVeChoXacNhan />
 
       {isLoading ? <LoadingState /> : listError ? <LoadErrorState error={listError} onRetry={() => { refetchSkus(); refetchOrders() }} /> : isMobile ? (
         <MobileListCards emptyText="Không có lệnh nào" items={piGroups.map(g => ({ key: String(g.productionInvoiceId), onClick: () => setSelectedPi(g), title: <b>{g.products.join(', ') || '—'}</b>, meta: [{ label: 'Lệnh', value: <LenhCode piCode={g.piCode} /> }, { label: 'PO', value: poLabel(g) }] }))} />

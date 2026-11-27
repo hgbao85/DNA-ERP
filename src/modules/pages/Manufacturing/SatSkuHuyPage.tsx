@@ -1,7 +1,9 @@
 'use client'
 // Huỷ lệnh đợt 2 - Q3 (anh Nhân 24/11/2026): sắt đã xuất cho tổ cắt mà chưa cắt của SKU đã huỷ - QLSX quyết từng trường hợp:
-//  - "Cho cắt tiếp": tổ cắt báo cắt được cho SKU đã huỷ (tới số cần cũ), đoạn ra qua KCS rồi vào dư kho Phôi.
-//  - "Ngưng": cây còn nguyên / cây lẻ nhập trả kho Phôi của xưởng làm lệnh, vào tồn đúng chiều dài (lệnh sau dùng cây lẻ trước).
+//  - "Cho cắt tiếp": tổ cắt báo cắt được cho SKU đã huỷ - chỉ hết phần sắt đã xuất (Nhân 26/11 câu 3), đoạn làm đủ công đoạn, qua
+//    KCS rồi vào dư kho Phôi.
+//  - "Ngưng": cây còn nguyên / cây lẻ trả về kho Phôi của xưởng làm lệnh; thủ kho Phôi đếm + xác nhận rồi mới vào tồn đúng chiều
+//    dài (Nhân 26/11 câu 2; lệnh sau dùng cây lẻ trước).
 // "Ngưng" là quyết định cuối; đang cho cắt tiếp vẫn đổi sang ngưng được.
 import { useState } from 'react'
 import { Scissors } from 'lucide-react'
@@ -165,7 +167,7 @@ function StopModal({ row, onClose, onDone }: { row: CutSteelRow; onClose: () => 
     try {
       await decideCutSteel(row.request.id, { decision: 'STOP', returns: parsed, note: note.trim() || undefined })
       onDone(parsed.length > 0
-        ? `Đã ngưng cắt SKU ${row.request.factoryCode}; nhập trả ${parsed.reduce((s, l) => s + l.bars, 0)} cây về kho Phôi.`
+        ? `Đã ngưng cắt SKU ${row.request.factoryCode}; ghi trả ${parsed.reduce((s, l) => s + l.bars, 0)} cây - chờ thủ kho Phôi đếm và xác nhận rồi mới vào tồn kho.`
         : `Đã ngưng cắt SKU ${row.request.factoryCode} (không có cây nhập trả).`)
     } catch (e) {
       setError(errMsg(e))
@@ -178,7 +180,7 @@ function StopModal({ row, onClose, onDone }: { row: CutSteelRow; onClose: () => 
     <Modal open onClose={busy ? undefined : onClose} maxWidth={620}>
       <h3 style={{ margin: '0 0 6px', fontSize: 16, fontWeight: 700 }}>Ngưng cắt - lệnh {row.request.lenhCode} · {row.request.factoryCode}</h3>
       <p style={{ margin: '0 0 12px', fontSize: 12.5, color: 'var(--text2)' }}>
-        Ghi số cây tổ cắt trả về kho Phôi: cây nguyên ghi đúng chiều dài cây xuất, cây cắt dở ghi chiều dài phần còn lại (cây lẻ).
+        Ghi số cây tổ cắt trả về kho Phôi: cây nguyên ghi đúng chiều dài cây xuất, cây cắt dở ghi chiều dài phần còn lại (cây lẻ). Thủ kho Phôi đếm và xác nhận thì cây mới vào tồn kho.
         Để trống nếu không có cây trả. Ngưng rồi thì không cho cắt tiếp lại được.
       </p>
       <div style={{ display: 'grid', gap: 8 }}>
