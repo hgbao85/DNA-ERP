@@ -94,14 +94,17 @@ export interface WovenInTransit {
   fromWarehouseName: string;
   toWarehouseName: string;
   createdAt: string;
+  /** Lệnh nhận đã huỷ khi khung còn đang chuyển: nhận bao nhiêu thành tồn ở kho này, phần không nhận về lại kho nguồn. */
+  targetCancelled: boolean;
 }
 
 export function getWovenInTransit(): Promise<WovenInTransit[]> {
   return http.get<WovenInTransit[]>('/production-order-cancellations/woven-transfers/pending');
 }
 
-export function confirmWovenReceived(id: string, signedSlipUrls: string[]): Promise<WovenInTransit[]> {
-  return http.post<WovenInTransit[]>(`/production-order-cancellations/woven-transfers/${id}/receive`, { signedSlipUrls });
+/** receivedQty: số khung thực nhận (0..qty); phần không nhận về lại kho nguồn. Nhận 0 thì không cần ảnh phiếu. */
+export function confirmWovenReceived(id: string, signedSlipUrls: string[], receivedQty: number): Promise<WovenInTransit[]> {
+  return http.post<WovenInTransit[]>(`/production-order-cancellations/woven-transfers/${id}/receive`, { signedSlipUrls, receivedQty });
 }
 
 export async function getCutSteel(): Promise<CutSteelRow[]> {
