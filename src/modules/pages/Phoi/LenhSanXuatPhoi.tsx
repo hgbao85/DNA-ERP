@@ -1044,7 +1044,7 @@ function ProgressBuDuTable({ segments }: { segments: BePhoiProgressSegment[] }) 
 }
 
 // ── Bảng tổng Cắt: "Lưu đợt cắt" (cộng dồn) + "Gửi KCS" (báo cắt xong đợt đang mở) - cả 2 hành
-// động đều dồn về ĐÂY (2026-09-07 lần 2, theo yêu cầu Sếp Trương Văn Nhân: đợt cắt lịch sử bên
+// động đều dồn về ĐÂY (2026-09-07 lần 2, theo yêu cầu quản lý: đợt cắt lịch sử bên
 // dưới KHÔNG còn nút bấm nào). "Gửi KCS" chỉ hiện khi có đúng 1 đợt đang CUTTING - tự nhắm đúng
 // đợt đó, Phôi không cần biết/chọn đợt nào (luôn tối đa 1 đợt CUTTING tại 1 thời điểm).
 //

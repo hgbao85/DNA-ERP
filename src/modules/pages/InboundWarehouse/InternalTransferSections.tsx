@@ -341,7 +341,7 @@ export function OutgoingTransfersPanel({ warehouseId, title = 'Phiếu đã gử
   const { data, refetch } = useFetch<WarehouseTransfer[]>(() => api.getWarehouseTransfers('PENDING'), [])
   useRealtimeRefetch(['warehouse-transfers', 'production-invoices'], refetch)
   const mine = safeArr(data).filter(t => t.fromWarehouseId === warehouseId)
-  // Anh Nhân 16/11 câu 1: phiếu chuyển hàng của lệnh chưa nhận - kho gửi chọn theo thực tế hàng: (a) chưa rời kho / xe quay về ->
+  // Nghiệp vụ 16/11 câu 1: phiếu chuyển hàng của lệnh chưa nhận - kho gửi chọn theo thực tế hàng: (a) chưa rời kho / xe quay về ->
   // huỷ phiếu; (b) đang trên đường tới xưởng mới -> đổi nơi nhận (chỉ khi lệnh đã đổi xưởng tiếp).
   const [cancelling, setCancelling] = useState<WarehouseTransfer | null>(null)
   const [reason, setReason] = useState('')
@@ -465,9 +465,9 @@ export function OutgoingTransfersPanel({ warehouseId, title = 'Phiếu đã gử
 // ── Hàng của lệnh đổi xưởng cần chuyển (bên giao) ────────────────────────────
 
 /**
- * Đổi xưởng (anh Nhân 10/11/2026): lệnh đổi sang xưởng khác mà hàng đang giữ cho lệnh (sắt, vật tư Phôi/Hàn) còn ở kho xưởng
+ * Đổi xưởng (nghiệp vụ 10/11/2026): lệnh đổi sang xưởng khác mà hàng đang giữ cho lệnh (sắt, vật tư Phôi/Hàn) còn ở kho xưởng
  * cũ - thủ kho kho cũ lập phiếu chuyển sang kho cùng loại của xưởng mới. Sắt và vật tư khác lập 2 phiếu riêng: phiếu sắt chờ KHSX
- * bấm "Đã kiểm" phương án cắt, phiếu vật tư khác lập ngay (anh Nhân 10/11).
+ * bấm "Đã kiểm" phương án cắt, phiếu vật tư khác lập ngay (nghiệp vụ 10/11).
  * Kho mới nhận ở "Nhập nội bộ" (ghi thực nhận, ảnh ký) - giữ chỗ của lệnh chuyển theo.
  */
 export function WorkshopMovePanel() {

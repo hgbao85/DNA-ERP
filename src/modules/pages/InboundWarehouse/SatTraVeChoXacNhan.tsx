@@ -1,5 +1,5 @@
 'use client'
-// Nhân trả lời 26/11 câu 2: sắt tổ cắt trả về kho Phôi khi QLSX "Ngưng cắt" SKU đã huỷ phải có thủ kho Phôi xác nhận số cây -
+// Nghiệp vụ trả lời 26/11 câu 2: sắt tổ cắt trả về kho Phôi khi QLSX "Ngưng cắt" SKU đã huỷ phải có thủ kho Phôi xác nhận số cây -
 // QLSX ghi chưa đủ. Thủ kho đếm thực nhận rồi xác nhận, lúc đó mới vào tồn kho Phôi đúng chiều dài (cây lẻ dùng trước cho lệnh sau).
 // Không có dòng chờ thì không hiện gì.
 import { useState } from 'react'

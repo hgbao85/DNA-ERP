@@ -52,7 +52,7 @@ export default function ChuyenKhoTuDoPage({ scope }: { scope: string | null }) {
   const toWarehouse = whList.find(w => w.id === toId) ?? null
   // Không ai được gửi tới Phôi Sơn Hàn qua tính năng này (2026-09-15, quyết định nghiệp vụ) - họ
   // chỉ nhận vật tư qua đường mua hàng/nhập kho, không nhận chuyển kho tự do từ chặng khác.
-  // Đợt 7 (anh Nhân 07/11): ngoại lệ duy nhất - kho Phôi chuyển sang kho Hàn CÙNG XƯỞNG (đá cắt mua về kho Phôi, Hàn dùng
+  // Đợt 7 (nghiệp vụ 07/11): ngoại lệ duy nhất - kho Phôi chuyển sang kho Hàn CÙNG XƯỞNG (đá cắt mua về kho Phôi, Hàn dùng
   // một phần). Kho Phôi chỉ được chuyển tới đó, không chuyển đi kho khác.
   const fromIsPhoi = fromWarehouse?.kind === 'PHOI'
   const toOptions = whList.filter(w => {

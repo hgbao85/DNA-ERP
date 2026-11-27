@@ -293,7 +293,7 @@ export function SolveLinesTable({
   const mixedMachines = new Set(lines.map((l) => lineMachine(l)).filter((m) => m != null)).size > 1
   const laserAllowed = machineContext?.laserAllowed !== false
 
-  // CS2 (anh Nhân 20/11/2026): cây lẻ có sẵn ở kho Phôi được cắt trước, không phải mua -> cột "Số cây mua" và dòng Tổng trừ ra.
+  // CS2 (nghiệp vụ 20/11/2026): cây lẻ có sẵn ở kho Phôi được cắt trước, không phải mua -> cột "Số cây mua" và dòng Tổng trừ ra.
   const leftoverBarsOf = (l: SolveLineLike) =>
     stockLengthBreakdown(l).filter(e => e.leftover).reduce((s, e) => s + e.bars, 0)
   const totalLeftover = lines.reduce((s, l) => s + (l.feasible ? leftoverBarsOf(l) : 0), 0)
@@ -329,7 +329,7 @@ export function SolveLinesTable({
             có trong kho
           </span>
         )}
-        {/* CS2 (anh Nhân 20/11/2026): cây lẻ đang có ở kho Phôi của xưởng làm lệnh được dùng trước; chiều dài trên là chiều dài mua. */}
+        {/* CS2 (nghiệp vụ 20/11/2026): cây lẻ đang có ở kho Phôi của xưởng làm lệnh được dùng trước; chiều dài trên là chiều dài mua. */}
         {stockLengthBreakdown(l).filter(e => e.leftover).map(e => (
           <div key={e.lengthMm} style={{ fontSize: 11, fontWeight: 600, color: 'var(--fg-166534)', whiteSpace: 'nowrap' }} title="Cây lẻ đang có ở kho Phôi của xưởng làm lệnh - dùng trước, không mua">
             + {fmtBars(e.bars)} lẻ {fmtMm(e.lengthMm)} kho Phôi

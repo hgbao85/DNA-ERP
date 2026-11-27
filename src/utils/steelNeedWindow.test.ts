@@ -55,7 +55,7 @@ describe('steelNeedSpan', () => {
   })
 })
 
-// 24/11/2026 (anh Nhân): bỏ chặn khung N ngày khi gộp / sửa hạn lệnh gộp - không còn câu báo nào, kể cả khi mốc cách rất xa.
+// 24/11/2026 (nghiệp vụ): bỏ chặn khung N ngày khi gộp / sửa hạn lệnh gộp - không còn câu báo nào, kể cả khi mốc cách rất xa.
 describe('steelNeedSpanMessage', () => {
   const at = (a: string, b: string) => steelNeedSpan([{ code: 'GHE-J55', date: a }, { code: 'BAN-J55', date: b }])
 

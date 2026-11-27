@@ -1,5 +1,5 @@
 /**
- * Khung in phiếu nhập / xuất kho theo mẫu PHIEU_NHAP_XUAT_KHO_MAU_MOI_IEA (anh Nhân gửi 30/10, Mẫu 01-VT / 02-VT "bổ sung IEA"):
+ * Khung in phiếu nhập / xuất kho theo mẫu PHIEU_NHAP_XUAT_KHO_MAU_MOI_IEA (nghiệp vụ gửi 30/10, Mẫu 01-VT / 02-VT "bổ sung IEA"):
  * A4 ngang, đầu công ty + MST, số phiếu góc phải, tiêu đề, ngày, các dòng thông tin có dấu *, bảng ít nhất 9 dòng, 4 ô ký. Mở cửa
  * sổ in của trình duyệt (Đợt 6).
  */

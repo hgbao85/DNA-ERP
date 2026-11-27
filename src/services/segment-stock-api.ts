@@ -1,5 +1,5 @@
 /**
- * Tồn đoạn kho Phôi theo MÃ ĐOẠN và giữ đoạn theo LỆNH (13/11/2026, anh Nhân trả lời 11 câu tồn đoạn) + sổ báo vượt.
+ * Tồn đoạn kho Phôi theo MÃ ĐOẠN và giữ đoạn theo LỆNH (13/11/2026, nghiệp vụ trả lời 11 câu tồn đoạn) + sổ báo vượt.
  *  - GET /segment-stock/balances: mỗi ô (kho Phôi, cỡ đoạn, bộ công đoạn) có tồn / còn giữ cho lệnh / dư chung của xưởng.
  *  - GET /segment-overages, POST /segment-overages/:id/resolve: Hàn / Sơn báo vượt không bị chặn, hệ thống ghi lại; QLSX đóng
  *    từng dòng (bắt buộc lý do, có nhật ký).

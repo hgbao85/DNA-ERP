@@ -5,7 +5,7 @@
  */
 import { http } from './core/http';
 
-/** WEAVING_PIECE / WEAVING_MATERIAL: 2 phiếu xuất đan (anh Nhân 09/11/2026) - mảnh từ kho Sơn, dây/gỗ/đinh/nút từ kho Phụ kiện. */
+/** WEAVING_PIECE / WEAVING_MATERIAL: 2 phiếu xuất đan (nghiệp vụ 09/11/2026) - mảnh từ kho Sơn, dây/gỗ/đinh/nút từ kho Phụ kiện. */
 export type IssueSlipLineKind =
   | 'STEEL' | 'CONSUMABLE' | 'SHARED' | 'WEAVING_PIECE' | 'WEAVING_MATERIAL'
   /** 09/11/2026: xuất vật tư đóng gói, vật tư TP cho Phôi (theo SKU / theo công thức của lệnh) cũng đi phiếu XK. */

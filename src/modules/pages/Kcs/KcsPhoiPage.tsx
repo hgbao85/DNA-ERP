@@ -215,7 +215,7 @@ function buildPiRows(
   openCuts: BeReviewCutBundle[], openSteps: BeReviewStepGroup[], stoppedPis: readonly StoppedPi[] | undefined,
   cancelledOrderIds: readonly string[] = [],
 ): PiAgg[] {
-  // Câu 4 (anh Nhân 24/11/2026, đảo cách ẩn 23/11): KCS chấm nốt đợt của SKU đã huỷ - hàng đạt vào kho công đoạn.
+  // Câu 4 (nghiệp vụ 24/11/2026, đảo cách ẩn 23/11): KCS chấm nốt đợt của SKU đã huỷ - hàng đạt vào kho công đoạn.
   const cancelled = new Set(cancelledOrderIds)
   const isCancelled = (orderId: string | null) => orderId != null && cancelled.has(orderId)
   const issueById = new Map(issues.map((i) => [i.id, i]))

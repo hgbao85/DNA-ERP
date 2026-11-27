@@ -309,7 +309,7 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
         {tab === 'chuyen-kiem' && canSeePacking && <KhoChuyenKiemPage warehouseScope={scope} />}
         {tab === 'dong-goi'    && canSeePacking && <KhoDongGoiPage warehouseScope={scope} />}
         {tab === 'vi-tri-kho'  && viTriKho && <ViTriKhoPage />}
-        {/* Anh Nhân 09/11/2026: kho Phụ kiện không xuất mảnh nữa (mảnh xuất đan từ kho Sơn - Phân phối nội bộ > Xuất đan) - chỉ
+        {/* Nghiệp vụ 09/11/2026: kho Phụ kiện không xuất mảnh nữa (mảnh xuất đan từ kho Sơn - Phân phối nội bộ > Xuất đan) - chỉ
             lập phiếu dây, gỗ, đinh, nút kèm. Tổng kho xem tiến độ xuất đan (chỉ đọc). */}
         {tab === 'xuat-dan'   && isFamilyScope(scope, 'vat-tu-tp')   && <KhoVatTuKemDanPage />}
         {tab === 'xuat-dan'   && scope === null                      && <KhoXuatDanPage readOnly />}

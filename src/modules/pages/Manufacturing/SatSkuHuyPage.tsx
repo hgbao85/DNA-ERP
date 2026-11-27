@@ -1,9 +1,9 @@
 'use client'
-// Huỷ lệnh đợt 2 - Q3 (anh Nhân 24/11/2026): sắt đã xuất cho tổ cắt mà chưa cắt của SKU đã huỷ - QLSX quyết từng trường hợp:
-//  - "Cho cắt tiếp": tổ cắt báo cắt được cho SKU đã huỷ - chỉ hết phần sắt đã xuất (Nhân 26/11 câu 3), đoạn làm đủ công đoạn, qua
+// Huỷ lệnh đợt 2 - Q3 (nghiệp vụ 24/11/2026): sắt đã xuất cho tổ cắt mà chưa cắt của SKU đã huỷ - QLSX quyết từng trường hợp:
+//  - "Cho cắt tiếp": tổ cắt báo cắt được cho SKU đã huỷ - chỉ hết phần sắt đã xuất (nghiệp vụ 26/11 câu 3), đoạn làm đủ công đoạn, qua
 //    KCS rồi vào dư kho Phôi.
 //  - "Ngưng": cây còn nguyên / cây lẻ trả về kho Phôi của xưởng làm lệnh; thủ kho Phôi đếm + xác nhận rồi mới vào tồn đúng chiều
-//    dài (Nhân 26/11 câu 2; lệnh sau dùng cây lẻ trước).
+//    dài (nghiệp vụ 26/11 câu 2; lệnh sau dùng cây lẻ trước).
 // "Ngưng" là quyết định cuối; đang cho cắt tiếp vẫn đổi sang ngưng được.
 import { useState } from 'react'
 import { Scissors } from 'lucide-react'

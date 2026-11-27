@@ -81,7 +81,7 @@ export const salesGroup: GuideGroup = {
       tags: ['tiến độ', 'cọc', 'xác nhận cọc', 'trạng thái đơn hàng'],
       sourceRefs: ['src/modules/pages/Sales/OrderManagementPage.tsx'],
     },
-    // Huỷ lệnh câu 2 (anh Nhân 24/11/2026)
+    // Huỷ lệnh câu 2 (nghiệp vụ 24/11/2026)
     {
       id: 'sales-huy-dong',
       title: 'Huỷ một dòng của đơn hàng',

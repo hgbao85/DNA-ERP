@@ -17,7 +17,7 @@ import { focusAttrAny, focusKey } from '../../../utils/notificationLink'
  *  - 1 dòng = 1 vật tư của 1 đơn đặt hàng NCC. Đơn gộp nhiều lệnh chỉ còn 1 dòng, thủ kho nhập 1 con số theo phiếu giao,
  *    hệ thống tự chia cho các lệnh (ngày cần sớm nhất trước) và hiện bảng chia trước khi xác nhận - chỉnh tay được.
  *  - Số thực nhận phải bằng số trên phiếu giao (không dung sai); lệch thì "Từ chối nhận".
- *  - Chứng từ bắt buộc ngay lúc nhập (thứ tự anh Nhân ghi 11/11/2026): (1) phiếu giao NCC, (2) phiếu nhập kho nhà máy đã ký,
+ *  - Chứng từ bắt buộc ngay lúc nhập (thứ tự nghiệp vụ ghi 11/11/2026): (1) phiếu giao NCC, (2) phiếu nhập kho nhà máy đã ký,
  *    (3) phiếu đề xuất Giám đốc ký (tự lấy từ đơn), (4) phiếu cân xe (chỉ sắt).
  */
 

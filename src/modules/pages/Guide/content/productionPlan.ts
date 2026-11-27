@@ -544,7 +544,7 @@ export const productionPlanGroup: GuideGroup = {
       ],
       tags: ['sửa kế hoạch', 'lệnh đang chạy', 'đang chạy', 'excel', 'tải excel kế hoạch', 'chờ sếp duyệt lại', 'huỷ yêu cầu', 'lịch sử đổi mốc', 'đổi mốc'],
       sourceRefs: ['src/modules/pages/ProductionPlan/LenhSXPage.tsx', 'src/modules/pages/ProductionPlan/DeadlinePlanImportModal.tsx', 'src/modules/pages/ProductionPlan/DeadlineHistoryModal.tsx'],
-    },    // Huỷ lệnh theo SKU - đợt 1 (23/11/2026, anh Nhân trả lời 7 câu)
+    },    // Huỷ lệnh theo SKU - đợt 1 (23/11/2026, nghiệp vụ trả lời 7 câu)
     {
       id: 'pp-huy-lenh',
       title: 'Đề nghị huỷ SKU của lệnh đã duyệt',
@@ -612,7 +612,7 @@ export const productionPlanGroup: GuideGroup = {
         'BE src/modules/production-invoices/order-cancellation/order-cancellation.service.ts',
       ],
     },
-    // Huỷ lệnh đợt 2 - Q5 (anh Nhân 24/11/2026) + Q6 trả lời lại 26/11/2026 (khung đan vào tồn kho Thành phẩm)
+    // Huỷ lệnh đợt 2 - Q5 (nghiệp vụ 24/11/2026) + Q6 trả lời lại 26/11/2026 (khung đan vào tồn kho Thành phẩm)
     {
       id: 'pp-hang-sku-huy',
       title: 'Hàng của SKU đã huỷ: hàng đóng gói và tồn khung đan',

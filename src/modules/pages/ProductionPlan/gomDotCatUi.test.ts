@@ -138,7 +138,7 @@ describe('buildRuleReason', () => {
   it('quá số SKU tối đa', () => {
     expect(buildRuleReason({ ...base, selectedCount: 3 })).toBe('Đợt gồm 3 SKU, tối đa 2 SKU mỗi đợt/lệnh gộp.')
   })
-  // 24/11/2026 (anh Nhân): bỏ chặn khung N ngày - mốc cách xa vẫn gộp được.
+  // 24/11/2026 (nghiệp vụ): bỏ chặn khung N ngày - mốc cách xa vẫn gộp được.
   it('mốc cách nhau xa (20 ngày) không còn bị chặn', () => {
     const span = (days: number) => ({
       days, earliest: { code: 'A', date: '2026-11-10' }, latest: { code: 'B', date: '2026-11-30' },

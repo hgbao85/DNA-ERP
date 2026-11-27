@@ -109,7 +109,7 @@ export default function MaterialsPage() {
   // Kho ảo (SUPPLIER/PRODUCTION/SCRAP/OPENING_BALANCE...) chỉ là điểm đối ứng cho bút toán kho,
   // không phải nơi vật tư thật sự nằm - loại khỏi dropdown chọn Kho để tránh gán nhầm.
   const realWarehouseOptions = warehouseList.filter((w) => !w.isVirtual)
-  // 20/11 (Sang báo): tồn kho ban đầu là 1 bút toán ghi tồn - BE chỉ cho Admin / Giám đốc ghi mọi kho, còn lại chỉ đúng kho mình
+  // 20/11 (IT báo): tồn kho ban đầu là 1 bút toán ghi tồn - BE chỉ cho Admin / Giám đốc ghi mọi kho, còn lại chỉ đúng kho mình
   // phụ trách (MaterialsService.assertCanWriteOpeningStock). Ẩn ô với kho khác để không chặn oan cả lần tạo vật tư (vd Quản lý
   // vật tư không gán kho điền ô này thì bị 403 "chưa được gán kho phụ trách").
   const { user } = useAuth()

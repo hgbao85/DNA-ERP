@@ -57,7 +57,7 @@ export interface WarehouseTransfer {
   productionInvoiceId?: string | null
   /** Số lệnh hiển thị của productionInvoiceId. */
   lenhCode?: string | null
-  /** Phiếu chuyển hàng của lệnh đang chờ nhận mà lệnh đã đổi xưởng tiếp - kho đích không còn thuộc xưởng của lệnh (anh Nhân
+  /** Phiếu chuyển hàng của lệnh đang chờ nhận mà lệnh đã đổi xưởng tiếp - kho đích không còn thuộc xưởng của lệnh (nghiệp vụ
    *  16/11): kho gửi huỷ phiếu hoặc đổi nơi nhận; kho đích vẫn nhận được nếu hàng đã tới. */
   destinationOutdated?: boolean
   items: WarehouseTransferItem[]
@@ -89,7 +89,7 @@ export interface WarehouseTransfer {
 // chuỗi chuyển kho nội bộ". Đổi sang so khớp theo GIA ĐÌNH (warehouseFamilyOf) - người tạo phiếu
 // tự CHỌN kho đích cụ thể trong gia đình hợp lệ (quyết định nghiệp vụ 2026-09-03), các hàm dưới
 // đây chỉ còn xác nhận "gia đình có hợp lệ" chứ không suy ra 1 kho đích duy nhất nữa.
-// 09/11/2026 (anh Nhân): mảnh không đan chuyển thẳng kho Phôi/Hàn/Sơn -> kho Thành phẩm; mảnh cần đan xuất đan bằng phiếu XK.
+// 09/11/2026 (nghiệp vụ): mảnh không đan chuyển thẳng kho Phôi/Hàn/Sơn -> kho Thành phẩm; mảnh cần đan xuất đan bằng phiếu XK.
 export const TRANSFER_ROUTES: Record<string, string> = {
   'phoi-son-han': 'thanh-pham',
 }

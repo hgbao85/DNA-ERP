@@ -19,21 +19,21 @@
  * người (tồn đầu kỳ do hệ thống ghi, bút toán cũ) hiện "Người sửa: —". Dòng nhập / xuất / chuyển / KCS không hiện tên.
  *
  * KHÔNG có cột "Trạng thái" và KHÔNG gộp phiếu chuyển kho bị TỪ CHỐI vào đây (bỏ hẳn 2026-09-12,
- * theo phản hồi trực tiếp của Sếp qua Trương Văn Nhân: "lịch sử chỉ ghi lại những lần xuất, nhập
+ * theo phản hồi trực tiếp của Sếp qua quản lý: "lịch sử chỉ ghi lại những lần xuất, nhập
  * được chấp nhận - nếu từ chối thì không cần thêm vào lịch sử"). Trước đó có 1 bản đã gộp cả phiếu
  * bị từ chối kèm cột Trạng thái riêng theo yêu cầu người dùng lúc đó - Sếp duyệt lại và chốt bỏ,
  * quay về đúng ý nghĩa sổ CÁI: chỉ ghi bút toán đã THẬT SỰ xảy ra. Phiếu bị từ chối (không sinh
  * bút toán, xem WarehouseTransfersService.confirm()/reject()) xem lại ở "Nhập nội bộ" (hộp thư
  * PENDING) - không có màn lịch sử riêng cho từ chối nữa, đúng ý Sếp.
  *
- * Cột "Lệnh sản xuất"/"Mã đơn hàng (PO)" (2026-09-12, theo yêu cầu Sếp qua Trương Văn Nhân) - 2 mã
+ * Cột "Lệnh sản xuất"/"Mã đơn hàng (PO)" (2026-09-12, theo yêu cầu Sếp qua quản lý) - 2 mã
  * KHÁC NHAU, đừng nhầm:
  *  - "Lệnh sản xuất" = `refCode` (mã phiếu chuyển kho, chỉ WAREHOUSE_TRANSFER) hoặc `piCode`
  *    (ProductionInvoice.code, vd "PI-2026-005" - "Lệnh sản xuất" TRONG TOÀN HỆ THỐNG LÀ PI, xem
  *    nhãn "Lệnh sản xuất (PI)" ở Admin). KHÔNG phải `ProductionOrder.poNumber` - mã đó chỉ dùng
  *    nội bộ tra cứu, KHÔNG hiển thị cho người dùng (quy ước toàn hệ thống, xem
  *    InspectionContext.tsx). Ban đầu cột này chỉ ĐỔI TÊN nhãn mà giữ nguyên nội dung cũ (hiện loại
- *    nghiệp vụ như "Tiêu hao đoạn sắt"/"Mua hàng"...) - Sếp phản hồi lại đúng là SAI vì nhìn giống
+ *    Nghiệp vụ như "Tiêu hao đoạn sắt"/"Mua hàng"...) - Sếp phản hồi lại đúng là SAI vì nhìn giống
  *    dữ liệu rác, nên sửa lại hiện `piCode` thật.
  *  - "Mã đơn hàng (PO)" = `poCode` (SalesOrder.orderCode) của Lệnh sản xuất đó.
  * Cả 2 đều tra được cho bút toán xuất phát từ 1 Lệnh sản xuất cụ thể (xuất vật tư, tiêu hao đoạn

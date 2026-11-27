@@ -65,7 +65,7 @@ export default function PhieuXuatPage({ listOnly = false }: { listOnly?: boolean
   const hasHandover = handoverStagesOf(cart.lines).length > 0
   // Dòng "Dùng chung": vật tư không phải sắt, nằm ở kho mình phụ trách. Đợt 7: kho Phôi/Hàn Phước An lấy cả vật tư có kho
   // mặc định là kho CÙNG LOẠI ở Phú An (vật tư chỉ khai 1 kho mặc định, BE tự đổi sang kho của xưởng thủ kho).
-  // Thêm (anh Nhân 07/11): vật tư kho khác đang CÓ TỒN ở kho mình (đá cắt kho Phôi đã chuyển sang kho Hàn) - BE xuất từ
+  // Thêm (nghiệp vụ 07/11): vật tư kho khác đang CÓ TỒN ở kho mình (đá cắt kho Phôi đã chuyển sang kho Hàn) - BE xuất từ
   // chính kho của thủ kho.
   const scopeKind = warehouseKindOf(scope)
   const { data: warehouses } = useFetch(getWarehouses, [])

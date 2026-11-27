@@ -1,5 +1,5 @@
 'use client'
-// Huỷ lệnh theo SKU - đợt 1 (23/11/2026, anh Nhân trả lời 7 câu): Sếp duyệt / từ chối đề nghị huỷ 1 SKU của KHSX. Duyệt: lệnh SX của
+// Huỷ lệnh theo SKU - đợt 1 (23/11/2026, nghiệp vụ trả lời 7 câu): Sếp duyệt / từ chối đề nghị huỷ 1 SKU của KHSX. Duyệt: lệnh SX của
 // SKU dừng hẳn (xưởng hết thấy), KCS chấm nốt, đoạn đã cắt vào dư kho Phôi, hàng đóng gói / khung đan KHSX chuyển sang đơn khác, dòng đơn bán về "chưa lên lệnh" để lên lệnh lại, dòng mua
 // chưa ký tự giảm, dòng đã ký: người mua liên hệ NCC. BE kiểm hết (đã giao hàng, còn nằm trong booking...). Không hiện mã PI.
 import { useState } from 'react'

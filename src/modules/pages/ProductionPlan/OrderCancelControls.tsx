@@ -1,5 +1,5 @@
 'use client'
-// Huỷ lệnh theo SKU - đợt 1 (23/11/2026, anh Nhân trả lời 7 câu): ở dòng SKU của màn Lệnh SX - KHSX bấm "Đề nghị huỷ" kèm lý do (Sếp
+// Huỷ lệnh theo SKU - đợt 1 (23/11/2026, nghiệp vụ trả lời 7 câu): ở dòng SKU của màn Lệnh SX - KHSX bấm "Đề nghị huỷ" kèm lý do (Sếp
 // duyệt mới huỷ), rút lại khi Sếp chưa quyết; dòng đã huỷ hiện nhãn "Đã huỷ". BE kiểm hết (đã giao hàng, đề nghị trùng...).
 import { useState } from 'react'
 import { Ban, Clock } from 'lucide-react'

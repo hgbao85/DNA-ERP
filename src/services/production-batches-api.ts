@@ -191,7 +191,7 @@ export interface BePieceStepProgress {
 
 // ── QC theo TỪNG CÔNG ĐOẠN (PieceStepBundle, 2026-09-07) ───────────────────────
 // Thay ràng buộc CŨ "phải xong hết công đoạn mới gửi KCS" - giờ mỗi công đoạn tự gửi KCS riêng,
-// KHÔNG chờ công đoạn khác (quyết định nghiệp vụ, Sếp Trương Văn Nhân). KHÔNG đụng
+// KHÔNG chờ công đoạn khác (quyết định nghiệp vụ, quản lý). KHÔNG đụng
 // ProductionBatch.reportedQty - bundle này thuần là cổng kiểm tra chất lượng theo công đoạn, không
 // sinh sản lượng (xem PieceStepBundle doc comment BE).
 

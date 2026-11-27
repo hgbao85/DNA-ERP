@@ -79,7 +79,7 @@ export interface CuttingProposalPieceSummary {
   produced: number;
   /** Tên các mảnh dùng tới cỡ đoạn này (vd ["chân bàn"]). Rỗng nếu BE không tra được tên. */
   names: string[];
-  /** Anh Nhân câu 14a (24/11/2026): số đoạn dư có sẵn trong kho Phôi đã dùng trước - `demand` là phần còn phải cắt. */
+  /** Nghiệp vụ câu 14a (24/11/2026): số đoạn dư có sẵn trong kho Phôi đã dùng trước - `demand` là phần còn phải cắt. */
   fromStock?: number;
 }
 

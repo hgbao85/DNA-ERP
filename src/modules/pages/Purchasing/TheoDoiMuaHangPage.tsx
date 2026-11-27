@@ -93,7 +93,7 @@ function buildRows(p: PurchaseProposal): Row[] {
 /**
  * Cột "Phiếu duyệt" - CHÍNH người đã bấm "Sếp đã duyệt" (đang xem đúng trang này, vì đề xuất đã
  * lọc theo buyerByMaterialId của mình) tự sửa/xóa lại được ảnh/file khi lỡ chọn nhầm - 2026-09-11
- * (theo Sếp Trương Văn Nhân, hỏi qua chat nội bộ "ai được quyền sửa": "cho người nhập được sửa
+ * (theo quản lý, hỏi qua chat nội bộ "ai được quyền sửa": "cho người nhập được sửa
  * luôn"). BE (`PurchaseProposalsService.updateApprovalFile()`) tự kiểm actor có đúng là người đã
  * duyệt (`approvedById`) hay Admin/Sếp không - FE không cần đoán trước, cứ hiện nút, lỗi 403 (nếu
  * có) hiện qua `runAction` (banner đỏ có sẵn ở InspectionContext).

@@ -5,10 +5,10 @@ import { http } from './core/http';
 
 import type { ProcessStep } from '../types/sku';
 
-// ĐỦ CÔNG ĐOẠN (anh Nhân 04/11, changelog BE 2026-10-08 mục 63 ý 2 → mục 64; thay "chỉ Cắt" của mục 61): 1 đoạn chỉ vào đồng bộ khi
+// ĐỦ CÔNG ĐOẠN (nghiệp vụ 04/11, changelog BE 2026-10-08 mục 63 ý 2 → mục 64; thay "chỉ Cắt" của mục 61): 1 đoạn chỉ vào đồng bộ khi
 // đã qua Cắt + mọi công đoạn phụ của dòng định mức (uốn, dập, tán, nhấn…).
 
-/** Chép y hệt BE: 'PASSED_QC' = chỉ đếm đoạn đã ĐẠT KCS (đề xuất IT, câu 1.4 chờ anh Nhân) · 'REPORTED' = đã báo − KCS lỗi. Dùng để đổi
+/** Chép y hệt BE: 'PASSED_QC' = chỉ đếm đoạn đã ĐẠT KCS (đề xuất IT, câu 1.4 chờ nghiệp vụ) · 'REPORTED' = đã báo − KCS lỗi. Dùng để đổi
  *  chữ giải thích trên màn (BE mới là nơi tính). */
 export const PIECE_SYNC_COUNT_MODE: 'PASSED_QC' | 'REPORTED' = 'PASSED_QC';
 

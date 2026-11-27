@@ -26,7 +26,7 @@ import { fixedWarehouseName } from '../../../utils/warehouseKinds'
 import { printIssueSlip } from './printIssueSlip'
 
 /**
- * Xuất đan - PHIẾU 1 (anh Nhân 09/11/2026): mảnh đã xong công đoạn cuối xuất THẲNG từ kho đang giữ mảnh (kho Sơn; mảnh chỉ hàn ở
+ * Xuất đan - PHIẾU 1 (nghiệp vụ 09/11/2026): mảnh đã xong công đoạn cuối xuất THẲNG từ kho đang giữ mảnh (kho Sơn; mảnh chỉ hàn ở
  * kho Hàn) ra điểm đan, không còn đi qua kho Phụ kiện. Thủ kho chọn điểm đan, nhập số mảnh rồi "Lập phiếu xuất mảnh" - hệ thống
  * cấp số XK, CHƯA trừ tồn; in phiếu, điểm đan ký, tải ảnh ở tab "Phiếu xuất" rồi mới trừ.
  *

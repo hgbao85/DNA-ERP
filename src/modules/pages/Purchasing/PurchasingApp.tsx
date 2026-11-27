@@ -20,7 +20,7 @@ interface Props { onBack?: () => void }
 // Tab "Vật tư – NCC" đã gỡ 2026-08-27 cùng luồng báo giá: nó chỉ phục vụ việc gắn NCC + giá tham
 // khảo cho SupplierPicker lúc nhập báo giá, mà giá/NCC nay nằm trong file Excel Sếp ký. Danh mục
 // NCC vẫn quản lý ở Admin › Nhà cung cấp, gán người mua vẫn ở Admin › Vật tư - không mất chức năng.
-// 12/11/2026 (anh Nhân): thêm tab "Nhà cung cấp" - người mua tự thêm/sửa NCC (tên, người liên hệ, SĐT, MST, địa chỉ);
+// 12/11/2026 (nghiệp vụ): thêm tab "Nhà cung cấp" - người mua tự thêm/sửa NCC (tên, người liên hệ, SĐT, MST, địa chỉ);
 // xoá NCC và nạp khung số đơn vẫn chỉ ở Admin.
 type TabId = 'lenh-mua-ncc' | 'don-dat-hang' | 'theo-doi-mua-hang' | 'vat-tu-can-ve' | 'nhan-vuot' | 'lich-su-mua-hang' | 'nha-cung-cap'
 const TAB_VALUES: TabId[] = ['lenh-mua-ncc', 'don-dat-hang', 'theo-doi-mua-hang', 'vat-tu-can-ve', 'nhan-vuot', 'lich-su-mua-hang', 'nha-cung-cap']

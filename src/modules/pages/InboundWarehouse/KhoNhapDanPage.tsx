@@ -53,7 +53,7 @@ export default function KhoNhapDanPage({ readOnly = false, filterExportOrderId, 
     if (!wc) return true
     return wc === warehouseScope
   }
-  // Q6 câu 2a (anh Nhân 26/11/2026): SKU đã huỷ mà điểm đan còn giữ khung vẫn hiện để nhận về (khung thành tồn khung đan kho
+  // Q6 câu 2a (nghiệp vụ 26/11/2026): SKU đã huỷ mà điểm đan còn giữ khung vẫn hiện để nhận về (khung thành tồn khung đan kho
   // thành phẩm, lệnh sau cùng mảnh + màu dây tự lấy). SKU đã huỷ không còn gì ở điểm đan thì ẩn.
   const { data: cancelledPending, refetch: refetchCancelled } = useFetch(() => api.getCancelledPendingWeavingReceipt(), [])
   useRealtimeRefetch(['weaving-issues', 'production-orders'], () => { void refetchCancelled() })

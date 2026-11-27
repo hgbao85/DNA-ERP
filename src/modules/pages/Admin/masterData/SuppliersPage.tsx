@@ -16,7 +16,7 @@ interface Supplier {
 }
 
 /**
- * Danh sách NCC = "sheet quản lý NCC" (12/11/2026, anh Nhân): người mua chọn tên NCC từ đây khi tạo đơn đặt hàng.
+ * Danh sách NCC = "sheet quản lý NCC" (12/11/2026, nghiệp vụ): người mua chọn tên NCC từ đây khi tạo đơn đặt hàng.
  * Dùng chung cho Admin › Danh mục hệ thống › Nhà cung cấp và Mua hàng › Nhà cung cấp (`purchasingView`): người mua tự
  * thêm/sửa NCC, CHỈ Admin xoá (BE chặn DELETE theo vai trò) và chỉ Admin nạp khung số đơn.
  */

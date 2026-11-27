@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * Sổ báo vượt tồn đoạn (13/11/2026, anh Nhân trả lời 11 câu tồn đoạn - câu 2, 6, 7, 9).
+ * Sổ báo vượt tồn đoạn (13/11/2026, nghiệp vụ trả lời 11 câu tồn đoạn - câu 2, 6, 7, 9).
  *
  * Hàn / Sơn báo sản lượng KHÔNG bị chặn khi thiếu đoạn; hệ thống trừ phần giữ của lệnh (thiếu thì lấy dư của xưởng) và ghi 1 dòng ở
  * đây khi:

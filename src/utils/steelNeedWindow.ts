@@ -1,5 +1,5 @@
 /**
- * Luật cứng của lệnh gộp (Sếp Nhân chốt 2026-10-24, làm rõ cùng ngày): "bắt buộc chỉ được gộp tối đa 2 lệnh
+ * Luật cứng của lệnh gộp (quản lý chốt 2026-10-24, làm rõ cùng ngày): "bắt buộc chỉ được gộp tối đa 2 lệnh
  * có ngày cắt sắt cách nhau không quá 3 ngày (ví dụ: ngày 1 gộp được ngày 3, ngày 1 không được gộp với ngày 4)".
  * 13/11/2026 Sếp nới khung mặc định lên 5 ngày: ngày 10 gộp được ngày 14, không gộp được ngày 15.
  * Tức là KHUNG gộp N ngày (N = SystemConfig.solverMergeWindowDays, mặc định 5, Admin chỉnh 1-365) tính CẢ HAI
@@ -66,7 +66,7 @@ export function steelNeedSpan(entries: { code: string; date: string | null | und
 
 /**
  * Câu báo chặn khi mốc cần sắt các SKU của lệnh gộp cách nhau quá khung `windowDays` ngày; null = hợp lệ.
- * 24/11/2026 (anh Nhân): BỎ chặn khung N ngày khi gộp / sửa hạn lệnh gộp, chỉ ưu tiên gộp mốc gần - luôn trả null. Giữ chữ ký để nơi
+ * 24/11/2026 (nghiệp vụ): BỎ chặn khung N ngày khi gộp / sửa hạn lệnh gộp, chỉ ưu tiên gộp mốc gần - luôn trả null. Giữ chữ ký để nơi
  * gọi (LenhSXPage) không đổi; độ chênh vẫn xem được qua steelNeedSpan().
  */
 export function steelNeedSpanMessage(span: SteelNeedSpan | null, windowDays: number): string | null {
