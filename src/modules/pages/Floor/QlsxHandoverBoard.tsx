@@ -13,8 +13,8 @@ import { useFetch } from '../../../hooks/useFetch'
 import { useUrlParamValue } from '../../../hooks/useUrlState'
 import { useRealtimeRefetch } from '../../../realtime/hooks'
 import {
-  createHandoverOverride, getHandoverBoardDetail,
-  type BoardStage, type HandoverBoardDetail, type HandoverBoardList,
+  createHandoverOpeningDone, createHandoverOverride, getHandoverBoardDetail, getHandoverOpening,
+  type BoardStage, type HandoverBoardDetail, type HandoverBoardList, type HandoverOverrideKind,
 } from '../../../services/stage-handover-api'
 import LoadingState from '../../../components/LoadingState'
 import LoadErrorState from '../../../components/LoadErrorState'
@@ -59,6 +59,7 @@ export default function QlsxHandoverBoard({ list, refetchList }: { list: Handove
   const rows = boardSummaryRows(sortBoardPis(list.pis))
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <OpeningCard onDone={refetchList} />
       <div style={{ fontSize: 13, color: 'var(--text2)' }}>
         Hàn / Sơn chỉ báo trong số hàng đã nhận qua phiếu giao của kho; Phôi báo cắt không vượt 102% sắt đã nhận. Bấm lệnh để xem từng mảnh và mở chặn.
       </div>
@@ -268,20 +269,82 @@ function StageSection({ stage, onOverride }: { stage: BoardStage; onOverride: (t
   )
 }
 
+const KIND_LABEL: Record<HandoverOverrideKind, string> = {
+  OVERRIDE: 'Mở chặn',
+  OPENING_DONE: 'Đầu kỳ (đã báo trước ngày bật)',
+  OPENING_WAITING: 'Đầu kỳ (khung chờ Sơn)',
+}
+
+/**
+ * Đầu kỳ ngày bật (câu 2, chốt 28/11/2026 cách 1): QLSX bấm 1 lần ngay sau khi bật giao nhận - số đã báo Hàn / Sơn của mọi lệnh
+ * đang chạy thành "đã nhận đầu kỳ", công nhân không bị chặn oan. Ghi rồi thì chỉ hiện đã ghi lúc nào.
+ */
+function OpeningCard({ onDone }: { onDone: () => void }) {
+  const { data, error, refetch } = useFetch(() => getHandoverOpening())
+  const [asking, setAsking] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+  const [result, setResult] = useState<string | null>(null)
+  if (error || !data || !data.enabled) return null
+  const run = async () => {
+    setBusy(true); setErr(null)
+    try {
+      const r = await createHandoverOpeningDone()
+      setResult(`Đã ghi đầu kỳ ${fmt(r.created)} dòng của ${fmt(r.lenh)} lệnh.`)
+      setAsking(false); refetch(); onDone()
+    } catch (e) { setErr(errMsg(e)) } finally { setBusy(false) }
+  }
+  return (
+    <div style={{ ...card, padding: '12px 14px', display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+      <div style={{ flex: 1, minWidth: 240, fontSize: 13 }}>
+        <div style={{ fontWeight: 700, marginBottom: 2 }}>Đầu kỳ ngày bật giao nhận</div>
+        {data.done ? (
+          <span style={{ color: 'var(--text2)' }}>
+            Đã ghi {data.doneAt ? format(new Date(data.doneAt), 'dd/MM/yyyy HH:mm') : ''}{data.doneByName ? ` (${data.doneByName})` : ''}: {fmt(data.doneCount)} dòng đã báo trước ngày bật · thủ kho Hàn đã nhập {fmt(data.waitingCount)} dòng khung chờ Sơn.
+          </span>
+        ) : (
+          <span style={{ color: 'var(--text2)' }}>
+            Chưa ghi. Bấm 1 lần NGAY sau khi bật: số đã báo Hàn / Sơn trước ngày bật của mọi lệnh đang chạy được tính là đã nhận, công nhân không bị chặn oan. Thanh phôi còn ở tổ Hàn vẫn lập phiếu giao đoạn; khung Hàn đạt đang chờ Sơn do thủ kho Hàn nhập.
+          </span>
+        )}
+        {result && <div style={{ color: 'var(--green)', marginTop: 4 }}>{result}</div>}
+      </div>
+      {!data.done && <button type="button" style={{ ...smallBtn, padding: '6px 14px' }} onClick={() => { setErr(null); setAsking(true) }}>Ghi đầu kỳ</button>}
+      {asking && (
+        <Modal open onClose={() => { if (!busy) setAsking(false) }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 13 }}>
+            <div style={{ fontSize: 16, fontWeight: 700 }}>Ghi đầu kỳ ngày bật giao nhận</div>
+            <div>Số đã báo Hàn / Sơn tới lúc này của mọi lệnh đang chạy sẽ được tính là <b>đã nhận</b>. Chỉ ghi được 1 lần cho cả nhà máy.</div>
+            <div style={{ color: 'var(--red)' }}>Chỉ bấm ngay sau khi bật, trước khi công nhân báo tiếp - ghi muộn sẽ tính cả phần báo sau ngày bật.</div>
+            {err && <div style={{ color: 'var(--red)' }}>{err}</div>}
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button type="button" style={smallBtn} disabled={busy} onClick={() => setAsking(false)}>Huỷ</button>
+              <button type="button" style={{ ...smallBtn, background: 'var(--bg-3949ab)', color: '#fff', borderColor: 'var(--bg-3949ab)' }} disabled={busy} onClick={() => void run()}>
+                {busy ? 'Đang ghi…' : 'Ghi đầu kỳ'}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+    </div>
+  )
+}
+
 function OverridesSection({ data }: { data: HandoverBoardDetail }) {
   return (
     <div style={card}>
-      <div style={cardHead}>Mở chặn đã cấp ({data.overrides.length})</div>
+      <div style={cardHead}>Mở chặn / đầu kỳ ({data.overrides.length})</div>
       {data.overrides.length === 0 ? (
         <div style={{ padding: 14, fontSize: 13, color: 'var(--text3)' }}>Chưa mở chặn lần nào.</div>
       ) : (
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 680 }}>
-            <thead><tr><th style={th}>Lúc</th><th style={th}>Tổ</th><th style={th}>Mục</th><th style={thR}>Số</th><th style={th}>Lý do</th><th style={th}>Người mở</th></tr></thead>
+            <thead><tr><th style={th}>Lúc</th><th style={th}>Loại</th><th style={th}>Tổ</th><th style={th}>Mục</th><th style={thR}>Số</th><th style={th}>Lý do</th><th style={th}>Người ghi</th></tr></thead>
             <tbody>
               {data.overrides.map((o) => (
                 <tr key={o.id} style={{ borderTop: '1px solid var(--border)' }}>
                   <td style={{ ...td, whiteSpace: 'nowrap' }}>{format(new Date(o.createdAt), 'dd/MM HH:mm')}</td>
+                  <td style={td}>{KIND_LABEL[o.kind ?? 'OVERRIDE']}</td>
                   <td style={td}>{OVERRIDE_STAGE_LABEL[o.stage] ?? o.stage}</td>
                   <td style={td}>{overrideTargetText(o)}</td>
                   <td style={{ ...tdR, fontWeight: 700 }}>{fmt(o.qty)} {o.unit}</td>

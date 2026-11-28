@@ -17,6 +17,7 @@ import {
 import LoadingState from '../../../components/LoadingState'
 import LoadErrorState from '../../../components/LoadErrorState'
 import { useIssueSlipCart } from './IssueSlipCart'
+import OpeningWaitingSection from './OpeningWaitingSection'
 import {
   HANDOVER_STAGE_LABEL, buildFrameCartLine, buildSegmentCartLine, effectiveQty, frameDefaults, frameRowKey, frameRowMax,
   handoverCartKey, parseQty, qtyDigits, qtyError, segmentCartConflict, segmentDefaults, segmentHandoverRows, segmentRowMax,
@@ -63,6 +64,8 @@ export default function GiaoNhanToPage({ kind, list, refetchList }: {
   return (
     <div>
       <div style={{ color: 'var(--text3)', fontSize: 13, margin: '0 0 12px' }}>{text.desc}</div>
+      {/* Đầu kỳ ngày bật (28/11/2026): khung Hàn đạt trước ngày bật đang chờ ở tổ Sơn - BE tự ẩn khi không áp dụng. */}
+      {kind === 'FRAME' && <OpeningWaitingSection />}
       {list.pis.length === 0 ? (
         <div style={{ ...card, padding: 16, fontSize: 13, color: 'var(--text3)' }}>{text.empty}</div>
       ) : (
