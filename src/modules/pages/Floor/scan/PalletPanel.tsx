@@ -2,9 +2,8 @@
 
 /**
  * Màn công nhân Sơn sau khi quét tem pallet (24/11/2026, docs THIET-KE-PALLET-SON): pallet đã có sẵn lệnh, mảnh, số - công nhân chỉ
- * bấm "Sơn xong pallet này" (hoặc "Báo thiếu" + số + lý do). BE ghi 1 lần báo Sơn bình thường qua điểm sơn công nhân quét gần
- * nhất (`ws` = LAST_WS_KEY), giữ mọi chặn của báo Sơn (kế hoạch, số Sơn đã nhận). Chưa quét điểm sơn thì báo "Quét tem điểm sơn
- * trước".
+ * bấm "Sơn xong pallet này" (hoặc "Báo thiếu" + số + lý do). BE ghi 1 lần báo Sơn bình thường, giữ mọi chặn của báo Sơn (kế hoạch,
+ * số Sơn đã nhận). Câu 8 (chốt 25/11/2026): chỉ quét tem pallet, không cần quét tem điểm sơn trước.
  */
 import { useCallback, useEffect, useState } from 'react'
 import { ScanLine } from 'lucide-react'
@@ -12,7 +11,7 @@ import { getPalletForWorker, paintPallet, type Pallet } from '../../../../servic
 import { useRetrySafeKey } from '../../../../hooks/useRetrySafeKey'
 import { hhmm } from '../floorUi'
 import {
-  checkShort, NO_WS_TEXT, PALLET_STATUS_LABEL, PALLET_STATUS_TONE, qtyDigits, workerPalletNote,
+  checkShort, PALLET_STATUS_LABEL, PALLET_STATUS_TONE, qtyDigits, workerPalletNote,
 } from '../../InboundWarehouse/palletModel'
 import { errText } from './scanModel'
 import { Banner } from './ScanParts'
@@ -21,7 +20,7 @@ import { btn, card, column, heading, hint, label, loadingText, numInput, pill, r
 
 type Flash = { tone: 'ok' | 'err' | 'warn'; text: string }
 
-export default function PalletPanel({ token, ws }: { token: string; ws: string | null }) {
+export default function PalletPanel({ token }: { token: string }) {
   const openScanner = useOpenScanner()
   const [pallet, setPallet] = useState<Pallet | null>(null)
   const [enabled, setEnabled] = useState(true)
@@ -44,10 +43,10 @@ export default function PalletPanel({ token, ws }: { token: string; ws: string |
   useEffect(() => { void load() }, [load])
 
   const submit = async (input: { qty?: number; shortReason?: string }) => {
-    if (!ws || !pallet) return
+    if (!pallet) return
     setBusy(true); setFlash(null)
     try {
-      const out = await paintPallet(ws, token, input, retryKey.take({ token, ...input }))
+      const out = await paintPallet(token, input, retryKey.take({ token, ...input }))
       retryKey.settle()
       const n = input.qty ?? pallet.load?.qty ?? 0
       setFlash({
@@ -76,7 +75,7 @@ export default function PalletPanel({ token, ws }: { token: string; ws: string |
   const tone = PALLET_STATUS_TONE[pallet.status]
   const note = workerPalletNote(pallet)
   const shortCheck = ld ? checkShort(ld.qty, qty, reason) : null
-  const canReport = pallet.status === 'LOADED' && !!ld && !!ws
+  const canReport = pallet.status === 'LOADED' && !!ld
 
   return (
     <div style={column(12)}>
@@ -99,9 +98,6 @@ export default function PalletPanel({ token, ws }: { token: string; ws: string |
       </div>
 
       {note && <Banner tone={note.tone}>{note.text}</Banner>}
-      {pallet.status === 'LOADED' && !ws && (
-        <Banner tone="warn">{NO_WS_TEXT}</Banner>
-      )}
 
       {canReport && !short && (
         <div style={column(10)}>
@@ -136,7 +132,7 @@ export default function PalletPanel({ token, ws }: { token: string; ws: string |
       {openScanner && (
         <button type="button" onClick={openScanner}
           style={{ ...btn(false), display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
-          <ScanLine size={20} aria-hidden /> {ws ? 'Quét pallet khác' : 'Quét tem điểm sơn'}
+          <ScanLine size={20} aria-hidden /> Quét pallet khác
         </button>
       )}
     </div>
