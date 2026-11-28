@@ -22,6 +22,7 @@ import KhoChuyenKiemPage from './KhoChuyenKiemPage'
 import KhoDongGoiPage from './KhoDongGoiPage'
 import ViTriKhoPage from './viTriKho/ViTriKhoPage'
 import { useViTriKhoEnabled } from '../../../hooks/useViTriKhoEnabled'
+import { useSegmentStocktakeKinds } from '../../../hooks/useSegmentStocktakeKinds'
 import WarehouseXuatPage from './WarehouseXuatPage'
 import PhanPhoiNoiBoPage from './PhanPhoiNoiBoPage'
 import KhoPhoiPage from '../Phoi/KhoPhoiPage'
@@ -67,6 +68,10 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
   type TabId = 'materials' | 'warehouses' | 'nhap-kho' | 'xuat-kho' | 'chuyen-tu-do' | 'lich-su-kho' | 'xuat-sat' | 'chuyen-kiem' | 'dong-goi' | 'xuat-dan' | 'nhap-dan' | 'diem-dan' | 'vat-tu-van-phong' | 'vat-tu-can-ve' | 'ton-doan' | 'vi-tri-kho'
   // Vị trí kho Thành phẩm (25/11/2026, VI_TRI_KHO_ENABLED): tab chỉ hiện cho thủ kho Thành phẩm khi BE bật công tắc.
   const viTriKho = useViTriKhoEnabled() === true && isThanhPhamScope(scope)
+  // Tồn đoạn + kiểm kê đoạn: kho Phôi luôn có; kho Hàn chỉ khi BE bật giao nhận giữa tổ (đoạn giao sang kho Hàn bằng phiếu).
+  const stocktakeKinds = useSegmentStocktakeKinds()
+  const scopeKind = warehouseKindOf(scope)
+  const tonDoan = scopeKind === 'PHOI' || (scopeKind === 'HAN' && !!stocktakeKinds?.includes('HAN'))
   // Badge "việc chờ tôi" (changelog notification 2026-09-25 mục 6.3/27) - gộp vào ĐÚNG 1 tab
   // 'nhap-kho' vì cả 2 việc chờ (hàng mua chờ nhận + phiếu chuyển "Nhập nội bộ" chờ xác nhận) đều
   // là sub-tab BÊN TRONG NhapKhoPage.tsx, không phải 2 tab riêng (khác 'chuyen-tu-do' - đó là màn
@@ -92,8 +97,9 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
     // trong phiên, mất sạch khi tải lại trang.
     { id: 'lich-su-kho', label: 'Lịch sử kho',        icon: <History size={16} /> },
     ...(isFamilyScope(scope, 'phoi-son-han') ? [{ id: 'xuat-sat' as TabId, label: 'Phân phối nội bộ', icon: <Share2 size={16} /> }] : []),
-    // Tồn đoạn theo lệnh (13/11/2026): thủ kho Phôi xem tồn / giữ cho lệnh / dư theo mã đoạn và kiểm kê đoạn.
-    ...(warehouseKindOf(scope) === 'PHOI' ? [{ id: 'ton-doan' as TabId, label: 'Tồn đoạn', icon: <Scissors size={16} /> }] : []),
+    // Tồn đoạn theo lệnh (13/11/2026): thủ kho Phôi xem tồn / giữ cho lệnh / dư theo mã đoạn và kiểm kê đoạn. Thủ kho Hàn thấy khi
+    // bật giao nhận giữa tổ (nghiệp vụ 27/11: Hàn cũng đếm thanh phôi).
+    ...(tonDoan ? [{ id: 'ton-doan' as TabId, label: 'Tồn đoạn', icon: <Scissors size={16} /> }] : []),
     ...(canSeePacking ? [
       { id: 'chuyen-kiem' as TabId, label: 'Chuyền kiểm', icon: <ClipboardCheck size={16} /> },
       { id: 'dong-goi'    as TabId, label: 'Đóng gói',    icon: <Box size={16} /> },
@@ -146,7 +152,8 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
   // Điều hướng TỪ BÊN NGOÀI (NotificationCenter gọi router.push('/?m=inbound_warehouse&p=...')).
   useEffect(() => {
     if (isValidTab(urlTab) && urlTab !== tab) setTabState(urlTab)
-  }, [urlTab])
+    // tonDoan: tab "Tồn đoạn" của thủ kho Hàn chỉ có sau khi hỏi BE xong - link ?p=ton-doan mở trước lúc đó phải vào lại đúng tab.
+  }, [urlTab, tonDoan])
   const navBtn = (active: boolean): React.CSSProperties => ({
     display: 'flex', alignItems: 'center', gap: 9, width: '100%',
     padding: isCompact ? '11px 10px' : '8px 10px', marginBottom: 2, border: 'none', borderRadius: 'var(--radius)',
@@ -305,7 +312,7 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
         )}
         {tab === 'chuyen-tu-do' && <ChuyenKhoTuDoPage scope={scope} />}
         {tab === 'xuat-sat'   && isFamilyScope(scope, 'phoi-son-han') && <PhanPhoiNoiBoPage />}
-        {tab === 'ton-doan'   && scope && warehouseKindOf(scope) === 'PHOI' && <KhoPhoiPage canStocktake lockedWarehouseCode={scope} />}
+        {tab === 'ton-doan'   && scope && tonDoan && <KhoPhoiPage canStocktake lockedWarehouseCode={scope} />}
         {tab === 'chuyen-kiem' && canSeePacking && <KhoChuyenKiemPage warehouseScope={scope} />}
         {tab === 'dong-goi'    && canSeePacking && <KhoDongGoiPage warehouseScope={scope} />}
         {tab === 'vi-tri-kho'  && viTriKho && <ViTriKhoPage />}

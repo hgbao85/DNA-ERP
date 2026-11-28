@@ -27,6 +27,7 @@ import { errMsg } from '../../../utils/errors'
 import LoadErrorState from '../../../components/LoadErrorState'
 import { pageTitle, pageSubtitle } from '../../../styles/typography'
 import { useRealtimeRefetch } from '../../../realtime/hooks'
+import { warehouseKindOf } from '../../../utils/warehouseKinds'
 import { canhBaoKhoPhoi, CANH_BAO_DU_AM, CANH_BAO_TON_AM, chonKhoMacDinh, khoPhoiThat, khoPhoiTuSoDu, trangThaiTaiKhoPhoi } from './khoPhoiModel'
 
 const th: React.CSSProperties = { padding: '10px 14px', fontSize: 12, fontWeight: 600, color: 'var(--text2)', textAlign: 'left', whiteSpace: 'nowrap' }
@@ -100,15 +101,22 @@ export default function KhoPhoiPage({ canStocktake = false, lockedWarehouseCode,
   }
 
   const whName = warehouses.find(w => w.code === warehouseCode)?.name ?? warehouseCode ?? '—'
+  // Thủ kho Hàn (bật giao nhận giữa tổ, nghiệp vụ 27/11): cùng màn, đổi tiêu đề / lời dẫn.
+  const laKhoHan = warehouseKindOf(lockedWarehouseCode) === 'HAN'
 
   return (
     <div>
       <h2 style={{ ...pageTitle, marginBottom: 2, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-        <Warehouse size={20} /> Kho phôi
+        <Warehouse size={20} /> {laKhoHan ? 'Thanh phôi tại kho Hàn' : 'Kho phôi'}
       </h2>
       <div style={{ ...pageSubtitle, marginBottom: 'var(--space-4)' }}>
-        Đoạn sắt tồn tại <b>{whName}</b>, tách theo mã đoạn (cỡ + công đoạn). Phôi KCS đạt thì đoạn tự vào tồn và <b>giữ cho lệnh</b>;
-        Hàn / Sơn báo thì tự trừ phần giữ của lệnh. Phần cắt vượt vào cột <b>Dư</b> của xưởng, chia cho lệnh sau.
+        {laKhoHan ? (
+          <>Đoạn sắt kho Phôi đã giao cho tổ Hàn tại <b>{whName}</b> (theo phiếu giao đoạn), tách theo mã đoạn. Hàn báo thì tự trừ phần
+            giữ của lệnh. Kiểm kê: đếm thanh phôi còn ở tổ Hàn, chưa hàn vào mảnh.</>
+        ) : (
+          <>Đoạn sắt tồn tại <b>{whName}</b>, tách theo mã đoạn (cỡ + công đoạn). Phôi KCS đạt thì đoạn tự vào tồn và <b>giữ cho lệnh</b>;
+            Hàn / Sơn báo thì tự trừ phần giữ của lệnh. Phần cắt vượt vào cột <b>Dư</b> của xưởng, chia cho lệnh sau.</>
+        )}
       </div>
 
       {!lockedWarehouseCode && warehouses.length > 1 && (
