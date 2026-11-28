@@ -66,6 +66,8 @@ export interface FramePlanRow {
   /** Tồn mảnh ở kho Hàn (theo mã mảnh, chung mọi lệnh). */
   inStockQty: number
   availableQty: number
+  /** Đầu kỳ ngày bật (28/11/2026): khung chờ Sơn thủ kho Hàn đã nhập; null = chưa nhập. */
+  openingWaitingQty?: number | null
 }
 
 export interface HandoverPlanList {
@@ -192,6 +194,62 @@ export interface HandoverOverride {
   pieceCode?: string | null
   pieceName?: string | null
   materialCode?: string | null
+  /** OVERRIDE = QLSX mở chặn; OPENING_DONE / OPENING_WAITING = đầu kỳ ngày bật (28/11/2026). */
+  kind?: HandoverOverrideKind
+}
+
+export type HandoverOverrideKind = 'OVERRIDE' | 'OPENING_DONE' | 'OPENING_WAITING'
+
+/** Đầu kỳ ngày bật giao nhận (câu 2, chốt 28/11/2026 cách 1). */
+export interface HandoverOpening {
+  enabled: boolean
+  done: boolean
+  doneAt: string | null
+  doneByName: string | null
+  doneCount: number
+  waitingCount: number
+}
+
+export function getHandoverOpening(): Promise<HandoverOpening> {
+  return http.get<HandoverOpening>('/stage-handover/opening')
+}
+
+/** QLSX bấm 1 lần ngay sau khi bật: số đã báo Hàn / Sơn trước ngày bật thành "đã nhận đầu kỳ". */
+export function createHandoverOpeningDone(): Promise<{ created: number; lenh: number }> {
+  return http.post<{ created: number; lenh: number }>('/stage-handover/opening/done')
+}
+
+export interface OpeningWaitingRow {
+  productionInvoiceId: string | null
+  lenhCode: string
+  productionOrderId: string
+  sku: string
+  pieceId: string
+  pieceCode: string
+  pieceName: string
+  hanReportedQty: number
+  hanPassedQty: number
+  sonReportedQty: number
+  /** Gợi ý = Hàn đạt KCS − Sơn đã báo (thủ kho vẫn đếm thật). */
+  suggestedQty: number
+  openingWaitingQty: number | null
+}
+
+export interface OpeningWaitingPlan {
+  enabled: boolean
+  /** false = kho đang làm không phải kho Hàn của xưởng có kho Sơn - không có bước này. */
+  applicable: boolean
+  warehouseCode?: string
+  rows: OpeningWaitingRow[]
+}
+
+export function getOpeningWaitingPlan(): Promise<OpeningWaitingPlan> {
+  return http.get<OpeningWaitingPlan>('/stage-handover/opening/waiting-plan')
+}
+
+/** Thủ kho Hàn nhập số khung Hàn đạt đang chờ ở tổ Sơn - mỗi SKU, mảnh 1 lần. */
+export function createOpeningWaiting(input: { productionOrderId: string; pieceId: string; qty: number }): Promise<HandoverOverride> {
+  return http.post<HandoverOverride>('/stage-handover/opening/waiting', input)
 }
 
 export interface HandoverBoardDetail {
