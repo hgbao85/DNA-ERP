@@ -217,8 +217,12 @@ export interface CancelImpactDto {
     amount: number | null;
     supplierName: string | null;
     supplierOrderCode: string | null;
+    /** Lỗi 4 (28/11): true = đã mua xong / đã nhập kho; false = đang mua. */
+    purchased?: boolean;
   }[];
   signedAmountTotal: number;
+  /** Phần tiền của dòng đã mua xong (nằm trong signedAmountTotal). */
+  purchasedAmountTotal?: number;
   missingPriceCount: number;
   stages: { stage: string; label: string; rows: { name: string; qty: number }[] }[];
 }
