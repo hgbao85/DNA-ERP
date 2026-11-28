@@ -16,6 +16,10 @@ export interface BeStockQuant {
   materialCode: string | null;
   segmentSpecId: string | null;
   segmentSpecLabel: string | null;
+  /** Mảnh (tồn mảnh ở kho Hàn / Sơn) - null với dòng vật tư / đoạn. */
+  pieceId?: string | null;
+  pieceCode?: string | null;
+  pieceName?: string | null;
   /** Chiều dài cây (mm) với sắt bán theo chiều dài, 0 cho loại khác - cùng mã sắt khác chiều dài là
    *  2 lô tồn RIÊNG (unique index warehouseId+materialId+stockLengthMm) nên phải đọc field này mới
    *  phân biệt được, không được gộp/lấy 1 dòng đại diện (bug thật đã gặp, xem
@@ -109,6 +113,8 @@ export async function adjustStock(input: {
   toWarehouseId: string;
   materialId?: string;
   segmentSpecId?: string;
+  /** Kiểm kê mảnh (thủ kho Sơn, 28/11/2026) - kèm expectedCurrentQty thì BE so đúng ô (kho, mảnh). */
+  pieceId?: string;
   qty: number;
   /** Bỏ trống = điều chỉnh theo TỔNG cộng dồn mọi bucket chiều dài (ghi vào bucket 0 - dùng khi UI
    *  chỉ hiện 1 số tổng, vd Admin > Vật tư). Có giá trị = điều chỉnh ĐÚNG bucket đó (dùng khi UI đã
