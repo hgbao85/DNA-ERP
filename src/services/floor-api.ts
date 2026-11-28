@@ -39,6 +39,8 @@ export interface BeScanOrder {
   productName: string
   quantity: number
   floorStage: 'PENDING' | 'ACTIVE' | 'PAUSED' | 'FINISHED'
+  /** SKU đã huỷ mà QLSX cho cắt tiếp (floorStage FINISHED) - vẫn báo được trong phần sắt đã xuất. */
+  cutContinued?: boolean
 }
 
 export interface BeScanSegment {
