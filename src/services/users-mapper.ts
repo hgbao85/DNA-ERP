@@ -22,6 +22,8 @@ export function deriveRoleIds(v: Record<string, unknown>, roleId: Record<string,
     ...(v.isSale ? pick('SALES_STAFF') : []),
     ...(v.isProductPlanner ? pick('PRODUCTION_PLANNER') : []),
     ...(v.isMaterialsManager ? pick('MATERIALS_MANAGER') : []),
+    // Điều phối đan (28/11/2026): vai có từ migration 20261128130000 - trước đó chỉ seed demo tạo, Admin không gán được.
+    ...(v.isWeavingCoordinator ? pick('WEAVING_COORDINATOR') : []),
   ];
 }
 
@@ -48,6 +50,7 @@ export function mapBeToFe(u: BeUserProfile): SystemUser {
     isProductPlanner: u.isProductPlanner,
     isSale: u.isSale,
     isMaterialsManager: u.isMaterialsManager,
+    isWeavingCoordinator: u.roles.includes('WEAVING_COORDINATOR'),
     workshopId: u.workshopId ?? null,
     workshopName: u.workshopName ?? null,
     isActive: u.isActive,
