@@ -57,7 +57,7 @@ function ImpactBody({ d }: { d: CancelImpactDto }) {
         </div>
       )}
 
-      <div style={sectionTitle}>Dòng mua đã ký NCC{scope}</div>
+      <div style={sectionTitle}>Dòng mua đã ký NCC (đang mua + đã mua xong){scope}</div>
       {d.signedPurchases.length === 0 ? (
         <div style={muted}>Không có dòng mua đã ký - dòng chưa ký tự giảm theo nhu cầu mới.</div>
       ) : (
@@ -68,6 +68,7 @@ function ImpactBody({ d }: { d: CancelImpactDto }) {
                 <tr>
                   <th style={th}>Vật tư</th>
                   <th style={th}>NCC / đơn</th>
+                  <th style={th}>Trạng thái</th>
                   <th style={{ ...th, textAlign: 'right' }}>Đã ký</th>
                   <th style={{ ...th, textAlign: 'right' }}>Đã nhận</th>
                   <th style={{ ...th, textAlign: 'right' }}>Thành tiền</th>
@@ -78,6 +79,7 @@ function ImpactBody({ d }: { d: CancelImpactDto }) {
                   <tr key={p.itemId}>
                     <td style={td}>{p.materialCode}<div style={muted}>{p.materialName}</div></td>
                     <td style={td}>{p.supplierName ?? '—'}{p.supplierOrderCode && <div style={muted}>Số {p.supplierOrderCode}</div>}</td>
+                    <td style={td}>{p.purchased ? 'Đã mua, đã nhập kho' : 'Đang mua'}</td>
                     <td style={{ ...td, textAlign: 'right' }}>{fmtNum(p.signedQty)} {p.unit}</td>
                     <td style={{ ...td, textAlign: 'right' }}>{fmtNum(p.receivedQty)}</td>
                     <td style={{ ...td, textAlign: 'right' }}>{p.amount == null ? <span style={muted}>chưa có giá</span> : fmtMoney(p.amount)}</td>
@@ -88,6 +90,7 @@ function ImpactBody({ d }: { d: CancelImpactDto }) {
           </div>
           <div style={{ marginTop: 6, fontWeight: 600 }}>
             Tổng đã ký: {fmtMoney(d.signedAmountTotal)}
+            {(d.purchasedAmountTotal ?? 0) > 0 && <span style={{ ...muted, fontWeight: 400 }}> - trong đó đã mua xong {fmtMoney(d.purchasedAmountTotal ?? 0)}</span>}
             {d.missingPriceCount > 0 && <span style={{ ...muted, fontWeight: 400 }}> (chưa tính {d.missingPriceCount} dòng chưa có giá)</span>}
           </div>
           <div style={muted}>Duyệt huỷ thì người mua liên hệ NCC: bớt được thì Đóng phần thiếu, không bớt được thì hàng về vào tồn chung.</div>
