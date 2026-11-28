@@ -164,7 +164,13 @@ export default function TheoDoiDiemDanPage({ canWrite }: { canWrite: boolean }) 
                         {r.weavingPointName !== r.weavingPointCode && <div style={{ fontSize: 11, color: 'var(--text3)' }}>{r.weavingPointCode}</div>}
                       </td>
                       <td style={compactTd}>
-                        <div style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>{lenhLabel(r)}</div>
+                        <div style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>
+                          {lenhLabel(r)}
+                          {/* Câu 17 (chốt 25/11/2026): lệnh đã huỷ chỉ còn hiện khi điểm đan còn giữ hàng - cần đòi về. */}
+                          {r.cancelled && (
+                            <span title='Lệnh đã huỷ - điểm đan còn giữ hàng, cần đòi về' style={{ marginLeft: 6, padding: '1px 7px', borderRadius: 10, fontSize: 10, fontWeight: 700, background: 'var(--red-bg)', color: 'var(--red)' }}>Đã huỷ</span>
+                          )}
+                        </div>
                         <div style={{ fontSize: 11, color: 'var(--text3)' }}>{r.salesOrderCode ?? r.poNumber}{r.productName ? ` · ${r.productName}` : ''}</div>
                       </td>
                       <td style={compactTd}>

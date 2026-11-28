@@ -25,6 +25,8 @@ export interface WeavingPromise {
 
 export interface WeavingBoardRow {
   key: string
+  /** Câu 17 (28/11/2026): lệnh đã huỷ mà điểm đan còn giữ hàng (đã trả hết thì BE ẩn dòng). */
+  cancelled?: boolean
   weavingPointId: string
   weavingPointCode: string
   weavingPointName: string

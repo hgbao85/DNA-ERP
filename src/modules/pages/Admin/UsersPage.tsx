@@ -66,6 +66,7 @@ function chucNangOf(u: SystemUser): string {
   if (u.isProductPlanner) tags.push('KH Sản xuất')
   if (u.isSale) tags.push('Sales')
   if (u.isMaterialsManager) tags.push('Quản lý vật tư')
+  if (u.isWeavingCoordinator) tags.push('Điều phối đan')
   if (u.mfgRole === 'PRODUCTION_MANAGER' || u.mfgRole === 'KCS') tags.push(u.workshopName ?? 'Tất cả xưởng') // tên xưởng đã có chữ "Xưởng"
   if (!u.mfgRole && u.warehouseScope) tags.push(fixedWarehouseName(u.warehouseScope) ?? `Kho ${WAREHOUSE_SCOPE_LABEL[u.warehouseScope] ?? u.warehouseScope}`)
   return tags.length > 0 ? tags.join(', ') : '—'
@@ -76,7 +77,7 @@ function chucNangOf(u: SystemUser): string {
 // dữ liệu thật (mfgRole hoặc warehouseScope/cờ boolean có sẵn), không phát sinh cột DB mới.
 
 type StaffCategory = 'office' | 'warehouse' | 'spec' | 'mfg'
-type OfficeFn = 'SALE' | 'PLANNER' | 'PROD_MGR' | 'PURCHASE' | 'MATERIALS_MGR'
+type OfficeFn = 'SALE' | 'PLANNER' | 'PROD_MGR' | 'PURCHASE' | 'MATERIALS_MGR' | 'WEAVING'
 
 const STAFF_CATEGORIES: { value: StaffCategory; label: string }[] = [
   { value: 'office', label: 'Văn phòng' },
@@ -91,13 +92,14 @@ const OFFICE_FUNCTIONS: { value: OfficeFn; label: string }[] = [
   { value: 'PROD_MGR', label: 'Quản lý sản xuất (QLSX)' },
   { value: 'PURCHASE', label: 'Mua hàng' },
   { value: 'MATERIALS_MGR', label: 'Quản lý vật tư' },
+  { value: 'WEAVING', label: 'Điều phối đan' },
 ]
 
 function deriveStaffCategory(v: Partial<SystemUser>): StaffCategory | undefined {
   if (v.mfgRole && MFG_FLOOR_VALUES.includes(v.mfgRole)) return 'mfg'
   if (v.mfgRole && SPEC_VALUES.includes(v.mfgRole)) return 'spec'
   if (v.mfgRole === 'PRODUCTION_MANAGER') return 'office'
-  if (v.isSale || v.isProductPlanner || v.isPurchaser || v.isMaterialsManager) return 'office'
+  if (v.isSale || v.isProductPlanner || v.isPurchaser || v.isMaterialsManager || v.isWeavingCoordinator) return 'office'
   // '' (chuỗi rỗng) = đã bấm tab "Kho" nhưng CHƯA chọn kho cụ thể - khác undefined/null (chưa bấm
   // tab nào cả). Không dùng `if (v.warehouseScope)` (truthy) vì '' cũng falsy, sẽ không phân biệt
   // được 2 ca này - "Kho phụ trách" giờ không bắt buộc chọn ngay lúc tạo tài khoản (gán sau cũng
@@ -112,6 +114,7 @@ function deriveOfficeFn(v: Partial<SystemUser>): OfficeFn | undefined {
   if (v.isProductPlanner) return 'PLANNER'
   if (v.isSale) return 'SALE'
   if (v.isMaterialsManager) return 'MATERIALS_MGR'
+  if (v.isWeavingCoordinator) return 'WEAVING'
   return undefined
 }
 
@@ -150,6 +153,7 @@ function EmployeeTypeField({ values, setField }: { value: unknown; values: Parti
     setField('isProductPlanner', false)
     setField('isSale', false)
     setField('isMaterialsManager', false)
+    setField('isWeavingCoordinator', false)
   }
 
   const officeFn = deriveOfficeFn(values)
@@ -158,6 +162,7 @@ function EmployeeTypeField({ values, setField }: { value: unknown; values: Parti
     setField('isProductPlanner', fn === 'PLANNER')
     setField('isPurchaser', fn === 'PURCHASE')
     setField('isMaterialsManager', fn === 'MATERIALS_MGR')
+    setField('isWeavingCoordinator', fn === 'WEAVING')
     setField('mfgRole', fn === 'PROD_MGR' ? 'PRODUCTION_MANAGER' : undefined)
     // Xưởng phụ trách chỉ có nghĩa với QLSX - đổi sang chức năng khác thì bỏ để BE không báo lỗi.
     if (fn !== 'PROD_MGR') setField('workshopId', undefined)
@@ -598,6 +603,7 @@ export default function UsersPage() {
       { name: 'isProductPlanner', label: 'KH Sản xuất', type: 'hidden', showIf: (v) => v.role === 'WAREHOUSE_STAFF' },
       { name: 'isSale', label: 'Sales', type: 'hidden', showIf: (v) => v.role === 'WAREHOUSE_STAFF' },
       { name: 'isMaterialsManager', label: 'Quản lý vật tư', type: 'hidden', showIf: (v) => v.role === 'WAREHOUSE_STAFF' },
+      { name: 'isWeavingCoordinator', label: 'Điều phối đan', type: 'hidden', showIf: (v) => v.role === 'WAREHOUSE_STAFF' },
       // KHÔNG có field "Trạng thái" trong form: khóa/mở tài khoản làm bằng nút ổ khóa ở dòng (qua
       // setUserActive). Tạo mới: BE luôn tạo active. Sửa: form không đụng isActive để tránh 2 nơi
       // cùng điều khiển 1 giá trị (checkbox form vs nút ổ khóa) gây rối/ghi đè nhau.
