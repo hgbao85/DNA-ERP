@@ -89,6 +89,11 @@ export interface SegmentStocktakeResult {
 }
 
 /** Kiểm kê 1 mã đoạn ở kho Phôi: nhập số đếm, BE ghi phần chênh (đối ứng "Cân đối tồn kho"). 409 nếu tồn vừa đổi. */
+/** Loại kho được kiểm kê đoạn lúc này: PHOI; thêm HAN khi BE bật giao nhận giữa tổ (nghiệp vụ 27/11: Hàn cũng đếm thanh phôi). */
+export async function getSegmentStocktakeConfig(): Promise<{ kinds: string[] }> {
+  return http.get<{ kinds: string[] }>('/segment-stock/stocktake-config')
+}
+
 export async function stocktakeSegment(input: {
   warehouseId: string
   segmentSpecId: string
