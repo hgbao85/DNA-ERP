@@ -13,9 +13,10 @@ import { History, Plus, Printer, Search, X } from 'lucide-react'
 import { format } from 'date-fns'
 import { useFetch } from '../../../hooks/useFetch'
 import { useConfirm } from '../../../hooks/useConfirm'
+import ReasonModal from '../../../components/ReasonModal'
 import { useRealtimeRefetch } from '../../../realtime/hooks'
 import {
-  createPallets, getPallet, getPalletLoadRows, loadPallet, setPieceCapacity, unloadPallet,
+  clearPaintedPallet, createPallets, getPallet, getPalletLoadRows, loadPallet, setPieceCapacity, unloadPallet,
   type Pallet, type PalletDetail, type PalletList, type PalletLoadOptionsList, type PalletPieceRow, type PalletStatus,
 } from '../../../services/pallets-api'
 import LoadingState from '../../../components/LoadingState'
@@ -62,6 +63,11 @@ export default function PalletSonPage({ list, refetchList, loadPis }: {
   const [detailId, setDetailId] = useState<string | null>(null)
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const { ask, confirmModal } = useConfirm()
+  // Câu 7a (chốt 25/11/2026): gỡ pallet đã sơn - lý do bắt buộc.
+  const [clearing, setClearing] = useState<Pallet | null>(null)
+  const [clearReason, setClearReason] = useState('')
+  const [clearBusy, setClearBusy] = useState(false)
+  const [clearErr, setClearErr] = useState<string | null>(null)
   useRealtimeRefetch(['issue-slips', 'production-batches', 'floor'], refetchList)
 
   const counts = countByStatus(list.pallets)
@@ -104,8 +110,37 @@ export default function PalletSonPage({ list, refetchList, loadPis }: {
     },
   )
 
+  const clearPainted = async () => {
+    if (!clearing) return
+    setClearBusy(true); setClearErr(null)
+    try {
+      await clearPaintedPallet(clearing.id, clearReason.trim())
+      setMsg({ ok: true, text: `Đã gỡ pallet đã sơn ${clearing.code} - pallet về Trống` })
+      setClearing(null); setClearReason('')
+      refetchList()
+    } catch (e) {
+      setClearErr(errMsg(e, 'Không gỡ được pallet'))
+    } finally {
+      setClearBusy(false)
+    }
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <ReasonModal
+        open={!!clearing}
+        title={clearing ? `Gỡ pallet đã sơn ${clearing.code}` : ''}
+        description={clearing ? `${clearing.load?.qty ?? 0} mảnh ${clearing.load?.pieceName ?? ''} - pallet về Trống để dùng lại, số đã báo Sơn không đổi, lịch sử vẫn giữ. Ghi lý do (vd SKU huỷ, KCS Sơn chấm lỗi, đi đan bằng phiếu nhập tay).` : undefined}
+        reason={clearReason}
+        onReasonChange={setClearReason}
+        placeholder="Lý do gỡ pallet"
+        onCancel={() => { if (!clearBusy) { setClearing(null); setClearReason(''); setClearErr(null) } }}
+        onConfirm={() => void clearPainted()}
+        confirmLabel="Gỡ pallet"
+        busy={clearBusy}
+        confirmDisabled={clearReason.trim().length < 3}
+        error={clearErr}
+      />
       <div style={{ color: 'var(--text3)', fontSize: 13 }}>
         Pallet cố định có tem QR dán sẵn. Xếp pallet theo lệnh + mảnh + số → công nhân Sơn quét tem, bấm “Sơn xong” → quét pallet ở tab
         “Xuất đan” để lập phiếu đan. Xác nhận phiếu đan thì pallet tự về Trống.
@@ -181,6 +216,7 @@ export default function PalletSonPage({ list, refetchList, loadPis }: {
                       <button type="button" onClick={() => setDetailId(p.id)} style={smallBtn()} aria-label={`Lịch sử ${p.code}`}><History size={13} /></button>
                       <button type="button" onClick={() => printList([p])} style={smallBtn()} aria-label={`In tem ${p.code}`}><Printer size={13} /></button>
                       {p.status === 'LOADED' && <button type="button" onClick={() => unload(p)} style={smallBtn()}>Gỡ</button>}
+                      {p.status === 'PAINTED' && <button type="button" onClick={() => { setClearErr(null); setClearing(p) }} style={smallBtn()}>Gỡ pallet đã sơn</button>}
                     </span>
                   </td>
                 </tr>
@@ -365,7 +401,7 @@ function PalletHistory({ id, onClose }: { id: string; onClose: () => void }) {
                   </td>
                   <td style={{ ...td, fontFamily: 'monospace' }}>{h.slip ? `${h.slip.code}${h.slip.status === 'DRAFT' ? ' (chờ ký)' : ''}` : '—'}</td>
                   <td style={{ ...td, whiteSpace: 'nowrap' }}>
-                    {h.clearedAt ? `${h.clearedReason === 'UNLOADED' ? 'Gỡ' : 'Xuất đan'} · ${fmtTime(h.clearedAt)}` : '—'}
+                    {h.clearedAt ? `${h.clearedReason === 'UNLOADED' ? 'Gỡ' : h.clearedReason === 'REMOVED_PAINTED' ? `Gỡ đã sơn${h.clearNote ? ` (${h.clearNote})` : ''}` : 'Xuất đan'} · ${fmtTime(h.clearedAt)}` : '—'}
                   </td>
                 </tr>
               ))}

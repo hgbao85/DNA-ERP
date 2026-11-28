@@ -23,7 +23,6 @@ export const PALLET_STATUS_TONE: Record<PalletStatus, { bg: string; fg: string }
 }
 
 /** Câu báo khi công nhân chưa quét điểm sơn (LAST_WS_KEY rỗng) mà quét pallet. */
-export const NO_WS_TEXT = 'Quét tem điểm sơn trước (tem dán ở chỗ sơn), rồi quét lại pallet.'
 
 /** Ô nhập số: chỉ giữ chữ số, tối đa 6 ký tự. */
 export const qtyDigits = (v: string) => v.replace(/\D/g, '').slice(0, 6)

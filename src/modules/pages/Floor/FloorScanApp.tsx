@@ -153,7 +153,7 @@ function FloorScanInner() {
   else if (urlPallet) {
     content = (
       <div style={{ ...column(12), marginTop: 12 }}>
-        <PalletPanel key={urlPallet} token={urlPallet} ws={ws} />
+        <PalletPanel key={urlPallet} token={urlPallet} />
       </div>
     )
   } else if (!ws) {

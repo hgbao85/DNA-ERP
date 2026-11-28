@@ -37,8 +37,10 @@ export interface PalletLoad {
   slip: PalletSlipRef | null
   clearedAt: string | null
   clearedByName: string | null
-  /** 'ISSUED' (xuất đan xong) | 'UNLOADED' (thủ kho gỡ). */
+  /** 'ISSUED' (xuất đan xong) | 'UNLOADED' (thủ kho gỡ) | 'REMOVED_PAINTED' (thủ kho Sơn gỡ pallet đã sơn, 28/11/2026). */
   clearedReason: string | null
+  /** Lý do gỡ pallet đã sơn (REMOVED_PAINTED). */
+  clearNote?: string | null
 }
 
 export interface Pallet {
@@ -141,6 +143,11 @@ export function unloadPallet(id: string): Promise<Pallet> {
   return http.post<Pallet>(`/pallets/${encodeURIComponent(id)}/unload`)
 }
 
+/** Câu 7a (chốt 25/11/2026): thủ kho Sơn gỡ pallet đã sơn (lý do bắt buộc) để dùng lại. */
+export function clearPaintedPallet(id: string, reason: string): Promise<Pallet> {
+  return http.post<Pallet>(`/pallets/${encodeURIComponent(id)}/clear-painted`, { reason })
+}
+
 export function setPieceCapacity(pieceId: string, capacity: number | null) {
   return http.patch<{ pieceId: string; capacity: number | null }>('/pallets/piece-capacity', { pieceId, capacity })
 }
@@ -158,15 +165,17 @@ export interface PaintPalletResult extends PalletWorkerView {
   short: boolean
 }
 
-/** `ws` = điểm sơn công nhân quét gần nhất (LAST_WS_KEY). Bỏ `qty` = đủ số trên pallet. */
+/**
+ * Câu 8 (chốt 25/11/2026): mảnh có đan chỉ quét tem pallet - không cần quét tem điểm sơn trước. Bỏ `qty` = đủ số trên pallet.
+ * (Route cũ /floor/scan/:ws/pallets/:token/paint vẫn còn ở BE cho bản FE cũ.)
+ */
 export function paintPallet(
-  ws: string,
   token: string,
   input: { qty?: number; shortReason?: string },
   idempotencyKey: string,
 ): Promise<PaintPalletResult> {
   return http.post<PaintPalletResult>(
-    `/floor/scan/${encodeURIComponent(ws)}/pallets/${encodeURIComponent(token)}/paint`,
+    `/floor/pallets/${encodeURIComponent(token)}/paint`,
     input,
     { headers: { 'Idempotency-Key': idempotencyKey } },
   )
