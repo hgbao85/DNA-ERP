@@ -82,6 +82,10 @@ export function hasMfgAttrs(v: Record<string, unknown>): boolean {
 const MFG_FLOOR_WAREHOUSE_SCOPE = 'phoi-son-han';
 const MFG_FLOOR_ROLES = new Set(['PHOI', 'HAN', 'SON', 'KCS']);
 
+/** Vai có "Xưởng phụ trách": QLSX + KCS (câu 10, 25/11/2026). */
+export const hasWorkshop = (mfgRole: string | null | undefined): boolean =>
+  mfgRole === 'PRODUCTION_MANAGER' || mfgRole === 'KCS';
+
 export function mfgAttrsPayload(v: Record<string, unknown>) {
   const mfgRole = (v.mfgRole as string) || null;
   const rawScope = (v.warehouseScope as string) || null;
@@ -94,9 +98,9 @@ export function mfgAttrsPayload(v: Record<string, unknown>) {
     isProductPlanner: !!v.isProductPlanner,
     isSale: !!v.isSale,
     isMaterialsManager: !!v.isMaterialsManager,
-    // QLSX theo xưởng: chỉ vai QLSX mới có xưởng phụ trách (BE trả 400 nếu vai khác); '' / null = tất cả xưởng.
-    // Vai khác chỉ gửi null khi form còn giữ xưởng cũ, để gỡ gắn sau khi đổi vai.
-    ...(mfgRole === 'PRODUCTION_MANAGER' || v.workshopId ? { workshopId: mfgRole === 'PRODUCTION_MANAGER' ? ((v.workshopId as string) || null) : null } : {}),
+    // Xưởng phụ trách: chỉ vai QLSX và KCS (câu 10, chốt 25/11/2026: KCS Hàn / Sơn mỗi xưởng 1 người) - BE trả 400 nếu vai khác;
+    // '' / null = tất cả xưởng. Vai khác chỉ gửi null khi form còn giữ xưởng cũ, để gỡ gắn sau khi đổi vai.
+    ...(hasWorkshop(mfgRole) || v.workshopId ? { workshopId: hasWorkshop(mfgRole) ? ((v.workshopId as string) || null) : null } : {}),
     // Đợt 7: danh sách kho đổi qua lại - chỉ gửi khi form có ô này (thủ kho); BE tự thêm kho đang làm vào danh sách.
     ...(Array.isArray(v.warehouseScopes) ? { warehouseScopes: v.warehouseScopes as string[] } : {}),
   };

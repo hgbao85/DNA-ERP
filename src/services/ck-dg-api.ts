@@ -155,6 +155,7 @@ export interface ReportCkInput {
 export interface GradeCkInput {
   passedQty: number
   reworkQty: number
+  /** Câu 9a (chốt 25/11/2026): KCS chuyền kiểm không còn chấm "bỏ" - luôn 0 (BE trả 400 nếu > 0). */
   scrapQty: number
   defectReasonId?: string
   photoUrl?: string
@@ -180,6 +181,11 @@ export function reportPacking(ws: string, data: { itemId: string; qty: number; n
 
 export function getKcsCkBatches(status: CkBatchStatus = 'AWAITING_KCS') {
   return http.get<{ enabled: boolean; batches: CkBatch[]; defectReasons: CkDefectReason[] }>(`/ck-dg/kcs/batches?status=${status}`)
+}
+
+/** Câu 10 (chốt 25/11/2026): KCS chuyền kiểm tự thêm nguyên nhân lỗi; trùng tên thì BE dùng lại dòng cũ. */
+export function addCkDefectReason(label: string) {
+  return http.post<{ reason: CkDefectReason; created: boolean; defectReasons: CkDefectReason[] }>('/ck-dg/kcs/defect-reasons', { label })
 }
 
 export function gradeCkBatch(id: string, data: GradeCkInput) {

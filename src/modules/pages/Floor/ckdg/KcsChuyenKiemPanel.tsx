@@ -3,13 +3,15 @@
 /**
  * Màn KCS CHUYỀN KIỂM (24/11/2026, docs THIET-KE-CHUYEN-KIEM-DONG-GOI-QR C2, C4) - tài khoản riêng vai "KCS chuyền kiểm" (mfgRole
  * KCS_CHUYEN_KIEM, đăng nhập PIN ở /floor). Cùng cách chấm của KCS Phôi / Hàn / Sơn (KcsStagePage): mỗi đợt công nhân chuyền kiểm báo
- * -> KCS chấm số đạt thật (không quá số báo đạt), phần lỗi chia làm lại / bỏ. Chỉ khi chấm, số đạt mới tính "đã qua chuyền kiểm".
+ * -> KCS chấm số đạt thật (không quá số báo đạt), phần lỗi là làm lại. Chỉ khi chấm, số đạt mới tính "đã qua chuyền kiểm".
+ * Đợt 2 lượt 3 (28/11/2026): câu 9a bỏ ô "Bỏ" (hỏng thì chấm làm lại, người phụ trách đan mang trả điểm đan sửa); câu 10 KCS tự
+ * thêm nguyên nhân lỗi ngay trên form chấm.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Camera } from 'lucide-react'
 import {
-  getKcsCkBatches, gradeCkBatch, type CkBatch, type CkBatchStatus, type CkDefectReason,
+  addCkDefectReason, getKcsCkBatches, gradeCkBatch, type CkBatch, type CkBatchStatus, type CkDefectReason,
 } from '../../../../services/ck-dg-api'
 import { uploadImage } from '../../../../services/uploads-api'
 import { describeError, hhmm } from '../floorUi'
@@ -19,7 +21,7 @@ import {
   btn, card, chip, chipRow, column, fieldInput, hint, label, loadingText, numInput, pickChip, tabColumn,
 } from '../scan/scanUi'
 import {
-  batchKcsText, batchReportText, kcsDefaults, kcsExtraDefect, kcsGradeCheck, kcsSetPassed, kcsSetScrap, toQty, type KcsGrade,
+  batchKcsText, batchReportText, kcsDefaults, kcsExtraDefect, kcsGradeCheck, kcsSetPassed, toQty, type KcsGrade,
 } from './ckDgModel'
 
 const dayTime = (iso: string) =>
@@ -62,9 +64,41 @@ function BatchCard({ b, onGrade }: { b: CkBatch; onGrade?: () => void }) {
   )
 }
 
-function GradeForm({ b, reasons, onDone, onCancel }: {
+/** Câu 10: KCS gõ nguyên nhân mới -> lưu vào danh mục chuyền kiểm, chọn luôn cho đợt đang chấm. */
+function AddReason({ onAdded }: { onAdded: (r: CkDefectReason, all: CkDefectReason[]) => void }) {
+  const [open, setOpen] = useState(false)
+  const [text, setText] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+  const okText = text.trim().length >= 2
+  const save = async () => {
+    setBusy(true); setErr(null)
+    try {
+      const r = await addCkDefectReason(text.trim())
+      onAdded(r.reason, r.defectReasons)
+      setText(''); setOpen(false)
+    } catch (e) { setErr(describeError(e).text) } finally { setBusy(false) }
+  }
+  if (!open) {
+    return <button type="button" style={pickChip(false)} onClick={() => setOpen(true)}>+ Thêm nguyên nhân mới</button>
+  }
+  return (
+    <div style={column(6)}>
+      <input aria-label="Nguyên nhân lỗi mới" value={text} maxLength={100} placeholder="Vd: Đan lỏng, khung cong…"
+        style={fieldInput} onChange={(e) => setText(e.target.value)} />
+      {err && <Banner tone="err">{err}</Banner>}
+      <div style={chipRow}>
+        <button type="button" disabled={!okText || busy} style={pickChip(true)} onClick={() => void save()}>{busy ? 'Đang lưu…' : 'Lưu nguyên nhân'}</button>
+        <button type="button" disabled={busy} style={pickChip(false)} onClick={() => { setOpen(false); setText(''); setErr(null) }}>Huỷ</button>
+      </div>
+    </div>
+  )
+}
+
+function GradeForm({ b, reasons, onReasons, onDone, onCancel }: {
   b: CkBatch
   reasons: CkDefectReason[]
+  onReasons: (all: CkDefectReason[]) => void
   onDone: (text: string) => void
   onCancel: () => void
 }) {
@@ -91,7 +125,7 @@ function GradeForm({ b, reasons, onDone, onCancel }: {
         passedQty: g.passed, reworkQty: g.rework, scrapQty: g.scrap,
         ...(reasonId ? { defectReasonId: reasonId } : {}), ...(photo ? { photoUrl: photo } : {}),
       })
-      onDone(`Đã chấm ${b.lenhCode} · ${b.pieceName}: đạt ${g.passed}${g.rework ? `, làm lại ${g.rework}` : ''}${g.scrap ? `, bỏ ${g.scrap}` : ''} · ${hhmm()}`)
+      onDone(`Đã chấm ${b.lenhCode} · ${b.pieceName}: đạt ${g.passed}${g.rework ? `, làm lại ${g.rework}` : ''} · ${hhmm()}`)
     } catch (e) {
       setErr(describeError(e).text); setBusy(false); setConfirming(false)
     }
@@ -101,17 +135,14 @@ function GradeForm({ b, reasons, onDone, onCancel }: {
     <div style={tabColumn}>
       <BatchCard b={b} />
       <div style={{ ...card, ...column(14) }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
           <label style={column(6)}><span style={label}>Đạt</span>
             <input aria-label="Số đạt KCS" inputMode="numeric" value={String(g.passed)} style={{ ...numInput, width: '100%' }}
               onChange={(e) => setG(kcsSetPassed(b, g, toQty(e.target.value)))} /></label>
           <div style={column(6)}><span style={label}>Làm lại</span>
             <div aria-label="Số làm lại" style={{ ...numInput, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--surface2)' }}>{fmtQty(g.rework)}</div></div>
-          <label style={column(6)}><span style={label}>Bỏ</span>
-            <input aria-label="Số bỏ" inputMode="numeric" value={String(g.scrap)} style={{ ...numInput, width: '100%' }}
-              onChange={(e) => setG(kcsSetScrap(b, g, toQty(e.target.value)))} /></label>
         </div>
-        <div style={hint}>Tổng phải bằng số công nhân báo ({fmtQty(total)}). Đạt không quá số báo đạt ({fmtQty(b.passedQty)}). Làm lại = về lại hàng chờ kiểm, công nhân báo lại sau khi sửa.</div>
+        <div style={hint}>Tổng phải bằng số công nhân báo ({fmtQty(total)}). Đạt không quá số báo đạt ({fmtQty(b.passedQty)}). Làm lại = về lại hàng chờ kiểm; hàng hỏng thì người phụ trách đan mang trả điểm đan / tổ sửa, sửa xong công nhân báo lại.</div>
         {extra > 0 && (
           <>
             <label style={column(6)}><span style={label}>Nguyên nhân {fmtQty(extra)} lỗi KCS phát hiện thêm</span>
@@ -119,6 +150,7 @@ function GradeForm({ b, reasons, onDone, onCancel }: {
                 <option value="">- Chọn nguyên nhân -</option>
                 {reasons.map((r) => <option key={r.id} value={r.id}>{r.label}</option>)}
               </select></label>
+            <AddReason onAdded={(r, all) => { onReasons(all); setReasonId(r.id) }} />
             <div style={{ ...chipRow, alignItems: 'center' }}>
               {/* eslint-disable-next-line @next/next/no-img-element -- ảnh KCS vừa chụp */}
               {photo && <img src={photo} alt="Ảnh lỗi KCS" width={64} height={64} style={{ objectFit: 'cover', borderRadius: 8 }} />}
@@ -140,7 +172,6 @@ function GradeForm({ b, reasons, onDone, onCancel }: {
           rows={[
             { label: 'Đạt (tính đã qua chuyền kiểm)', value: fmtQty(g.passed) },
             { label: 'Làm lại', value: fmtQty(g.rework) },
-            { label: 'Bỏ', value: fmtQty(g.scrap), ...(g.scrap ? { warn: 'Hàng bỏ không kiểm lại được' } : {}) },
           ]}
           confirmLabel="Đúng, lưu" busy={busy} onConfirm={() => void save()} onCancel={() => setConfirming(false)} />
       )}
@@ -173,6 +204,7 @@ export default function KcsChuyenKiemPanel() {
   if (grading) {
     return (
       <GradeForm b={grading} reasons={data.defectReasons} onCancel={() => setGrading(null)}
+        onReasons={(all) => setData((d) => (d ? { ...d, defectReasons: all } : d))}
         onDone={(text) => { setGrading(null); setFlash(text); void load(status) }} />
     )
   }

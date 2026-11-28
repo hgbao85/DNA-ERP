@@ -66,7 +66,7 @@ function chucNangOf(u: SystemUser): string {
   if (u.isProductPlanner) tags.push('KH Sản xuất')
   if (u.isSale) tags.push('Sales')
   if (u.isMaterialsManager) tags.push('Quản lý vật tư')
-  if (u.mfgRole === 'PRODUCTION_MANAGER') tags.push(u.workshopName ?? 'Tất cả xưởng') // tên xưởng đã có chữ "Xưởng"
+  if (u.mfgRole === 'PRODUCTION_MANAGER' || u.mfgRole === 'KCS') tags.push(u.workshopName ?? 'Tất cả xưởng') // tên xưởng đã có chữ "Xưởng"
   if (!u.mfgRole && u.warehouseScope) tags.push(fixedWarehouseName(u.warehouseScope) ?? `Kho ${WAREHOUSE_SCOPE_LABEL[u.warehouseScope] ?? u.warehouseScope}`)
   return tags.length > 0 ? tags.join(', ') : '—'
 }
@@ -133,7 +133,7 @@ function EmployeeTypeField({ values, setField }: { value: unknown; values: Parti
   const { data: warehouses } = useFetch<{ code: string; name: string; isVirtual: boolean; isActive: boolean }[]>(getWarehouses)
   const realWarehouses = (warehouses ?? []).filter(w => !w.isVirtual && w.isActive)
   const phoiSonHanWarehouses = realWarehouses.filter(w => isFamilyScope(w.code, 'phoi-son-han'))
-  // Xưởng cơ khí cho ô "Xưởng phụ trách" của QLSX - lỗi tải thì chỉ còn lựa chọn "Tất cả xưởng".
+  // Xưởng cơ khí cho ô "Xưởng phụ trách" của QLSX / KCS - lỗi tải thì chỉ còn lựa chọn "Tất cả xưởng".
   const { data: workshops } = useFetch<Workshop[]>(() => getWorkshops().catch(() => [] as Workshop[]))
 
   const selectCategory = (next: StaffCategory) => {
@@ -263,11 +263,24 @@ function EmployeeTypeField({ values, setField }: { value: unknown; values: Parti
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <div>
             <label style={fieldLabel}>Công đoạn sản xuất</label>
-            <select value={String(values.mfgRole ?? '')} onChange={e => setField('mfgRole', e.target.value || undefined)} style={fieldSelect}>
+            <select value={String(values.mfgRole ?? '')} onChange={e => { setField('mfgRole', e.target.value || undefined); if (e.target.value !== 'KCS') setField('workshopId', undefined) }} style={fieldSelect}>
               <option value="">— Chọn công đoạn —</option>
               {MFG_FLOOR_VALUES.map(v => <option key={v} value={v}>{MFG_ROLE_LABEL[v]}</option>)}
             </select>
           </div>
+          {/* Câu 10 (chốt 25/11/2026): KCS Hàn / Sơn mỗi xưởng 1 người, chỉ thấy đợt xưởng mình. */}
+          {values.mfgRole === 'KCS' && (
+            <div>
+              <label style={fieldLabel}>Xưởng phụ trách</label>
+              <select value={String(values.workshopId ?? '')} onChange={e => setField('workshopId', e.target.value || null)} style={fieldSelect}>
+                <option value="">Tất cả xưởng (không giới hạn)</option>
+                {(workshops ?? []).map(w => <option key={w.id} value={String(w.id)}>{w.name}</option>)}
+              </select>
+              <span style={{ display: 'block', fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>
+                Gắn xưởng thì KCS này chỉ thấy và chấm đợt của xưởng đó (Sơn: cả lệnh xưởng khác nhờ sơn ở đây).
+              </span>
+            </div>
+          )}
           {/* 2026-09-03: trước đây BE luôn ép cứng kho của công đoạn chuyền về đúng kho gốc
               'phoi-son-han', ô này không tồn tại (field ẩn, không ai chọn được gì). Nay kho gốc
               có thể có thêm kho phụ (phoi-son-han-2...) - để trống vẫn về đúng kho gốc như cũ. */}

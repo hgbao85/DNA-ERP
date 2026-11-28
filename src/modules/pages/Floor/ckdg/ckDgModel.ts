@@ -61,7 +61,7 @@ export function packingCheck(o: { itemChosen: boolean; qty: number; available: n
   return ok
 }
 
-/** Số KCS chấm cho 1 đợt. */
+/** Số KCS chấm cho 1 đợt. Câu 9a (chốt 25/11/2026): không còn chấm "bỏ" - scrap luôn 0, giữ trường để gửi BE / đọc đợt cũ. */
 export interface KcsGrade { passed: number; rework: number; scrap: number }
 
 /** Mặc định khi KCS mở 1 đợt: tin số công nhân báo (đạt = báo đạt, lỗi báo = làm lại). */
@@ -71,19 +71,10 @@ export const kcsDefaults = (b: Pick<CkBatch, 'passedQty' | 'defectQty'>): KcsGra
 /** Số báo đạt mà KCS chấm lỗi thêm (cần nguyên nhân). */
 export const kcsExtraDefect = (b: Pick<CkBatch, 'passedQty'>, passed: number): number => Math.max(0, b.passedQty - passed)
 
-/** Đổi số đạt: phần lỗi còn lại dồn vào "làm lại", giữ "bỏ" nếu còn vừa. */
-export function kcsSetPassed(b: Pick<CkBatch, 'passedQty' | 'defectQty'>, g: KcsGrade, passed: number): KcsGrade {
+/** Đổi số đạt: toàn bộ phần lỗi còn lại là "làm lại" (hỏng thì trả điểm đan / tổ sửa rồi báo lại). */
+export function kcsSetPassed(b: Pick<CkBatch, 'passedQty' | 'defectQty'>, _g: KcsGrade, passed: number): KcsGrade {
   const p = Math.min(Math.max(0, passed), b.passedQty)
-  const defects = b.passedQty + b.defectQty - p
-  const scrap = Math.min(g.scrap, defects)
-  return { passed: p, rework: defects - scrap, scrap }
-}
-
-/** Đổi số bỏ: phần còn lại của lỗi là làm lại. */
-export function kcsSetScrap(b: Pick<CkBatch, 'passedQty' | 'defectQty'>, g: KcsGrade, scrap: number): KcsGrade {
-  const defects = b.passedQty + b.defectQty - g.passed
-  const s = Math.min(Math.max(0, scrap), defects)
-  return { ...g, scrap: s, rework: defects - s }
+  return { passed: p, rework: b.passedQty + b.defectQty - p, scrap: 0 }
 }
 
 /** C2: cùng quy tắc BE validateKcsGrade + nguyên nhân khi chấm lỗi thêm. */
@@ -95,9 +86,10 @@ export function kcsGradeCheck(
 ): FormCheck {
   if (busy) return no('Đang lưu…')
   if ([g.passed, g.rework, g.scrap].some((n) => !Number.isInteger(n) || n < 0)) return no('Số không hợp lệ')
+  if (g.scrap > 0) return no('Không còn chấm "bỏ" - hàng hỏng chấm làm lại')
   if (g.passed > b.passedQty) return no(`Đạt không quá số báo đạt (${b.passedQty})`)
-  if (g.passed + g.rework + g.scrap !== b.passedQty + b.defectQty) {
-    return no(`Đạt + làm lại + bỏ phải bằng ${b.passedQty + b.defectQty}`)
+  if (g.passed + g.rework !== b.passedQty + b.defectQty) {
+    return no(`Đạt + làm lại phải bằng ${b.passedQty + b.defectQty}`)
   }
   if (kcsExtraDefect(b, g.passed) > 0 && !reasonId) return no('Chấm lỗi thêm thì chọn nguyên nhân')
   return ok

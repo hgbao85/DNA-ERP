@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { CkBatch, DgReport } from '../../../../services/ck-dg-api'
 import {
   batchKcsText, batchReportText, cancelReasonOk, ckReportCheck, isCkBatch, isCkDgRole, kcsDefaults, kcsExtraDefect,
-  kcsGradeCheck, kcsSetPassed, kcsSetScrap, matchesQuery, monitorTotals, packingCheck, reconcileTotals, toQty,
+  kcsGradeCheck, kcsSetPassed, matchesQuery, monitorTotals, packingCheck, reconcileTotals, toQty,
 } from './ckDgModel'
 
 const batch = (over: Partial<CkBatch> = {}): CkBatch => ({
@@ -75,13 +75,11 @@ describe('ckDgModel', () => {
       expect(kcsSetPassed(b, kcsDefaults(b), 99).passed).toBe(8)
       expect(kcsGradeCheck(b, { passed: 9, rework: 1, scrap: 0 }, '3').reason).toMatch(/không quá/)
     })
-    it('bỏ: phần còn lại là làm lại; tổng phải khớp', () => {
-      const g = kcsSetScrap(b, kcsDefaults(b), 1)
-      expect(g).toEqual({ passed: 8, rework: 1, scrap: 1 })
-      expect(kcsSetScrap(b, g, 50)).toEqual({ passed: 8, rework: 0, scrap: 2 })
+    it('câu 9a (25/11): không còn chấm bỏ - lỗi đều là làm lại; tổng phải khớp', () => {
+      expect(kcsGradeCheck(b, { passed: 8, rework: 1, scrap: 1 }, null).reason).toMatch(/Không còn chấm/)
       expect(kcsGradeCheck(b, { passed: 8, rework: 0, scrap: 0 }, null).reason).toMatch(/phải bằng 10/)
-      // Hạ đạt khi đã có bỏ: bỏ giữ nguyên.
-      expect(kcsSetPassed(b, { passed: 8, rework: 1, scrap: 1 }, 5)).toEqual({ passed: 5, rework: 4, scrap: 1 })
+      // Đợt mở từ dữ liệu cũ có bỏ: đổi đạt thì bỏ về 0, dồn hết sang làm lại.
+      expect(kcsSetPassed(b, { passed: 8, rework: 1, scrap: 1 }, 5)).toEqual({ passed: 5, rework: 5, scrap: 0 })
     })
   })
 

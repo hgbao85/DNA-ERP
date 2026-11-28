@@ -1,28 +1,13 @@
-import { useEffect, useState } from 'react'
 import { getCkDgConfig } from '../services/ck-dg-api'
+import { createFeatureSwitch } from './featureSwitch'
 
 /**
- * Công tắc Chuyền kiểm / Đóng gói bằng quét QR (CK_DG_QR_ENABLED của BE, 24/11/2026). `null` = đang hỏi BE; lỗi (BE cũ chưa có
- * route) coi như TẮT - màn giữ nguyên như cũ. Nhớ trong phiên (công tắc đổi thì BE khởi động lại, tải lại trang là đúng).
+ * Công tắc Chuyền kiểm / Đóng gói bằng quét QR (CK_DG_QR_ENABLED của BE, 24/11/2026). `null` = đang hỏi BE.
+ * Lỗi mạng tạm thời không còn bị nhớ là TẮT - hook tự hỏi lại (featureSwitch.ts, 28/11/2026); BE cũ chưa có route (404) thì tắt.
  */
-let cached: boolean | null = null
-let inflight: Promise<boolean> | null = null
+const sw = createFeatureSwitch(getCkDgConfig)
 
-export function loadCkDgEnabled(): Promise<boolean> {
-  if (cached !== null) return Promise.resolve(cached)
-  inflight ??= getCkDgConfig()
-    .then((c) => (cached = !!c?.enabled))
-    .catch(() => (cached = false))
-    .finally(() => { inflight = null })
-  return inflight
-}
-
-export function useCkDgEnabled(): boolean | null {
-  const [enabled, setEnabled] = useState<boolean | null>(cached)
-  useEffect(() => {
-    let live = true
-    void loadCkDgEnabled().then((v) => { if (live) setEnabled(v) })
-    return () => { live = false }
-  }, [])
-  return enabled
-}
+export const loadCkDgEnabled = sw.load
+export const useCkDgEnabled = sw.useSwitch
+/** Chỉ cho test. */
+export const resetCkDgEnabledForTest = sw.reset
