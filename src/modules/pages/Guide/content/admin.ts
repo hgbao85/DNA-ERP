@@ -63,7 +63,7 @@ export const adminGroup: GuideGroup = {
             ['Văn phòng', 'Chức năng', 'Sales / KH Sản xuất (KHSX) / Quản lý sản xuất (QLSX) / Mua hàng / Quản lý vật tư.'],
             ['Kho', 'Kho phụ trách + Giữ thêm kho', 'Kho phụ trách = kho chính, không bắt buộc chọn ngay. Người giữ 2 kho (ví dụ chị giữ cả kho Phôi và kho Hàn Phú An) tick thêm kho ở "Giữ thêm kho" — người đó tự đổi ở ô "Kho đang làm" trên màn kho, không phải đăng xuất.'],
             ['Định mức', 'Vị trí', 'NV Định mức mảnh / NV Định mức chi tiết.'],
-            ['Sản xuất', 'Công đoạn và Kho phụ trách', 'Công đoạn: Phôi/Hàn/Sơn hoặc KCS. Kho phụ trách mặc định là Kho Phôi Phú An.'],
+            ['Sản xuất', 'Công đoạn và Kho phụ trách (KCS: thêm Xưởng phụ trách)', 'Công đoạn: Phôi/Hàn/Sơn hoặc KCS. Kho phụ trách mặc định là Kho Phôi Phú An. KCS gắn xưởng thì chỉ thấy và chấm đợt của xưởng đó (KCS Sơn thấy cả lệnh xưởng khác nhờ sơn ở xưởng mình); để "Tất cả xưởng" thì thấy mọi xưởng như trước.'],
           ],
         },
         {
