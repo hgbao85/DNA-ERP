@@ -10,7 +10,7 @@ import { PiPicker, SkuPicker } from './Pickers'
 import PieceForm from './PieceForm'
 import SegmentForm from './SegmentForm'
 import {
-  hasPickablePi, needPiAction, noPiText, reportTitle, STAGE_LABEL, STEP_LABEL, workstationSubtitle,
+  defaultScanOrder, hasPickablePi, needPiAction, noPiText, orderReportable, reportTitle, STAGE_LABEL, STEP_LABEL, workstationSubtitle,
 } from './scanModel'
 import { ActionBar, Banner } from './ScanParts'
 import { column, hintFaint, loadingText, tabColumn } from './scanUi'
@@ -26,15 +26,17 @@ function ReportForms({ ctx, pi, orderId, r, reportRef }: {
 } & RefProp) {
   const w = ctx.workstation
   const lenhOf = useLenhCodeLookup([pi.code])
-  const order = pi.orders.find((o) => o.productionOrderId === orderId)
-    ?? pi.orders.find((o) => o.floorStage === 'ACTIVE') ?? pi.orders[0] ?? null
+  const order = defaultScanOrder(pi.orders, orderId)
   const base = (o: NonNullable<typeof order>) => ({ productionInvoiceId: pi.productionInvoiceId, productionOrderId: o.productionOrderId })
   return (
     <div ref={reportRef} style={{ ...column(16), scrollMarginTop: 12 }}>
       <PiPicker ctx={ctx} selectedPi={r.selectedPi} onSelect={r.selectPi} />
       <SkuPicker orders={pi.orders} value={order?.productionOrderId ?? null} onChange={r.setOrderId} />
-      {order && order.floorStage !== 'ACTIVE' && (
+      {order && !orderReportable(order) && (
         <Banner tone="warn">Sản phẩm này quản lý chưa cho làm (hoặc đang tạm dừng). Chưa báo được.</Banner>
+      )}
+      {order?.cutContinued && (
+        <Banner tone="info">Sản phẩm này đã huỷ - quản lý cho cắt tiếp phần sắt đã nhận. Chỉ báo trong số &quot;còn báo được&quot; bên dưới.</Banner>
       )}
       {order && (w.kind === 'PIECE' ? (
         <PieceForm key={order.productionOrderId} items={pi.piecePlans?.[order.productionOrderId]?.items ?? []}

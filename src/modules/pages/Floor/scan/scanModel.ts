@@ -1,6 +1,6 @@
 /** Logic thuần của màn quét QR (chuỗi, trạng thái nút, sắp xếp, gom nhóm). Không đụng React. */
 import type {
-  BeMyOutputRow, BeScanContext, BeScanMaterial, BeScanPieceItem, BeScanSegment, BeStagePi, BeWorkstationBrief, MyOutputState,
+  BeMyOutputRow, BeScanContext, BeScanMaterial, BeScanOrder, BeScanPieceItem, BeScanSegment, BeStagePi, BeWorkstationBrief, MyOutputState,
 } from '../../../../services/floor-api'
 import { MACHINE_LABEL } from '../../../../utils/cutMachine'
 import { dayKey, describeError, STAGE_LABEL, STEP_LABEL, type OutputTotal } from '../floorUi'
@@ -43,6 +43,24 @@ export function pickablePis(ctx: BeScanContext): PickablePi[] {
   if ((ctx.stagePis ?? []).length > 0) return ctx.stagePis ?? []
   const seen = new Set<string>()
   return (ctx.allocationPis ?? []).filter((a) => !seen.has(a.productionInvoiceId) && seen.add(a.productionInvoiceId))
+}
+
+/**
+ * SKU báo được ở màn quét: đang chạy (ACTIVE), hoặc SKU đã huỷ mà QLSX cho cắt tiếp (cutContinued - floorStage FINISHED nhưng
+ * vẫn báo được trong phần sắt đã xuất; nghiệp vụ báo 28/11: trước đây màn hiện nhầm "quản lý chưa cho làm").
+ */
+export function orderReportable(o: Pick<BeScanOrder, 'floorStage' | 'cutContinued'>): boolean {
+  return o.floorStage === 'ACTIVE' || !!o.cutContinued
+}
+
+/** SKU chọn sẵn: SKU đang chọn nếu còn trong lệnh; không thì SKU đang chạy đầu tiên, rồi SKU cắt tiếp, rồi SKU đầu. */
+export function defaultScanOrder<T extends Pick<BeScanOrder, 'productionOrderId' | 'floorStage' | 'cutContinued'>>(
+  orders: T[], selectedId: string | null,
+): T | null {
+  return orders.find((o) => o.productionOrderId === selectedId)
+    ?? orders.find((o) => o.floorStage === 'ACTIVE')
+    ?? orders.find((o) => o.cutContinued)
+    ?? orders[0] ?? null
 }
 
 /** Có lệnh nào để chọn báo không. */

@@ -55,7 +55,39 @@ export interface CutSteelRow {
     leftoverMm: number;
     returnedMm: number;
   }[];
-  returns: { materialCode: string; lengthMm: number; bars: number; createdAt: string }[];
+  /** bars = số QLSX ghi; confirmedBars = số thủ kho đếm (null = chờ xác nhận); lostBars = phần thiếu đã xác nhận mất. */
+  returns: {
+    id?: string
+    materialCode: string
+    lengthMm: number
+    bars: number
+    confirmedBars?: number | null
+    lostBars?: number
+    makeupForId?: string | null
+    createdAt: string
+  }[];
+  /** Nghiệp vụ 28/11 (phương án a): thủ kho đếm thiếu cây trả về, phần thiếu còn treo - QLSX ghi trả thêm hoặc xác nhận mất. */
+  shortReturns?: ShortSteelReturn[];
+}
+
+export interface ShortSteelReturn {
+  id: string;
+  materialCode: string;
+  lengthMm: number;
+  bars: number;
+  confirmedBars: number;
+  outstandingBars: number;
+  confirmedAt: string | null;
+}
+
+/** QLSX tìm thấy cây thủ kho đếm thiếu: ghi trả thêm `bars` cây (chờ thủ kho Phôi xác nhận). */
+export function makeupSteelReturn(id: string, bars: number): Promise<CutSteelRow[]> {
+  return http.post<CutSteelRow[]>(`/production-order-cancellations/steel-returns/${id}/makeup`, { bars });
+}
+
+/** QLSX không tìm thấy: xác nhận mất phần cây thiếu (bắt buộc lý do). */
+export function markSteelReturnLost(id: string, note: string): Promise<CutSteelRow[]> {
+  return http.post<CutSteelRow[]>(`/production-order-cancellations/steel-returns/${id}/lost`, { note });
 }
 
 /** Nghiệp vụ 26/11 câu 2: 1 dòng sắt tổ cắt trả về chờ thủ kho Phôi xác nhận (chép PendingSteelReturnDto bên BE). */

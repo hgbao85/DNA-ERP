@@ -4,7 +4,8 @@
 //    KCS rồi vào dư kho Phôi.
 //  - "Ngưng": cây còn nguyên / cây lẻ trả về kho Phôi của xưởng làm lệnh; thủ kho Phôi đếm + xác nhận rồi mới vào tồn đúng chiều
 //    dài (nghiệp vụ 26/11 câu 2; lệnh sau dùng cây lẻ trước).
-// "Ngưng" là quyết định cuối; đang cho cắt tiếp vẫn đổi sang ngưng được.
+// "Ngưng" là quyết định cuối; đang cho cắt tiếp vẫn đổi sang ngưng được. Đã ngưng mà thủ kho đếm thiếu cây trả về (nghiệp vụ 28/11,
+// phương án a) thì lệnh vẫn hiện để QLSX ghi trả thêm hoặc xác nhận mất.
 import { useState } from 'react'
 import { Scissors } from 'lucide-react'
 import { useFetch } from '../../../hooks/useFetch'
@@ -12,7 +13,10 @@ import { useRealtimeRefetch } from '../../../realtime/hooks'
 import {
   decideCutSteel,
   getCutSteel,
+  makeupSteelReturn,
+  markSteelReturnLost,
   type CutSteelRow,
+  type ShortSteelReturn,
   type SteelReturnLine,
 } from '../../../services/order-cancellations-api'
 import EmptyState from '../../../components/EmptyState'
@@ -80,6 +84,9 @@ export default function SatSkuHuyPage() {
                 {r.request.cutDecision === 'CONTINUE' && (
                   <span style={{ padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 600, background: 'var(--bg-fef3c7)', color: 'var(--fg-a32d2d)' }}>Đang cho cắt tiếp</span>
                 )}
+                {r.request.cutDecision === 'STOP' && (
+                  <span style={{ padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 600, background: 'var(--bg-fef3c7)', color: 'var(--fg-a32d2d)' }}>Đã ngưng - còn thiếu cây trả về</span>
+                )}
                 {r.otherSkuActive && (
                   <span style={{ fontSize: 12, color: 'var(--text3)' }}>Lệnh còn SKU khác đang chạy - sắt còn lại có thể vẫn cần cho SKU đó.</span>
                 )}
@@ -108,15 +115,20 @@ export default function SatSkuHuyPage() {
                   </tbody>
                 </table>
               </div>
+              {(r.shortReturns ?? []).length > 0 && (
+                <ShortReturns items={r.shortReturns ?? []} onDone={(msg) => { setNotice(msg); refetch() }} />
+              )}
               {rowError?.id === r.request.id && <div style={{ color: 'var(--fg-c62828)', fontSize: 12.5, marginTop: 8 }}>{rowError.msg}</div>}
-              <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-                {r.request.cutDecision !== 'CONTINUE' && (
-                  <button disabled={busyId === r.request.id} onClick={() => void cont(r)}
-                    style={{ ...btn, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)' }}>Cho cắt tiếp</button>
-                )}
-                <button disabled={busyId === r.request.id} onClick={() => { setRowError(null); setStopTarget(r) }}
-                  style={{ ...btn, border: 'none', background: 'var(--bg-c62828)', color: '#fff', fontWeight: 600 }}>Ngưng - nhập trả cây</button>
-              </div>
+              {r.request.cutDecision !== 'STOP' && (
+                <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+                  {r.request.cutDecision !== 'CONTINUE' && (
+                    <button disabled={busyId === r.request.id} onClick={() => void cont(r)}
+                      style={{ ...btn, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)' }}>Cho cắt tiếp</button>
+                  )}
+                  <button disabled={busyId === r.request.id} onClick={() => { setRowError(null); setStopTarget(r) }}
+                    style={{ ...btn, border: 'none', background: 'var(--bg-c62828)', color: '#fff', fontWeight: 600 }}>Ngưng - nhập trả cây</button>
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -128,6 +140,81 @@ export default function SatSkuHuyPage() {
           onDone={(msg) => { setStopTarget(null); setNotice(msg); refetch() }}
         />
       )}
+    </div>
+  )
+}
+
+/**
+ * Nghiệp vụ 28/11 (phương án a): thủ kho Phôi đếm thiếu cây trả về - phần chênh vẫn tính còn ở tổ cắt. QLSX tìm thấy thì "Ghi trả
+ * thêm" (dòng mới chờ thủ kho xác nhận), không thấy thì "Xác nhận mất" kèm lý do (phần thiếu thành hao hụt, không vào kho).
+ */
+function ShortReturns({ items, onDone }: { items: ShortSteelReturn[]; onDone: (msg: string) => void }) {
+  return (
+    <div style={{ marginTop: 10, padding: 12, borderRadius: 8, border: '1px solid var(--fg-e65100, #e65100)', background: 'var(--surface)' }}>
+      <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 6 }}>Thủ kho Phôi đếm thiếu cây trả về</div>
+      <div style={{ fontSize: 12.5, color: 'var(--text2)', marginBottom: 8 }}>
+        Cây thiếu vẫn tính còn ở tổ cắt. Tìm thấy thì ghi trả thêm (thủ kho Phôi đếm và xác nhận lại); không tìm thấy thì xác nhận mất.
+      </div>
+      <div style={{ display: 'grid', gap: 8 }}>
+        {items.map(s => <ShortReturnLine key={s.id} s={s} onDone={onDone} />)}
+      </div>
+    </div>
+  )
+}
+
+function ShortReturnLine({ s, onDone }: { s: ShortSteelReturn; onDone: (msg: string) => void }) {
+  const [bars, setBars] = useState(String(s.outstandingBars))
+  const [losing, setLosing] = useState(false)
+  const [note, setNote] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+  const label = `${s.materialCode} ${s.lengthMm.toLocaleString('vi-VN')} mm`
+
+  const run = async (fn: () => Promise<unknown>, msg: string) => {
+    setBusy(true)
+    setErr(null)
+    try {
+      await fn()
+      onDone(msg)
+    } catch (e) {
+      setErr(errMsg(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+  const n = Number(bars)
+  const barsOk = Number.isInteger(n) && n >= 1 && n <= s.outstandingBars
+  const input: React.CSSProperties = { padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)', fontSize: 13, fontFamily: 'inherit' }
+
+  return (
+    <div style={{ fontSize: 13 }}>
+      <div>
+        <b>{label}</b>: QLSX ghi trả {s.bars} cây, thủ kho đếm {s.confirmedBars} cây - <b style={{ color: 'var(--fg-c62828)' }}>còn thiếu {s.outstandingBars} cây</b>
+      </div>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginTop: 6 }}>
+        <input value={bars} onChange={e => setBars(e.target.value)} inputMode="numeric" aria-label={`Số cây ghi trả thêm ${label}`} style={{ ...input, width: 64, textAlign: 'right' }} />
+        <button disabled={busy || !barsOk}
+          onClick={() => void run(() => makeupSteelReturn(s.id, n), `Đã ghi trả thêm ${n} cây ${label} - chờ thủ kho Phôi đếm và xác nhận.`)}
+          style={{ ...btn, border: 'none', background: 'var(--accent, #1565c0)', color: '#fff', fontWeight: 600, opacity: busy || !barsOk ? 0.6 : 1 }}>
+          Ghi trả thêm
+        </button>
+        {!losing ? (
+          <button disabled={busy} onClick={() => setLosing(true)}
+            style={{ ...btn, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--fg-c62828)' }}>Xác nhận mất</button>
+        ) : (
+          <>
+            <input value={note} onChange={e => setNote(e.target.value)} placeholder="Lý do (bắt buộc)" aria-label={`Lý do xác nhận mất ${label}`} style={{ ...input, flex: '1 1 180px' }} />
+            <button disabled={busy || note.trim().length < 3}
+              onClick={() => void run(() => markSteelReturnLost(s.id, note.trim()), `Đã xác nhận mất ${s.outstandingBars} cây ${label}.`)}
+              style={{ ...btn, border: 'none', background: 'var(--bg-c62828)', color: '#fff', fontWeight: 600, opacity: busy || note.trim().length < 3 ? 0.6 : 1 }}>
+              Xác nhận mất {s.outstandingBars} cây
+            </button>
+            <button disabled={busy} onClick={() => { setLosing(false); setNote('') }} style={{ ...btn, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)' }}>Huỷ</button>
+          </>
+        )}
+      </div>
+      {!barsOk && bars.trim() !== '' && <div style={{ color: 'var(--fg-c62828)', fontSize: 12, marginTop: 4 }}>Số cây ghi trả thêm từ 1 đến {s.outstandingBars}</div>}
+      {err && <div style={{ color: 'var(--fg-c62828)', fontSize: 12, marginTop: 4 }}>{err}</div>}
     </div>
   )
 }
